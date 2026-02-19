@@ -1,7 +1,8 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { SignOutButton } from './sign-out-button';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
+import { SuperadminSidebar } from '@/components/superadmin-sidebar';
 
 export default async function SuperadminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -10,25 +11,21 @@ export default async function SuperadminLayout({ children }: { children: React.R
   if (!session.user.isSuperAdmin) redirect('/login');
 
   return (
-    <div className="dark min-h-screen bg-background text-foreground">
-      <header className="border-b">
-        <div className="flex h-14 items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-            <Link href="/superadmin" className="text-lg font-bold text-red-400">
-              ⚙ Super Admin
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              {session.user.name ?? session.user.email}
-            </span>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-6 py-6">{children}</main>
+    <div className="dark">
+      <SidebarProvider>
+        <SuperadminSidebar
+          userName={session.user.name ?? null}
+          userEmail={session.user.email ?? ''}
+        />
+        <SidebarInset>
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <span className="text-sm font-medium text-muted-foreground">Super Admin</span>
+          </header>
+          <main className="flex flex-1 flex-col gap-4 p-6">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   );
 }

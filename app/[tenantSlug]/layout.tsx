@@ -1,10 +1,9 @@
 import { requireTenantAccess } from '@/lib/auth-guard';
 import { TenantProvider } from '@/lib/tenant-context';
-import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { SignOutButton } from './sign-out-button';
 import { hasRole } from '@/lib/rbac';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
+import { TenantSidebar } from '@/components/tenant-sidebar';
 
 export default async function TenantLayout({
   children,
@@ -25,62 +24,24 @@ export default async function TenantLayout({
       role={membership?.role ?? null}
       isSuperAdmin={session.user.isSuperAdmin}
     >
-      <div className="min-h-screen bg-background">
-        {/* ── Header ─────────────────────────────────── */}
-        <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-          <div className="flex h-14 items-center justify-between px-6">
-            <div className="flex items-center gap-4">
-              <Link href={`/${tenantSlug}/dashboard`} className="text-lg font-bold">
-                Mini CRM
-              </Link>
-
-              <nav className="hidden items-center gap-1 md:flex">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/${tenantSlug}/dashboard`}>Dashboard</Link>
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/${tenantSlug}/leads`}>Leads</Link>
-                </Button>
-                {showTeam && (
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/${tenantSlug}/team`}>Equipo</Link>
-                  </Button>
-                )}
-              </nav>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="hidden sm:inline-flex">
-                {tenant.name}
-              </Badge>
-              {role && (
-                <Badge variant="outline" className="hidden sm:inline-flex">
-                  {role}
-                </Badge>
-              )}
-
-              {session.user.isSuperAdmin && (
-                <Button variant="ghost" size="sm" className="text-red-500" asChild>
-                  <a href="/superadmin" target="_blank" rel="noopener noreferrer">
-                    ⚙ Admin
-                  </a>
-                </Button>
-              )}
-
-              <Button variant="ghost" size="sm" asChild>
-                <Link href={`/${tenantSlug}/profile`}>
-                  {session.user.name ?? session.user.email}
-                </Link>
-              </Button>
-
-              <SignOutButton />
-            </div>
-          </div>
-        </header>
-
-        {/* ── Main content ───────────────────────────── */}
-        <main className="mx-auto max-w-7xl px-6 py-6">{children}</main>
-      </div>
+      <SidebarProvider>
+        <TenantSidebar
+          tenantSlug={tenantSlug}
+          tenantName={tenant.name}
+          role={role}
+          showTeam={showTeam}
+          userName={session.user.name ?? null}
+          userEmail={session.user.email ?? ''}
+        />
+        <SidebarInset>
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <span className="text-sm font-medium text-muted-foreground">{tenant.name}</span>
+          </header>
+          <main className="flex flex-1 flex-col gap-4 p-6">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
     </TenantProvider>
   );
 }
