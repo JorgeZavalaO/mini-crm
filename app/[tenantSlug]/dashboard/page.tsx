@@ -1,20 +1,21 @@
-import { auth } from '@/auth';
+import { requireTenantAccess } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default async function DashboardPage() {
-  const session = await auth();
-  const tenantId = session?.user?.tenantId;
+export default async function DashboardPage({
+  params,
+}: {
+  params: Promise<{ tenantSlug: string }>;
+}) {
+  const { tenantSlug } = await params;
+  const { tenant, membership, session } = await requireTenantAccess(tenantSlug);
 
-  let stats = { leads: 0, members: 0 };
+  const [leads, members] = await Promise.all([
+    db.lead.count({ where: { tenantId: tenant.id } }),
+    db.membership.count({ where: { tenantId: tenant.id, isActive: true } }),
+  ]);
 
-  if (tenantId) {
-    const [leads, members] = await Promise.all([
-      db.lead.count({ where: { tenantId } }),
-      db.membership.count({ where: { tenantId } }),
-    ]);
-    stats = { leads, members };
-  }
+  const displayRole = membership?.role ?? (session.user.isSuperAdmin ? 'SUPERADMIN' : '—');
 
   return (
     <div className="space-y-6">
@@ -28,7 +29,7 @@ export default async function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{stats.leads}</p>
+            <p className="text-3xl font-bold">{leads}</p>
           </CardContent>
         </Card>
 
@@ -39,7 +40,7 @@ export default async function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{stats.members}</p>
+            <p className="text-3xl font-bold">{members}</p>
           </CardContent>
         </Card>
 
@@ -48,7 +49,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Tu rol</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{session?.user?.role ?? '—'}</p>
+            <p className="text-3xl font-bold">{displayRole}</p>
           </CardContent>
         </Card>
       </div>

@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
 
 export default function RegisterPage() {
@@ -28,9 +29,9 @@ export default function RegisterPage() {
       <form action={formAction}>
         <CardContent className="space-y-4">
           {state?.error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
-              {state.error}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
           )}
 
           <div className="space-y-2">

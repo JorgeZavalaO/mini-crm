@@ -1,4 +1,9 @@
-export default async function LeadsPage() {
+import { requireTenantAccess } from '@/lib/auth-guard';
+
+export default async function LeadsPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
+  const { tenantSlug } = await params;
+  await requireTenantAccess(tenantSlug);
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Leads</h1>

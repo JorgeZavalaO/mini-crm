@@ -4,13 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * Middleware de protección de rutas.
  *
- * Usa getToken() (puro JWT) para NO importar auth.ts
- * y evitar node:crypto en Edge Runtime.
- *
- * - /login, /register, /api/auth/** → público
- * - /superadmin/**                  → requiere isSuperAdmin
- * - /dashboard/**, /profile/**      → requiere sesión activa
- * - Todo lo demás                   → público
+ * Rutas:
+ *   /login, /register, /api/auth/** → público
+ *   /superadmin/**                  → requiere isSuperAdmin
+ *   /{tenantSlug}/**                → requiere sesión (la validación fina de membership
+ *                                     se hace en el layout de [tenantSlug], que tiene acceso a DB)
+ *   /                               → redirige según sesión
  */
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -24,23 +23,18 @@ export default async function middleware(req: NextRequest) {
     pathname === '/register' ||
     pathname.startsWith('/api/auth');
 
-  if (isPublicRoute && !(isLoggedIn && (pathname === '/login' || pathname === '/register'))) {
-    return NextResponse.next();
-  }
-
-  // Si ya está logueado e intenta ir a login/register → dashboard
+  // Logged-in user trying to access login/register → redirect to their tenant
   if (isLoggedIn && (pathname === '/login' || pathname === '/register')) {
-    return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
+    const dest = token.tenantSlug
+      ? `/${token.tenantSlug}/dashboard`
+      : token.isSuperAdmin
+        ? '/superadmin'
+        : '/login';
+    return NextResponse.redirect(new URL(dest, req.nextUrl));
   }
 
-  // ── Rutas protegidas genéricas ──────────────────────────
-  const protectedPrefixes = ['/dashboard', '/profile', '/leads'];
-  const isProtected = protectedPrefixes.some((p) => pathname.startsWith(p));
-
-  if (isProtected && !isLoggedIn) {
-    const loginUrl = new URL('/login', req.nextUrl);
-    loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
+  if (isPublicRoute) {
+    return NextResponse.next();
   }
 
   // ── SuperAdmin ──────────────────────────────────────────
@@ -49,18 +43,22 @@ export default async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL('/login', req.nextUrl));
     }
     if (!token.isSuperAdmin) {
-      return NextResponse.redirect(new URL('/dashboard', req.nextUrl));
+      const dest = token.tenantSlug ? `/${token.tenantSlug}/dashboard` : '/login';
+      return NextResponse.redirect(new URL(dest, req.nextUrl));
     }
+    return NextResponse.next();
+  }
+
+  // ── Todas las demás rutas (/{tenantSlug}/**) ────────────
+  if (!isLoggedIn) {
+    const loginUrl = new URL('/login', req.nextUrl);
+    loginUrl.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all routes except static files and Next.js internals.
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };

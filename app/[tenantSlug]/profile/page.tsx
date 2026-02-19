@@ -1,19 +1,20 @@
-import { auth } from '@/auth';
+import { requireTenantAccess } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
-export default async function ProfilePage() {
-  const session = await auth();
-  if (!session?.user) redirect('/login');
+export default async function ProfilePage({ params }: { params: Promise<{ tenantSlug: string }> }) {
+  const { tenantSlug } = await params;
+  const { session } = await requireTenantAccess(tenantSlug);
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },
     include: {
       memberships: {
         include: { tenant: { select: { name: true, slug: true } } },
+        where: { isActive: true },
       },
     },
   });
@@ -58,9 +59,9 @@ export default async function ProfilePage() {
                       <p className="font-medium">{m.tenant.name}</p>
                       <p className="text-xs text-muted-foreground">{m.tenant.slug}</p>
                     </div>
-                    <Badge variant={m.tenantId === session.user.tenantId ? 'default' : 'outline'}>
+                    <Badge variant={m.tenant.slug === tenantSlug ? 'default' : 'outline'}>
                       {m.role}
-                      {m.tenantId === session.user.tenantId && ' (activo)'}
+                      {m.tenant.slug === tenantSlug && ' (activo)'}
                     </Badge>
                   </li>
                 ))}

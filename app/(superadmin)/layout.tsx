@@ -7,26 +7,22 @@ export default async function SuperadminLayout({ children }: { children: React.R
   const session = await auth();
 
   if (!session?.user) redirect('/login');
-  if (!session.user.isSuperAdmin) redirect('/dashboard');
+  if (!session.user.isSuperAdmin) redirect('/login');
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50">
-      <header className="border-b border-zinc-800">
+    <div className="dark min-h-screen bg-background text-foreground">
+      <header className="border-b">
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <Link href="/superadmin" className="text-lg font-bold text-red-400">
               ⚙ Super Admin
             </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-zinc-50"
-            >
-              ← Volver al CRM
-            </Link>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm text-zinc-400">{session.user.name ?? session.user.email}</span>
+            <span className="text-sm text-muted-foreground">
+              {session.user.name ?? session.user.email}
+            </span>
             <SignOutButton />
           </div>
         </div>

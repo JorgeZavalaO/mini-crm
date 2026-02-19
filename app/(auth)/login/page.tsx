@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -22,16 +23,29 @@ export default function LoginPage() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
-        <CardDescription>Ingresa tus credenciales para acceder al CRM</CardDescription>
+        <CardDescription>Ingresa tu empresa, email y contraseña</CardDescription>
       </CardHeader>
 
       <form action={formAction}>
         <CardContent className="space-y-4">
           {state?.error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
-              {state.error}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="slug">Empresa / Plataforma</Label>
+            <Input
+              id="slug"
+              name="slug"
+              type="text"
+              placeholder="mi-empresa  ·  superadmin"
+              required
+              autoComplete="organization"
+              autoFocus
+            />
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>

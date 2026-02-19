@@ -6,12 +6,16 @@ declare module 'next-auth' {
       id: string;
       isSuperAdmin: boolean;
       tenantId: string | null;
+      tenantSlug: string | null;
       role: string | null;
     } & DefaultSession['user'];
   }
 
   interface User {
     isSuperAdmin?: boolean;
+    tenantId?: string | null;
+    tenantSlug?: string | null;
+    role?: string | null;
   }
 }
 
@@ -20,6 +24,7 @@ declare module 'next-auth/jwt' {
     id: string;
     isSuperAdmin: boolean;
     tenantId: string | null;
+    tenantSlug: string | null;
     role: string | null;
   }
 }
