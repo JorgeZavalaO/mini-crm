@@ -35,12 +35,12 @@ export default function LoginPage() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="slug">Empresa / Plataforma</Label>
+            <Label htmlFor="slug">Empresa</Label>
             <Input
               id="slug"
               name="slug"
               type="text"
-              placeholder="mi-empresa  ·  superadmin"
+              placeholder="mi-empresa"
               required
               autoComplete="organization"
               autoFocus
