@@ -169,22 +169,57 @@ async function main() {
     create: { userId: seller.id, tenantId: tenant.id, role: 'VENDEDOR' },
   });
 
-  const existingLead = await prisma.lead.findFirst({
-    where: { email: 'lead@example.com', tenantId: tenant.id },
-  });
+  const seedLeads = [
+    {
+      businessName: 'Importers Inc',
+      ruc: '20123456789',
+      rucNormalized: '20123456789',
+      nameNormalized: 'importers inc',
+      country: 'Peru',
+      city: 'Lima',
+      industry: 'Comercio exterior',
+      source: 'Referido',
+      notes: 'Cliente potencial para importacion maritima.',
+      phones: ['+51 999 111 222'],
+      emails: ['lead@example.com'],
+      status: 'NEW' as const,
+      ownerId: seller.id,
+    },
+    {
+      businessName: 'Logistica Andina SAC',
+      ruc: '20555888991',
+      rucNormalized: '20555888991',
+      nameNormalized: 'logistica andina sac',
+      country: 'Peru',
+      city: 'Arequipa',
+      industry: 'Logistica',
+      source: 'Web',
+      notes: 'Solicito cotizacion inicial.',
+      phones: ['+51 955 888 777'],
+      emails: ['contacto@logisticaandina.pe'],
+      status: 'CONTACTED' as const,
+      ownerId: null,
+    },
+  ];
 
-  if (!existingLead) {
-    await prisma.lead.create({
-      data: {
-        name: 'Test Lead',
-        company: 'Importers Inc',
-        email: 'lead@example.com',
-        phone: '+123456789',
-        status: 'NEW',
+  for (const lead of seedLeads) {
+    const existingLead = await prisma.lead.findFirst({
+      where: {
         tenantId: tenant.id,
-        assignedToId: seller.id,
+        rucNormalized: lead.rucNormalized,
+        deletedAt: null,
       },
+      select: { id: true },
     });
+
+    if (!existingLead) {
+      await prisma.lead.create({
+        data: {
+          ...lead,
+          tenantId: tenant.id,
+        },
+      });
+    }
   }
 
   console.log('Seed complete');

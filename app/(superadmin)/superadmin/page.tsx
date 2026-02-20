@@ -19,7 +19,7 @@ export default async function SuperadminPage() {
   const [tenantCount, userCount, leadCount, plans, tenants] = await Promise.all([
     db.tenant.count({ where: { deletedAt: null } }),
     db.user.count(),
-    db.lead.count(),
+    db.lead.count({ where: { deletedAt: null } }),
     db.plan.findMany({
       orderBy: { name: 'asc' },
       select: {
@@ -36,7 +36,7 @@ export default async function SuperadminPage() {
       include: {
         plan: { select: { name: true } },
         memberships: { where: { isActive: true }, select: { id: true } },
-        _count: { select: { leads: true } },
+        _count: { select: { leads: { where: { deletedAt: null } } } },
       },
     }),
   ]);

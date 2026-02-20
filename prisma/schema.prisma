@@ -28,6 +28,12 @@ enum LeadStatus {
   WON
 }
 
+enum ReassignmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum FeatureKey {
   CRM_LEADS
   ASSIGNMENTS
@@ -45,35 +51,36 @@ enum FeatureKey {
 // ─── Multi-tenant ───────────────────────────────────────
 
 model Tenant {
-  id           String          @id @default(cuid())
-  name         String
-  slug         String          @unique
-  isActive     Boolean         @default(true)
-  planId       String?
-  maxUsers     Int?
-  maxStorageGb Int?
-  retentionDays Int?
-  deletedAt    DateTime?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  memberships  Membership[]
-  leads        Lead[]
-  features     TenantFeature[]
-  plan         Plan?           @relation(fields: [planId], references: [id], onDelete: SetNull)
+  id                       String                    @id @default(cuid())
+  name                     String
+  slug                     String                    @unique
+  isActive                 Boolean                   @default(true)
+  planId                   String?
+  maxUsers                 Int?
+  maxStorageGb             Int?
+  retentionDays            Int?
+  deletedAt                DateTime?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  memberships              Membership[]
+  leads                    Lead[]
+  leadReassignmentRequests LeadReassignmentRequest[]
+  features                 TenantFeature[]
+  plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
 model Plan {
-  id           String       @id @default(cuid())
-  name         String       @unique
-  description  String?
-  maxUsers     Int
-  maxStorageGb Int
+  id            String        @id @default(cuid())
+  name          String        @unique
+  description   String?
+  maxUsers      Int
+  maxStorageGb  Int
   retentionDays Int
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  tenants      Tenant[]
-  features     PlanFeature[]
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  tenants       Tenant[]
+  features      PlanFeature[]
 }
 
 model PlanFeature {
@@ -105,15 +112,18 @@ model TenantFeature {
 // ─── Auth / Users ───────────────────────────────────────
 
 model User {
-  id            String       @id @default(cuid())
-  name          String?
-  email         String       @unique
-  password      String
-  isSuperAdmin  Boolean      @default(false)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  memberships   Membership[]
-  assignedLeads Lead[]
+  id                         String                    @id @default(cuid())
+  name                       String?
+  email                      String                    @unique
+  password                   String
+  isSuperAdmin               Boolean                   @default(false)
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  memberships                Membership[]
+  ownedLeads                 Lead[]                    @relation("LeadOwner")
+  requestedLeadReassignments LeadReassignmentRequest[] @relation("LeadReassignmentRequestedBy")
+  resolvedLeadReassignments  LeadReassignmentRequest[] @relation("LeadReassignmentResolvedBy")
+  targetLeadReassignments    LeadReassignmentRequest[] @relation("LeadReassignmentTargetOwner")
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -134,16 +144,54 @@ model Membership {
 // ─── Business ───────────────────────────────────────────
 
 model Lead {
-  id           String     @id @default(cuid())
-  name         String
-  company      String?
-  email        String?
-  phone        String?
-  status       LeadStatus @default(NEW)
-  tenantId     String
-  tenant       Tenant     @relation(fields: [tenantId], references: [id])
-  assignedToId String?
-  assignedTo   User?      @relation(fields: [assignedToId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                   String                    @id @default(cuid())
+  businessName         String
+  ruc                  String?
+  rucNormalized        String?
+  nameNormalized       String
+  country              String?
+  city                 String?
+  industry             String?
+  source               String?
+  notes                String?
+  phones               String[]                  @default([])
+  emails               String[]                  @default([])
+  status               LeadStatus                @default(NEW)
+  tenantId             String
+  tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerId              String?
+  owner                User?                     @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  deletedAt            DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  reassignmentRequests LeadReassignmentRequest[]
+
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, status])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, source])
+  @@index([tenantId, city])
+}
+
+model LeadReassignmentRequest {
+  id               String             @id @default(cuid())
+  leadId           String
+  tenantId         String
+  requestedById    String
+  requestedOwnerId String?
+  reason           String
+  status           ReassignmentStatus @default(PENDING)
+  resolvedById     String?
+  resolvedAt       DateTime?
+  resolutionNote   String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  lead             Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestedBy      User               @relation("LeadReassignmentRequestedBy", fields: [requestedById], references: [id], onDelete: Cascade)
+  requestedOwner   User?              @relation("LeadReassignmentTargetOwner", fields: [requestedOwnerId], references: [id], onDelete: SetNull)
+  resolvedBy       User?              @relation("LeadReassignmentResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([leadId, status])
 }

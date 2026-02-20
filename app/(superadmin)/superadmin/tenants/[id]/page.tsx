@@ -18,8 +18,7 @@ import { TenantLifecycleButton } from '@/components/superadmin/tenant-lifecycle-
 import { TenantSettingsTabs } from '@/components/superadmin/tenant-settings-tabs';
 
 export default async function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  await requireSuperAdmin();
+  const [{ id }] = await Promise.all([params, requireSuperAdmin()]);
 
   const [tenant, plans] = await Promise.all([
     db.tenant.findUnique({
@@ -36,7 +35,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
           },
           orderBy: { createdAt: 'asc' },
         },
-        _count: { select: { leads: true } },
+        _count: { select: { leads: { where: { deletedAt: null } } } },
       },
     }),
     db.plan.findMany({

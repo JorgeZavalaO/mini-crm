@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
+import { AppError } from '@/lib/errors';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { hasRole, type Role } from '@/lib/rbac';
 import type { FeatureKey } from '@prisma/client';
@@ -10,6 +11,80 @@ export interface TenantContext {
   session: Session;
   tenant: { id: string; name: string; slug: string; isActive: boolean };
   membership: { id: string; role: string; isActive: boolean } | null;
+}
+
+export async function getTenantActionContextBySlug(tenantSlug: string): Promise<TenantContext> {
+  const session = await auth();
+  if (!session?.user) throw new AppError('No autenticado', 401);
+
+  const tenant = await db.tenant.findFirst({
+    where: { slug: tenantSlug, deletedAt: null },
+    select: { id: true, name: true, slug: true, isActive: true },
+  });
+  if (!tenant || !tenant.isActive) {
+    throw new AppError('Tenant no disponible', 404);
+  }
+
+  if (session.user.isSuperAdmin) {
+    return {
+      session: session as Session,
+      tenant,
+      membership: null,
+    };
+  }
+
+  const membership = await db.membership.findUnique({
+    where: {
+      userId_tenantId: { userId: session.user.id, tenantId: tenant.id },
+    },
+    select: { id: true, role: true, isActive: true },
+  });
+  if (!membership || !membership.isActive) {
+    throw new AppError('No autorizado', 403);
+  }
+
+  return {
+    session: session as Session,
+    tenant,
+    membership,
+  };
+}
+
+export async function getTenantActionContextById(tenantId: string): Promise<TenantContext> {
+  const session = await auth();
+  if (!session?.user) throw new AppError('No autenticado', 401);
+
+  const tenant = await db.tenant.findFirst({
+    where: { id: tenantId, deletedAt: null },
+    select: { id: true, name: true, slug: true, isActive: true },
+  });
+  if (!tenant || !tenant.isActive) {
+    throw new AppError('Tenant no disponible', 404);
+  }
+
+  if (session.user.isSuperAdmin) {
+    return {
+      session: session as Session,
+      tenant,
+      membership: null,
+    };
+  }
+
+  const membership = await db.membership.findUnique({
+    where: {
+      userId_tenantId: { userId: session.user.id, tenantId: tenant.id },
+    },
+    select: { id: true, role: true, isActive: true },
+  });
+  if (!membership || !membership.isActive) {
+    throw new AppError('No autorizado', 403);
+  }
+
+  return {
+    session: session as Session,
+    tenant,
+    membership,
+  };
 }
 
 /**

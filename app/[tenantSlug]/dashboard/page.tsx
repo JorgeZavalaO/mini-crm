@@ -11,7 +11,7 @@ export default async function DashboardPage({
   const { tenant, membership, session } = await requireTenantFeature(tenantSlug, 'DASHBOARD');
 
   const [leads, members] = await Promise.all([
-    db.lead.count({ where: { tenantId: tenant.id } }),
+    db.lead.count({ where: { tenantId: tenant.id, deletedAt: null } }),
     db.membership.count({ where: { tenantId: tenant.id, isActive: true } }),
   ]);
 
