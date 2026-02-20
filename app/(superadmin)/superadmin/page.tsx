@@ -28,7 +28,7 @@ export default async function SuperadminPage() {
   });
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Panel Super Admin</h1>
         <p className="text-muted-foreground">Gestión global de la plataforma multi-tenant.</p>
@@ -75,7 +75,7 @@ export default async function SuperadminPage() {
           </Button>
         </div>
 
-        <div className="rounded-lg border">
+        <div className="overflow-x-auto rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>

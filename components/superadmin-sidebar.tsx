@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LayoutDashboard, LogOut, PlusCircle, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -84,6 +85,16 @@ export function SuperadminSidebar({ userName, userEmail }: SuperadminSidebarProp
               size="lg"
               className="cursor-default hover:bg-transparent active:bg-transparent"
             >
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarFallback className="rounded-lg bg-red-600 text-white">
+                  {(userName ?? userEmail)
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{userName ?? userEmail}</span>
                 <span className="truncate text-xs text-sidebar-foreground/70">{userEmail}</span>

@@ -28,7 +28,7 @@ export default async function TeamPage({ params }: { params: Promise<{ tenantSlu
   const canManage = session.user.isSuperAdmin || true; // Already validated as SUPERVISOR+
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Equipo</h1>
@@ -41,7 +41,7 @@ export default async function TeamPage({ params }: { params: Promise<{ tenantSlu
         )}
       </div>
 
-      <div className="rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
