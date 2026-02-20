@@ -1,7 +1,9 @@
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
+import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { hasRole, type Role } from '@/lib/rbac';
-import { redirect } from 'next/navigation';
+import type { FeatureKey } from '@prisma/client';
+import { forbidden, redirect } from 'next/navigation';
 import type { Session } from 'next-auth';
 
 export interface TenantContext {
@@ -19,8 +21,8 @@ export async function requireTenantAccess(tenantSlug: string): Promise<TenantCon
   const session = await auth();
   if (!session?.user) redirect('/login');
 
-  const tenant = await db.tenant.findUnique({
-    where: { slug: tenantSlug },
+  const tenant = await db.tenant.findFirst({
+    where: { slug: tenantSlug, deletedAt: null },
     select: { id: true, name: true, slug: true, isActive: true },
   });
 
@@ -88,4 +90,22 @@ export async function requireSuperAdmin() {
   if (!session?.user) redirect('/login');
   if (!session.user.isSuperAdmin) redirect('/login');
   return session;
+}
+
+export async function requireTenantFeature(tenantSlug: string, featureKey: FeatureKey) {
+  const ctx = await requireTenantAccess(tenantSlug);
+  const enabled = await isTenantFeatureEnabled(ctx.tenant.id, featureKey);
+
+  if (!enabled) {
+    forbidden();
+  }
+
+  return ctx;
+}
+
+export async function assertTenantFeatureById(tenantId: string, featureKey: FeatureKey) {
+  const enabled = await isTenantFeatureEnabled(tenantId, featureKey);
+  if (!enabled) {
+    throw new Error(`Feature ${featureKey} disabled`);
+  }
 }

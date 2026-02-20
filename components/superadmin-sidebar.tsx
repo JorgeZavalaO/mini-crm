@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LayoutDashboard, LogOut, PlusCircle, Settings2 } from 'lucide-react';
+import { LayoutDashboard, Layers, LogOut, PlusCircle, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -24,6 +24,7 @@ interface SuperadminSidebarProps {
 
 const navItems = [
   { href: '/superadmin', label: 'Panel', icon: LayoutDashboard, exact: true },
+  { href: '/superadmin/plans', label: 'Planes', icon: Layers, exact: false },
   { href: '/superadmin/tenants/new', label: 'Nueva empresa', icon: PlusCircle, exact: true },
 ];
 

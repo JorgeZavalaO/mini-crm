@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Building2, LayoutDashboard, LogOut, Target, User, Users } from 'lucide-react';
+import { Building2, FileText, LayoutDashboard, LogOut, Target, User, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -25,6 +25,7 @@ interface TenantSidebarProps {
   showTeam: boolean;
   userName: string | null;
   userEmail: string;
+  enabledFeatures: Record<string, boolean>;
 }
 
 export function TenantSidebar({
@@ -34,19 +35,26 @@ export function TenantSidebar({
   showTeam,
   userName,
   userEmail,
+  enabledFeatures,
 }: TenantSidebarProps) {
   const pathname = usePathname();
 
   const navItems = [
-    { href: `/${tenantSlug}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
-    { href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target },
+    ...(enabledFeatures.DASHBOARD
+      ? [{ href: `/${tenantSlug}/dashboard`, label: 'Dashboard', icon: LayoutDashboard }]
+      : []),
+    ...(enabledFeatures.CRM_LEADS
+      ? [{ href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target }]
+      : []),
+    ...(enabledFeatures.DOCUMENTS
+      ? [{ href: `/${tenantSlug}/documents`, label: 'Documentos', icon: FileText }]
+      : []),
     ...(showTeam ? [{ href: `/${tenantSlug}/team`, label: 'Equipo', icon: Users }] : []),
     { href: `/${tenantSlug}/profile`, label: 'Mi cuenta', icon: User },
   ];
 
   return (
     <Sidebar collapsible="icon">
-      {/* ── Logo / Tenant ─────────────────────────── */}
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -65,7 +73,6 @@ export function TenantSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      {/* ── Navigation ────────────────────────────── */}
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
@@ -89,7 +96,6 @@ export function TenantSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      {/* ── User / Sign-out ───────────────────────── */}
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
@@ -122,11 +128,11 @@ export function TenantSidebar({
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={() => signOut({ callbackUrl: '/login' })}
-              tooltip="Cerrar sesión"
+              tooltip="Cerrar sesion"
               className="text-muted-foreground hover:text-foreground"
             >
               <LogOut />
-              <span>Cerrar sesión</span>
+              <span>Cerrar sesion</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

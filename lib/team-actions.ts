@@ -28,6 +28,24 @@ async function assertTeamAccess(tenantId: string) {
   return session;
 }
 
+async function ensureUserSlotAvailable(tenantId: string) {
+  const [tenant, activeMembers] = await Promise.all([
+    db.tenant.findUnique({
+      where: { id: tenantId },
+      select: { maxUsers: true, deletedAt: true },
+    }),
+    db.membership.count({ where: { tenantId, isActive: true } }),
+  ]);
+
+  if (!tenant || tenant.deletedAt) {
+    throw new Error('Tenant no disponible');
+  }
+
+  if (tenant.maxUsers && activeMembers >= tenant.maxUsers) {
+    throw new Error('Limite de usuarios alcanzado para este tenant');
+  }
+}
+
 // ────────────────────────────────────────────────────────
 // Create member (user + membership in tenant)
 // ────────────────────────────────────────────────────────
@@ -71,12 +89,26 @@ export async function createMemberAction(
     }
 
     // Add membership to existing user
+    try {
+      await ensureUserSlotAvailable(tenantId);
+    } catch (error) {
+      if (error instanceof Error) return { error: error.message };
+      return { error: 'No se pudo validar el limite de usuarios' };
+    }
+
     await db.membership.create({
       data: { userId: user.id, tenantId, role: role as Role },
     });
   } else {
     // Create new user + membership
     const hashed = await hashPassword(password);
+
+    try {
+      await ensureUserSlotAvailable(tenantId);
+    } catch (error) {
+      if (error instanceof Error) return { error: error.message };
+      return { error: 'No se pudo validar el limite de usuarios' };
+    }
 
     await db.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -135,6 +167,10 @@ export async function toggleMemberAction(
   if (!membership) throw new Error('Membership no encontrada');
 
   await assertTeamAccess(membership.tenantId);
+
+  if (!membership.isActive) {
+    await ensureUserSlotAvailable(membership.tenantId);
+  }
 
   const updated = await db.membership.update({
     where: { id: membershipId },

@@ -1,4 +1,4 @@
-import { requireTenantAccess } from '@/lib/auth-guard';
+import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -8,7 +8,7 @@ export default async function DashboardPage({
   params: Promise<{ tenantSlug: string }>;
 }) {
   const { tenantSlug } = await params;
-  const { tenant, membership, session } = await requireTenantAccess(tenantSlug);
+  const { tenant, membership, session } = await requireTenantFeature(tenantSlug, 'DASHBOARD');
 
   const [leads, members] = await Promise.all([
     db.lead.count({ where: { tenantId: tenant.id } }),

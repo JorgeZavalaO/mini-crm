@@ -21,7 +21,7 @@ export default async function Home() {
 
   // Fallback: find first active membership
   const membership = await db.membership.findFirst({
-    where: { userId: session.user.id, isActive: true, tenant: { isActive: true } },
+    where: { userId: session.user.id, isActive: true, tenant: { isActive: true, deletedAt: null } },
     include: { tenant: { select: { slug: true } } },
   });
 

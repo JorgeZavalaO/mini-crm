@@ -14,7 +14,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import Link from 'next/link';
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, undefined);
@@ -22,8 +21,8 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
-        <CardDescription>Ingresa tu empresa, email y contraseña</CardDescription>
+        <CardTitle className="text-2xl">Iniciar sesion</CardTitle>
+        <CardDescription>Ingresa tu empresa, email y contrasena</CardDescription>
       </CardHeader>
 
       <form action={formAction}>
@@ -43,7 +42,6 @@ export default function LoginPage() {
               placeholder="mi-empresa"
               required
               autoComplete="organization"
-              autoFocus
             />
           </div>
 
@@ -60,7 +58,7 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
+            <Label htmlFor="password">Contrasena</Label>
             <Input
               id="password"
               name="password"
@@ -73,14 +71,11 @@ export default function LoginPage() {
 
         <CardFooter className="flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? 'Ingresando…' : 'Ingresar'}
+            {pending ? 'Ingresando...' : 'Ingresar'}
           </Button>
 
           <p className="text-sm text-muted-foreground">
-            ¿No tienes cuenta?{' '}
-            <Link href="/register" className="font-medium text-primary underline">
-              Regístrate
-            </Link>
+            El alta de cuentas esta gestionada por el equipo SuperAdmin.
           </p>
         </CardFooter>
       </form>

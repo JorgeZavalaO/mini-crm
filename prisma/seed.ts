@@ -1,10 +1,10 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import 'dotenv/config';
 import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
+import { FEATURE_KEYS, PLAN_FEATURE_BUNDLES, PLAN_SEEDS } from '../lib/feature-catalog';
 
 const scrypt = promisify(scryptCallback);
-
 const prisma = new PrismaClient();
 
 async function hash(password: string): Promise<string> {
@@ -13,54 +13,144 @@ async function hash(password: string): Promise<string> {
   return `scrypt$${salt}$${dk.toString('hex')}`;
 }
 
-async function main() {
-  console.log('🌱 Seeding Sprint 1 …');
+async function seedPlans() {
+  const plans = new Map<
+    string,
+    { id: string; maxUsers: number; maxStorageGb: number; retentionDays: number }
+  >();
 
-  // ── Tenant demo ────────────────────────────────────────
+  for (const seed of PLAN_SEEDS) {
+    const plan = await prisma.plan.upsert({
+      where: { name: seed.name },
+      update: {
+        description: seed.description,
+        maxUsers: seed.maxUsers,
+        maxStorageGb: seed.maxStorageGb,
+        retentionDays: seed.retentionDays,
+        isActive: true,
+      },
+      create: {
+        name: seed.name,
+        description: seed.description,
+        maxUsers: seed.maxUsers,
+        maxStorageGb: seed.maxStorageGb,
+        retentionDays: seed.retentionDays,
+        isActive: true,
+      },
+    });
+
+    plans.set(seed.key, {
+      id: plan.id,
+      maxUsers: plan.maxUsers,
+      maxStorageGb: plan.maxStorageGb,
+      retentionDays: plan.retentionDays,
+    });
+
+    const bundle = PLAN_FEATURE_BUNDLES[seed.key];
+    for (const featureKey of FEATURE_KEYS) {
+      const cfg = bundle[featureKey];
+      await prisma.planFeature.upsert({
+        where: { planId_featureKey: { planId: plan.id, featureKey } },
+        update: {
+          enabled: cfg?.enabled ?? false,
+          config: (cfg?.config as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
+        },
+        create: {
+          planId: plan.id,
+          featureKey,
+          enabled: cfg?.enabled ?? false,
+          config: (cfg?.config as Prisma.InputJsonValue | undefined) ?? Prisma.JsonNull,
+        },
+      });
+    }
+  }
+
+  return plans;
+}
+
+async function main() {
+  console.log('Seeding data...');
+  const plans = await seedPlans();
+  const starter = plans.get('STARTER');
+  if (!starter) throw new Error('Starter plan not found while seeding');
+
   const tenant = await prisma.tenant.upsert({
     where: { slug: 'acme-logistics' },
-    update: {},
-    create: { name: 'Acme Logistics', slug: 'acme-logistics' },
+    update: {
+      deletedAt: null,
+      isActive: true,
+      planId: starter.id,
+      maxUsers: starter.maxUsers,
+      maxStorageGb: starter.maxStorageGb,
+      retentionDays: starter.retentionDays,
+    },
+    create: {
+      name: 'Acme Logistics',
+      slug: 'acme-logistics',
+      planId: starter.id,
+      maxUsers: starter.maxUsers,
+      maxStorageGb: starter.maxStorageGb,
+      retentionDays: starter.retentionDays,
+    },
   });
 
-  // ── Super Admin (plataforma) ───────────────────────────
-  const saPassword = await hash('changeme');
+  const starterPlanFeatures = await prisma.planFeature.findMany({
+    where: { planId: starter.id },
+    select: { featureKey: true, enabled: true, config: true },
+  });
+
+  for (const feature of starterPlanFeatures) {
+    await prisma.tenantFeature.upsert({
+      where: {
+        tenantId_featureKey: {
+          tenantId: tenant.id,
+          featureKey: feature.featureKey,
+        },
+      },
+      update: {
+        enabled: feature.enabled,
+        config: feature.config ?? Prisma.JsonNull,
+      },
+      create: {
+        tenantId: tenant.id,
+        featureKey: feature.featureKey,
+        enabled: feature.enabled,
+        config: feature.config ?? Prisma.JsonNull,
+      },
+    });
+  }
+
   const superAdmin = await prisma.user.upsert({
     where: { email: 'superadmin@example.com' },
     update: {},
     create: {
       name: 'Super Admin',
       email: 'superadmin@example.com',
-      password: saPassword,
+      password: await hash('changeme'),
       isSuperAdmin: true,
     },
   });
 
-  // ── Admin del tenant ───────────────────────────────────
-  const adminPassword = await hash('admin123');
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@acme.com' },
     update: {},
     create: {
       name: 'Admin Acme',
       email: 'admin@acme.com',
-      password: adminPassword,
+      password: await hash('admin123'),
     },
   });
 
-  // ── Vendedor del tenant ────────────────────────────────
-  const vendedorPassword = await hash('vendedor123');
-  const vendedor = await prisma.user.upsert({
+  const seller = await prisma.user.upsert({
     where: { email: 'vendedor@acme.com' },
     update: {},
     create: {
       name: 'Carlos Vendedor',
       email: 'vendedor@acme.com',
-      password: vendedorPassword,
+      password: await hash('vendedor123'),
     },
   });
 
-  // ── Memberships ────────────────────────────────────────
   await prisma.membership.upsert({
     where: { userId_tenantId: { userId: superAdmin.id, tenantId: tenant.id } },
     update: {},
@@ -74,12 +164,11 @@ async function main() {
   });
 
   await prisma.membership.upsert({
-    where: { userId_tenantId: { userId: vendedor.id, tenantId: tenant.id } },
+    where: { userId_tenantId: { userId: seller.id, tenantId: tenant.id } },
     update: {},
-    create: { userId: vendedor.id, tenantId: tenant.id, role: 'VENDEDOR' },
+    create: { userId: seller.id, tenantId: tenant.id, role: 'VENDEDOR' },
   });
 
-  // ── Lead de prueba ─────────────────────────────────────
   const existingLead = await prisma.lead.findFirst({
     where: { email: 'lead@example.com', tenantId: tenant.id },
   });
@@ -93,16 +182,16 @@ async function main() {
         phone: '+123456789',
         status: 'NEW',
         tenantId: tenant.id,
-        assignedToId: vendedor.id,
+        assignedToId: seller.id,
       },
     });
   }
 
-  console.log('✅ Seed completado');
-  console.log('   Usuarios de prueba:');
-  console.log('   ─ superadmin@example.com / changeme  (SuperAdmin)');
-  console.log('   ─ admin@acme.com        / admin123   (Admin tenant)');
-  console.log('   ─ vendedor@acme.com     / vendedor123 (Vendedor)');
+  console.log('Seed complete');
+  console.log('Test users:');
+  console.log(' - superadmin@example.com / changeme (SuperAdmin)');
+  console.log(' - admin@acme.com / admin123 (Tenant Admin)');
+  console.log(' - vendedor@acme.com / vendedor123 (Seller)');
 }
 
 main()

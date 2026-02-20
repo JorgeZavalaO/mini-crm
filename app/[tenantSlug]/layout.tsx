@@ -1,4 +1,5 @@
 import { requireTenantAccess } from '@/lib/auth-guard';
+import { getTenantFeatureMap } from '@/lib/feature-service';
 import { TenantProvider } from '@/lib/tenant-context';
 import { hasRole } from '@/lib/rbac';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
@@ -14,6 +15,7 @@ export default async function TenantLayout({
 }) {
   const { tenantSlug } = await params;
   const { session, tenant, membership } = await requireTenantAccess(tenantSlug);
+  const enabledFeatures = await getTenantFeatureMap(tenant.id);
 
   const role = membership?.role ?? (session.user.isSuperAdmin ? 'SUPERADMIN' : null);
   const showTeam = session.user.isSuperAdmin || hasRole(role, 'SUPERVISOR');
@@ -32,6 +34,7 @@ export default async function TenantLayout({
           showTeam={showTeam}
           userName={session.user.name ?? null}
           userEmail={session.user.email ?? ''}
+          enabledFeatures={enabledFeatures}
         />
         <SidebarInset className="min-w-0 overflow-x-hidden">
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">

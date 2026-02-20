@@ -16,15 +16,16 @@ export default async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.AUTH_SECRET });
   const isLoggedIn = !!token;
 
+  if (pathname === '/register') {
+    return NextResponse.redirect(new URL('/login', req.nextUrl));
+  }
+
   // ── Rutas públicas ──────────────────────────────────────
   const isPublicRoute =
-    pathname === '/' ||
-    pathname === '/login' ||
-    pathname === '/register' ||
-    pathname.startsWith('/api/auth');
+    pathname === '/' || pathname === '/login' || pathname.startsWith('/api/auth');
 
   // Logged-in user trying to access login/register → redirect to their tenant
-  if (isLoggedIn && (pathname === '/login' || pathname === '/register')) {
+  if (isLoggedIn && pathname === '/login') {
     const dest = token.tenantSlug
       ? `/${token.tenantSlug}/dashboard`
       : token.isSuperAdmin

@@ -43,10 +43,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // ── Acceso a cuenta empresa ──────────────────────────────
         const tenant = await db.tenant.findUnique({
           where: { slug },
-          select: { id: true, slug: true, isActive: true },
+          select: { id: true, slug: true, isActive: true, deletedAt: true },
         });
 
-        if (!tenant || !tenant.isActive) return null;
+        if (!tenant || !tenant.isActive || tenant.deletedAt) return null;
 
         const membership = await db.membership.findUnique({
           where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
