@@ -46,6 +46,28 @@ async function ensureUserSlotAvailable(tenantId: string) {
   }
 }
 
+async function ensureAdminCoverage(
+  tenantId: string,
+  membership: { id: string; role: Role; isActive: boolean },
+) {
+  if (membership.role !== 'ADMIN' || !membership.isActive) {
+    return;
+  }
+
+  const remainingAdmins = await db.membership.count({
+    where: {
+      tenantId,
+      isActive: true,
+      role: 'ADMIN',
+      NOT: { id: membership.id },
+    },
+  });
+
+  if (remainingAdmins === 0) {
+    throw new Error('No puedes dejar al tenant sin administradores activos');
+  }
+}
+
 // ────────────────────────────────────────────────────────
 // Create member (user + membership in tenant)
 // ────────────────────────────────────────────────────────
@@ -160,13 +182,28 @@ export async function toggleMemberAction(
   membershipId: string,
   tenantSlug: string,
 ): Promise<{ success: boolean; isActive: boolean; userName: string }> {
+  const session = await auth();
+  if (!session?.user) throw new Error('No autenticado');
+
   const membership = await db.membership.findUnique({
     where: { id: membershipId },
-    include: { user: { select: { name: true } } },
+    include: { user: { select: { id: true, name: true } } },
   });
   if (!membership) throw new Error('Membership no encontrada');
 
   await assertTeamAccess(membership.tenantId);
+
+  if (!session.user.isSuperAdmin && membership.userId === session.user.id) {
+    throw new Error('No puedes desactivar tu propia membresia');
+  }
+
+  if (membership.isActive) {
+    await ensureAdminCoverage(membership.tenantId, {
+      id: membership.id,
+      role: membership.role,
+      isActive: membership.isActive,
+    });
+  }
 
   if (!membership.isActive) {
     await ensureUserSlotAvailable(membership.tenantId);
@@ -179,4 +216,39 @@ export async function toggleMemberAction(
 
   revalidatePath(`/${tenantSlug}/team`);
   return { success: true, isActive: updated.isActive, userName: membership.user.name ?? 'Usuario' };
+}
+
+// ────────────────────────────────────────────────────────
+// Remove member from tenant
+// ────────────────────────────────────────────────────────
+
+export async function removeMemberAction(
+  membershipId: string,
+  tenantSlug: string,
+): Promise<{ success: boolean; userName: string }> {
+  const session = await auth();
+  if (!session?.user) throw new Error('No autenticado');
+
+  const membership = await db.membership.findUnique({
+    where: { id: membershipId },
+    include: { user: { select: { id: true, name: true } } },
+  });
+  if (!membership) throw new Error('Membership no encontrada');
+
+  await assertTeamAccess(membership.tenantId);
+
+  if (!session.user.isSuperAdmin && membership.userId === session.user.id) {
+    throw new Error('No puedes eliminar tu propia membresia');
+  }
+
+  await ensureAdminCoverage(membership.tenantId, {
+    id: membership.id,
+    role: membership.role,
+    isActive: membership.isActive,
+  });
+
+  await db.membership.delete({ where: { id: membershipId } });
+
+  revalidatePath(`/${tenantSlug}/team`);
+  return { success: true, userName: membership.user.name ?? 'Usuario' };
 }
