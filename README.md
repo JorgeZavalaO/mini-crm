@@ -10,36 +10,38 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Multi-tenancy por `tenantSlug`.
 - RBAC por tenant (`ADMIN`, `SUPERVISOR`, `VENDEDOR`, `FREELANCE`, `PASANTE`).
 - CRUD de leads con filtros, asignación y reasignación.
-- Dashboard tenant básico.
+- Importación MVP de leads por CSV pegado en texto.
+- Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
+- Dashboard tenant operativo con pipeline por estado y actividad reciente.
+- Dashboard tenant con señales operativas de importación y duplicados.
+- Lead detail page con vista comercial, contacto e historial de reasignaciones.
 - Panel `SuperAdmin` para tenants, planes y features.
 - Gestión de equipo con alta, activación/desactivación y remoción segura.
+- Invitaciones de equipo con onboarding por enlace seguro y aceptación para usuarios nuevos o existentes.
 - Configuración de Prisma migrada a `prisma.config.ts` y runtime conectado con `@prisma/adapter-pg`.
 - Suite inicial de pruebas unitarias con `Vitest`.
 
 ### En progreso
 
-- Sprint 2.2: robustecimiento del flujo de reasignaciones y validación de owners elegibles.
-- Sprint 2.3: estabilización de tooling Prisma 7 y cobertura de pruebas del core.
+- Preparación de Sprint 6: hardening para producción.
 
 ### Pendiente
 
-- Lead detail page.
 - Documents MVP.
-- Import + deduplicación.
 - Tasks, interactions, notifications y client portal.
 - Hardening productivo: auditoría, observabilidad y más tests.
 
 ## Roadmap resumido
 
-| Sprint | Objetivo                                         | Estado         |
-| ------ | ------------------------------------------------ | -------------- |
-| 2.1    | Estabilización de `team`                         | ✅ Completado  |
-| 2.2    | Reasignaciones + validaciones del core comercial | 🟡 En progreso |
-| 2.3    | Configuración Prisma + pruebas base              | 🟡 En progreso |
-| 3      | Lead detail + dashboard útil para operación      | ⏳ Pendiente   |
-| 4      | Documents MVP o Import/Dedupe MVP                | ⏳ Pendiente   |
-| 5      | Invitaciones / onboarding de usuarios            | ⏳ Pendiente   |
-| 6      | Hardening para producción                        | ⏳ Pendiente   |
+| Sprint | Objetivo                                         | Estado        |
+| ------ | ------------------------------------------------ | ------------- |
+| 2.1    | Estabilización de `team`                         | ✅ Completado |
+| 2.2    | Reasignaciones + validaciones del core comercial | ✅ Completado |
+| 2.3    | Configuración Prisma + pruebas base              | ✅ Completado |
+| 3      | Lead detail + dashboard útil para operación      | ✅ Completado |
+| 4      | Documents MVP o Import/Dedupe MVP                | ✅ Completado |
+| 5      | Invitaciones / onboarding de usuarios            | ✅ Completado |
+| 6      | Hardening para producción                        | ⏳ Pendiente  |
 
 ## Stack
 
@@ -130,9 +132,17 @@ pnpm dev
 
 - `app/[tenantSlug]/dashboard`
 - `app/[tenantSlug]/leads`
+- `app/[tenantSlug]/leads/[id]`
+- `app/[tenantSlug]/leads/import`
+- `app/[tenantSlug]/leads/dedupe`
 - `app/[tenantSlug]/team`
 - `app/[tenantSlug]/profile`
 - `app/[tenantSlug]/documents` _(placeholder)_
+
+### Auth / onboarding
+
+- `app/(auth)/login`
+- `app/(auth)/invite/[token]`
 
 ### SuperAdmin
 
@@ -163,6 +173,35 @@ pnpm dev
 - Integración de `@prisma/adapter-pg` para runtime y seed.
 - Eliminación de configuración Prisma deprecada en `package.json`.
 - Arranque de suite de pruebas unitarias con `Vitest`.
+
+### Sprint 3
+
+- Nueva ruta `lead detail` con resumen comercial, datos de contacto y historial de reasignaciones.
+- Dashboard enriquecido con métricas accionables, pipeline por estado y actividad reciente.
+- Navegación directa desde listado/dashboards hacia el detalle de cada lead.
+- Helper compartido de estados para reutilizar etiquetas y variantes entre vistas.
+
+### Sprint 4 (cierre)
+
+- Nueva ruta `leads/import` para importación MVP vía CSV pegado en texto.
+- Nueva ruta `leads/dedupe` para revisar grupos duplicados y fusionarlos.
+- Server actions para importar leads y fusionar duplicados con revalidación de vistas.
+- Utilidades puras para parsing CSV, normalización y agrupación determinística de duplicados.
+- Cobertura de pruebas para import utils, dedupe utils, validadores y permisos extendidos.
+- Navegación lateral para `Importación` y `Duplicados` cuando las features están habilitadas.
+- Dashboard con accesos rápidos y métricas de grupos duplicados detectados.
+- Preflight de importación con análisis previo antes de confirmar altas masivas.
+- Diálogo de dedupe con preview del resultado estimado de la fusión.
+- Tenant demo del seed alineado al plan `Growth` para exponer `IMPORT` y `DEDUPE` en entornos de prueba.
+
+### Sprint 5 (cierre)
+
+- Nuevo flujo de invitaciones de equipo desde `team/new`, sin contraseñas administradas por terceros.
+- Tabla operativa de invitaciones abiertas con estados, cancelación y regeneración de enlace.
+- Onboarding público en `invite/[token]` para aceptar la invitación y entrar automáticamente al tenant.
+- Compatibilidad con usuarios nuevos y con usuarios ya existentes en la plataforma.
+- Reserva de cupos del plan mientras existan invitaciones activas para evitar sobreasignación.
+- Nueva cobertura de pruebas para validadores y utilidades del flujo de invitaciones.
 
 ## Calidad y validación
 

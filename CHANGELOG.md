@@ -2,6 +2,76 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-28] Sprint 5 - Invitaciones y onboarding de usuarios
+
+### Added
+
+- Nuevo modelo `TeamInvitation` para invitaciones seguras por tenant con expiración y aceptación trazable.
+- Nueva ruta pública `app/(auth)/invite/[token]` para onboarding por enlace.
+- Nuevas server actions para crear, cancelar, regenerar y aceptar invitaciones.
+- Utilidades `lib/team-invitations.ts` para hashing de tokens y resolución de estado.
+- Nuevas pruebas para validadores de invitación y helpers de onboarding.
+
+### Changed
+
+- `team/new` ahora genera invitaciones en lugar de crear contraseñas desde el panel.
+- `team/page.tsx` ahora muestra invitaciones abiertas, su estado y acciones operativas.
+- `team-actions.ts` ahora reserva cupos teniendo en cuenta invitaciones pendientes además de miembros activos.
+- Los mensajes de autenticación y autorregistro ahora apuntan al flujo de invitaciones administradas por el tenant.
+
+### Fixed
+
+- Se evita sobreasignar usuarios por encima del límite del plan cuando ya existen invitaciones pendientes.
+- Se evita aceptar invitaciones expiradas, canceladas o ya utilizadas.
+
+## [2026-03-28] Sprint 4 - Import + Dedupe MVP (cierre)
+
+### Added
+
+- Nueva ruta `app/[tenantSlug]/leads/import` para importar leads por CSV pegado en texto.
+- Nueva ruta `app/[tenantSlug]/leads/dedupe` para revisar y fusionar grupos duplicados.
+- Server actions `importLeadsAction` y `mergeDuplicateLeadsAction`.
+- Utilidades `lib/import-utils.ts` y `lib/dedupe-utils.ts` para parsing, normalización y merge.
+- Nuevos tests para importación, deduplicación, validadores y permisos del módulo comercial.
+- Preflight de importación para analizar filas válidas, duplicados y errores antes de confirmar la carga.
+- Preview del merge en el diálogo de duplicados para visualizar el resultado estimado antes de fusionar.
+- Test de catálogo de features para fijar el alcance del Sprint 4 por plan.
+
+### Changed
+
+- El módulo `leads` ahora expone accesos directos a importación y revisión de duplicados.
+- `lead-permissions.ts` incorpora permisos explícitos para importación y gestión de duplicados.
+- `validators.ts` ahora soporta schemas de importación CSV y merge de duplicados.
+- La sidebar tenant ahora expone `Importación` y `Duplicados` cuando el tenant tiene esas features activas.
+- El dashboard tenant ahora resume grupos duplicados y ofrece accesos directos a las herramientas del Sprint 4.
+- El seed principal ahora deja `acme-logistics` materializado sobre `Growth` para que `IMPORT` y `DEDUPE` queden disponibles en demos y QA.
+- `README.md` marca Sprint 4 como completado y deja Sprint 5 listo como siguiente candidato.
+
+### Fixed
+
+- Se evita importar leads que ya colisionan por RUC, email o teléfono.
+- La fusión de duplicados consolida teléfonos, correos y notas en el lead principal sin perder el registro activo.
+- Se evita confirmar importaciones sobre un CSV modificado sin volver a ejecutar el análisis previo.
+
+## [2026-03-28] Sprint 3 - Lead detail y dashboard operativo
+
+### Added
+
+- Nueva ruta `app/[tenantSlug]/leads/[id]` con vista detallada del lead.
+- Historial de reasignaciones dentro del detalle del lead, incluyendo resolución desde la misma pantalla.
+- Helper compartido `lib/lead-status.ts` para etiquetas, variantes y buckets del pipeline.
+- Caso de prueba para helpers de estado y distribución del pipeline.
+
+### Changed
+
+- El dashboard tenant ahora muestra métricas operativas, distribución por estado y actividad reciente.
+- El listado de leads incorpora navegación directa al detalle de cada prospecto.
+- La presentación de estados de lead y reasignación quedó unificada entre dashboard, listado y detalle.
+
+### Fixed
+
+- Se reduce la duplicación de lógica de labels/variants de estados entre vistas del módulo comercial.
+
 ## [2026-03-27] Sprint 2.3 - Prisma config y base de pruebas
 
 ### Added

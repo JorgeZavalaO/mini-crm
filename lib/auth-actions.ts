@@ -65,5 +65,7 @@ export async function registerAction(
   formData: FormData,
 ) {
   void formData;
-  return { error: 'El autorregistro esta deshabilitado. Contacta al administrador.' };
+  return {
+    error: 'El autorregistro está deshabilitado. Solicita una invitación a un administrador.',
+  };
 }

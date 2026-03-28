@@ -75,7 +75,8 @@ export default function LoginPage() {
           </Button>
 
           <p className="text-sm text-muted-foreground">
-            El alta de cuentas esta gestionada por el equipo SuperAdmin.
+            El alta de cuentas se gestiona mediante invitaciones enviadas por administradores del
+            tenant.
           </p>
         </CardFooter>
       </form>

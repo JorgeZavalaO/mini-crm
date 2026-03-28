@@ -13,7 +13,17 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Building2, FileText, LayoutDashboard, LogOut, Target, User, Users } from 'lucide-react';
+import {
+  Building2,
+  Copy,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  Target,
+  Upload,
+  User,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -45,6 +55,12 @@ export function TenantSidebar({
       : []),
     ...(enabledFeatures.CRM_LEADS
       ? [{ href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target }]
+      : []),
+    ...(enabledFeatures.IMPORT
+      ? [{ href: `/${tenantSlug}/leads/import`, label: 'Importación', icon: Upload }]
+      : []),
+    ...(enabledFeatures.DEDUPE
+      ? [{ href: `/${tenantSlug}/leads/dedupe`, label: 'Duplicados', icon: Copy }]
       : []),
     ...(enabledFeatures.DOCUMENTS
       ? [{ href: `/${tenantSlug}/documents`, label: 'Documentos', icon: FileText }]

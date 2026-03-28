@@ -79,35 +79,35 @@ async function seedPlans() {
 async function main() {
   console.log('Seeding data...');
   const plans = await seedPlans();
-  const starter = plans.get('STARTER');
-  if (!starter) throw new Error('Starter plan not found while seeding');
+  const defaultTenantPlan = plans.get('GROWTH');
+  if (!defaultTenantPlan) throw new Error('Growth plan not found while seeding');
 
   const tenant = await prisma.tenant.upsert({
     where: { slug: 'acme-logistics' },
     update: {
       deletedAt: null,
       isActive: true,
-      planId: starter.id,
-      maxUsers: starter.maxUsers,
-      maxStorageGb: starter.maxStorageGb,
-      retentionDays: starter.retentionDays,
+      planId: defaultTenantPlan.id,
+      maxUsers: defaultTenantPlan.maxUsers,
+      maxStorageGb: defaultTenantPlan.maxStorageGb,
+      retentionDays: defaultTenantPlan.retentionDays,
     },
     create: {
       name: 'Acme Logistics',
       slug: 'acme-logistics',
-      planId: starter.id,
-      maxUsers: starter.maxUsers,
-      maxStorageGb: starter.maxStorageGb,
-      retentionDays: starter.retentionDays,
+      planId: defaultTenantPlan.id,
+      maxUsers: defaultTenantPlan.maxUsers,
+      maxStorageGb: defaultTenantPlan.maxStorageGb,
+      retentionDays: defaultTenantPlan.retentionDays,
     },
   });
 
-  const starterPlanFeatures = await prisma.planFeature.findMany({
-    where: { planId: starter.id },
+  const defaultPlanFeatures = await prisma.planFeature.findMany({
+    where: { planId: defaultTenantPlan.id },
     select: { featureKey: true, enabled: true, config: true },
   });
 
-  for (const feature of starterPlanFeatures) {
+  for (const feature of defaultPlanFeatures) {
     await prisma.tenantFeature.upsert({
       where: {
         tenantId_featureKey: {

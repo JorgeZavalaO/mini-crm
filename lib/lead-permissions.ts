@@ -28,3 +28,11 @@ export function canAssignLeads(ctx: LeadPermissionContext): boolean {
 export function canResolveReassignment(ctx: LeadPermissionContext): boolean {
   return canAssignLeads(ctx);
 }
+
+export function canImportLeads(ctx: LeadPermissionContext): boolean {
+  return canAssignLeads(ctx);
+}
+
+export function canManageDuplicateLeads(ctx: LeadPermissionContext): boolean {
+  return canAssignLeads(ctx);
+}

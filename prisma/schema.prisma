@@ -62,6 +62,7 @@ model Tenant {
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   memberships              Membership[]
+  teamInvitations          TeamInvitation[]
   leads                    Lead[]
   leadReassignmentRequests LeadReassignmentRequest[]
   features                 TenantFeature[]
@@ -119,6 +120,8 @@ model User {
   createdAt                  DateTime                  @default(now())
   updatedAt                  DateTime                  @updatedAt
   memberships                Membership[]
+  sentTeamInvitations        TeamInvitation[]          @relation("TeamInvitationInvitedBy")
+  acceptedTeamInvitations    TeamInvitation[]          @relation("TeamInvitationAcceptedBy")
   ownedLeads                 Lead[]                    @relation("LeadOwner")
   requestedLeadReassignments LeadReassignmentRequest[] @relation("LeadReassignmentRequestedBy")
   resolvedLeadReassignments  LeadReassignmentRequest[] @relation("LeadReassignmentResolvedBy")
@@ -138,6 +141,28 @@ model Membership {
   createdAt DateTime @default(now())
 
   @@unique([userId, tenantId])
+}
+
+model TeamInvitation {
+  id               String   @id @default(cuid())
+  tenantId         String
+  email            String
+  role             Role     @default(VENDEDOR)
+  tokenHash        String   @unique
+  invitedById      String
+  acceptedByUserId String?
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  canceledAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy        User     @relation("TeamInvitationInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedByUser   User?    @relation("TeamInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, email])
+  @@index([email, expiresAt])
 }
 
 // ─── Business ───────────────────────────────────────────

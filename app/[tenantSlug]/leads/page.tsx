@@ -1,11 +1,19 @@
+import Link from 'next/link';
 import type { Prisma } from '@prisma/client';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { getAssignableLeadOwnerOptions, toLeadOwnerOption } from '@/lib/lead-owner';
 import { normalizeLeadName, normalizeRuc } from '@/lib/lead-normalization';
-import { canAssignLeads, canEditLead, canResolveReassignment } from '@/lib/lead-permissions';
+import {
+  canAssignLeads,
+  canEditLead,
+  canImportLeads,
+  canManageDuplicateLeads,
+  canResolveReassignment,
+} from '@/lib/lead-permissions';
 import { leadFiltersSchema } from '@/lib/validators';
+import { Button } from '@/components/ui/button';
 import {
   Pagination,
   PaginationContent,
@@ -70,9 +78,15 @@ export default async function LeadsPage({
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
   };
 
-  const assignmentsEnabled = await isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS');
+  const [assignmentsEnabled, importEnabled, dedupeEnabled] = await Promise.all([
+    isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
+    isTenantFeatureEnabled(tenant.id, 'IMPORT'),
+    isTenantFeatureEnabled(tenant.id, 'DEDUPE'),
+  ]);
   const canAssign = assignmentsEnabled && canAssignLeads(actor);
   const canResolve = assignmentsEnabled && canResolveReassignment(actor);
+  const canImport = importEnabled && canImportLeads(actor);
+  const canManageDuplicates = dedupeEnabled && canManageDuplicateLeads(actor);
 
   const where: Prisma.LeadWhereInput = {
     tenantId: tenant.id,
@@ -212,11 +226,26 @@ export default async function LeadsPage({
 
   return (
     <div className="min-w-0 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Leads</h1>
-        <p className="text-muted-foreground">
-          Gestiona prospectos, ownership y solicitudes de reasignacion.
-        </p>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Leads</h1>
+          <p className="text-muted-foreground">
+            Gestiona prospectos, ownership, importaciones y solicitudes de reasignacion.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {canImport && (
+            <Button variant="outline" asChild>
+              <Link href={`/${tenantSlug}/leads/import`}>Importar leads</Link>
+            </Button>
+          )}
+          {canManageDuplicates && (
+            <Button variant="outline" asChild>
+              <Link href={`/${tenantSlug}/leads/dedupe`}>Revisar duplicados</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       <LeadFilters

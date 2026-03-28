@@ -1,10 +1,17 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import type { LeadStatus, ReassignmentStatus } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { archiveLeadAction, assignLeadAction } from '@/lib/lead-actions';
+import {
+  getLeadStatusVariant,
+  getReassignmentStatusVariant,
+  LEAD_STATUS_LABEL,
+  REASSIGNMENT_STATUS_LABEL,
+} from '@/lib/lead-status';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -102,35 +109,6 @@ interface LeadTableProps {
   canAssign: boolean;
   canResolveReassignments: boolean;
   pendingReassignments: PendingReassignment[];
-}
-
-const STATUS_LABEL: Record<LeadStatus, string> = {
-  NEW: 'Nuevo',
-  CONTACTED: 'Contactado',
-  QUALIFIED: 'Calificado',
-  LOST: 'Perdido',
-  WON: 'Ganado',
-};
-
-const REQUEST_STATUS_LABEL: Record<ReassignmentStatus, string> = {
-  PENDING: 'Pendiente',
-  APPROVED: 'Aprobada',
-  REJECTED: 'Rechazada',
-};
-
-function getStatusVariant(status: LeadStatus): 'default' | 'outline' | 'destructive' | 'secondary' {
-  if (status === 'WON') return 'default';
-  if (status === 'LOST') return 'destructive';
-  if (status === 'QUALIFIED') return 'secondary';
-  return 'outline';
-}
-
-function getRequestVariant(
-  status: ReassignmentStatus,
-): 'default' | 'outline' | 'destructive' | 'secondary' {
-  if (status === 'APPROVED') return 'secondary';
-  if (status === 'REJECTED') return 'destructive';
-  return 'outline';
 }
 
 function formatDate(value: string) {
@@ -352,7 +330,12 @@ export function LeadTable({
                     </TableCell>
                   )}
                   <TableCell className="min-w-60">
-                    <p className="font-medium">{lead.businessName}</p>
+                    <Link
+                      href={`/${tenantSlug}/leads/${lead.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {lead.businessName}
+                    </Link>
                     <div className="space-y-0.5 text-xs text-muted-foreground">
                       {lead.ruc && <p>RUC: {lead.ruc}</p>}
                       {lead.industry && <p>Rubro: {lead.industry}</p>}
@@ -361,8 +344,8 @@ export function LeadTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={getStatusVariant(lead.status)}>
-                      {STATUS_LABEL[lead.status]}
+                    <Badge variant={getLeadStatusVariant(lead.status)}>
+                      {LEAD_STATUS_LABEL[lead.status]}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -385,8 +368,8 @@ export function LeadTable({
                   <TableCell className="max-w-56">
                     {latestRequest ? (
                       <div className="space-y-1 text-xs">
-                        <Badge variant={getRequestVariant(latestRequest.status)}>
-                          {REQUEST_STATUS_LABEL[latestRequest.status]}
+                        <Badge variant={getReassignmentStatusVariant(latestRequest.status)}>
+                          {REASSIGNMENT_STATUS_LABEL[latestRequest.status]}
                         </Badge>
                         <p className="text-muted-foreground">
                           {latestRequest.requestedBy.name || latestRequest.requestedBy.email}
@@ -398,6 +381,10 @@ export function LeadTable({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-wrap items-center justify-end gap-1">
+                      <Button type="button" variant="ghost" size="sm" asChild>
+                        <Link href={`/${tenantSlug}/leads/${lead.id}`}>Detalle</Link>
+                      </Button>
+
                       {canAssign && assignableOwners.length > 0 && (
                         <AssignLeadDialog
                           tenantSlug={tenantSlug}

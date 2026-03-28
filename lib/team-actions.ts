@@ -29,19 +29,28 @@ async function assertTeamAccess(tenantId: string) {
 }
 
 async function ensureUserSlotAvailable(tenantId: string) {
-  const [tenant, activeMembers] = await Promise.all([
+  const now = new Date();
+  const [tenant, activeMembers, pendingInvitations] = await Promise.all([
     db.tenant.findUnique({
       where: { id: tenantId },
       select: { maxUsers: true, deletedAt: true },
     }),
     db.membership.count({ where: { tenantId, isActive: true } }),
+    db.teamInvitation.count({
+      where: {
+        tenantId,
+        acceptedAt: null,
+        canceledAt: null,
+        expiresAt: { gt: now },
+      },
+    }),
   ]);
 
   if (!tenant || tenant.deletedAt) {
     throw new Error('Tenant no disponible');
   }
 
-  if (tenant.maxUsers && activeMembers >= tenant.maxUsers) {
+  if (tenant.maxUsers && activeMembers + pendingInvitations >= tenant.maxUsers) {
     throw new Error('Limite de usuarios alcanzado para este tenant');
   }
 }

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { LeadStatus, ReassignmentStatus } from '@prisma/client';
-import { createLeadSchema, leadFiltersSchema, resolveReassignSchema } from '@/lib/validators';
+import {
+  acceptTeamInvitationSchema,
+  createLeadSchema,
+  createTeamInvitationSchema,
+  importCsvSchema,
+  importLeadRowSchema,
+  leadFiltersSchema,
+  mergeDuplicateLeadsSchema,
+  resolveReassignSchema,
+} from '@/lib/validators';
 
 describe('lead validators', () => {
   it('normaliza filtros y aplica pageSize por defecto', () => {
@@ -49,6 +58,71 @@ describe('lead validators', () => {
         tenantSlug: 'acme-logistics',
         requestId: '',
         status: ReassignmentStatus.REJECTED,
+      }),
+    ).toThrow();
+  });
+
+  it('valida payload mínimo de importación CSV', () => {
+    const result = importCsvSchema.parse({
+      tenantSlug: 'acme-logistics',
+      csvText: 'businessName\nAcme Logistics',
+    });
+
+    expect(result.tenantSlug).toBe('acme-logistics');
+    expect(result.csvText).toContain('businessName');
+  });
+
+  it('valida filas importadas ya transformadas', () => {
+    const result = importLeadRowSchema.parse({
+      businessName: 'Acme Logistics',
+      phones: ['+51 999 111 222'],
+      emails: ['ventas@acme.com'],
+      status: LeadStatus.CONTACTED,
+      ownerEmail: 'admin@acme.com',
+    });
+
+    expect(result.ownerEmail).toBe('admin@acme.com');
+    expect(result.status).toBe(LeadStatus.CONTACTED);
+  });
+
+  it('valida merges de duplicados', () => {
+    const result = mergeDuplicateLeadsSchema.parse({
+      tenantSlug: 'acme-logistics',
+      primaryLeadId: 'lead-1',
+      duplicateLeadIds: ['lead-2', 'lead-3'],
+    });
+
+    expect(result.duplicateLeadIds).toHaveLength(2);
+  });
+
+  it('valida creación de invitaciones de equipo', () => {
+    const result = createTeamInvitationSchema.parse({
+      tenantId: 'tenant-1',
+      tenantSlug: 'acme-logistics',
+      email: 'INVITADO@ACME.COM',
+      role: 'SUPERVISOR',
+    });
+
+    expect(result.email).toBe('invitado@acme.com');
+    expect(result.role).toBe('SUPERVISOR');
+  });
+
+  it('valida aceptación de invitaciones y exige contraseñas coincidentes', () => {
+    const result = acceptTeamInvitationSchema.parse({
+      token: '12345678901234567890token',
+      name: 'María Equipo',
+      password: 'secret123',
+      confirmPassword: 'secret123',
+    });
+
+    expect(result.name).toBe('María Equipo');
+
+    expect(() =>
+      acceptTeamInvitationSchema.parse({
+        token: '12345678901234567890token',
+        name: 'María Equipo',
+        password: 'secret123',
+        confirmPassword: 'otra123',
       }),
     ).toThrow();
   });

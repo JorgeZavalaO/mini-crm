@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import Link from 'next/link';
-import { createMemberAction } from '@/lib/team-actions';
+import { createTeamInvitationAction } from '@/lib/team-invite-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { InviteLinkButton } from '../invite-link-button';
 
 type TenantSummary = {
   id: string;
@@ -30,7 +31,7 @@ type TenantSummary = {
 };
 
 export function NewMemberForm({ tenant }: { tenant: TenantSummary }) {
-  const [state, formAction, pending] = useActionState(createMemberAction, undefined);
+  const [state, formAction, pending] = useActionState(createTeamInvitationAction, undefined);
   const [role, setRole] = useState('VENDEDOR');
 
   return (
@@ -39,7 +40,7 @@ export function NewMemberForm({ tenant }: { tenant: TenantSummary }) {
         <Button variant="link" className="px-0 text-muted-foreground" asChild>
           <Link href={`/${tenant.slug}/team`}>← Volver al equipo</Link>
         </Button>
-        <h1 className="mt-2 text-2xl font-bold">Nuevo miembro</h1>
+        <h1 className="mt-2 text-2xl font-bold">Invitar miembro</h1>
       </div>
 
       <Card>
@@ -49,9 +50,10 @@ export function NewMemberForm({ tenant }: { tenant: TenantSummary }) {
           <input type="hidden" name="role" value={role} />
 
           <CardHeader>
-            <CardTitle>Agregar miembro a {tenant.name}</CardTitle>
+            <CardTitle>Invitar miembro a {tenant.name}</CardTitle>
             <CardDescription>
-              Si el email ya existe en el sistema, se creará una membresía nueva.
+              Genera un enlace seguro de onboarding. Si el usuario ya existe, podrá aceptar con su
+              contraseña actual.
             </CardDescription>
           </CardHeader>
 
@@ -62,26 +64,24 @@ export function NewMemberForm({ tenant }: { tenant: TenantSummary }) {
               </Alert>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre</Label>
-              <Input id="name" name="name" placeholder="Juan Pérez" required />
-            </div>
+            {state?.success && state.invitePath && (
+              <Alert>
+                <AlertDescription className="space-y-3">
+                  <p>
+                    Invitación creada para <strong>{state.inviteEmail}</strong>. Vence el{' '}
+                    <strong>{state.expiresAtLabel}</strong>.
+                  </p>
+                  <InviteLinkButton
+                    invitePath={state.invitePath}
+                    label="Copiar enlace de onboarding"
+                  />
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" placeholder="juan@empresa.com" required />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Mínimo 6 caracteres"
-                required
-                minLength={6}
-              />
             </div>
 
             <div className="space-y-2">
@@ -99,11 +99,16 @@ export function NewMemberForm({ tenant }: { tenant: TenantSummary }) {
                 </SelectContent>
               </Select>
             </div>
+
+            <p className="text-sm text-muted-foreground">
+              Las invitaciones activas reservan cupo dentro del límite del plan hasta que sean
+              aceptadas o expiren.
+            </p>
           </CardContent>
 
           <CardFooter>
             <Button type="submit" disabled={pending} className="w-full">
-              {pending ? 'Creando…' : 'Crear miembro'}
+              {pending ? 'Generando…' : 'Generar invitación'}
             </Button>
           </CardFooter>
         </form>

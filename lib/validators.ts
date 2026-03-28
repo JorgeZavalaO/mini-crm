@@ -1,5 +1,6 @@
 import { LeadStatus, ReassignmentStatus } from '@prisma/client';
 import { z } from 'zod';
+import { ROLES } from '@/lib/rbac';
 
 const optionalText = (max: number) =>
   z
@@ -25,6 +26,30 @@ export const loginSchema = z.object({
   email: z.string().email('Email invalido'),
   password: z.string().min(1, 'La contrasena es requerida'),
 });
+
+export const createTeamInvitationSchema = z.object({
+  tenantId: z.string().min(1),
+  tenantSlug: z.string().min(1),
+  email: z
+    .string()
+    .trim()
+    .email('Email invalido')
+    .max(200)
+    .transform((value) => value.toLowerCase()),
+  role: z.enum(ROLES),
+});
+
+export const acceptTeamInvitationSchema = z
+  .object({
+    token: z.string().trim().min(20, 'Invitación inválida').max(255),
+    name: z.string().trim().min(2, 'Ingresa tu nombre').max(120),
+    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(100),
+    confirmPassword: z.string().min(6, 'Confirma la contraseña').max(100),
+  })
+  .refine((value) => value.password === value.confirmPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword'],
+  });
 
 export const createLeadSchema = z.object({
   tenantSlug: z.string().min(1),
@@ -70,6 +95,37 @@ export const bulkAssignSchema = z.object({
   tenantSlug: z.string().min(1),
   leadIds: z.array(z.string().min(1)).min(1).max(500),
   ownerId: z.string().min(1),
+});
+
+export const importCsvSchema = z.object({
+  tenantSlug: z.string().min(1),
+  csvText: z.string().trim().min(1, 'Pega un CSV con encabezados').max(250_000),
+});
+
+export const importLeadRowSchema = z.object({
+  businessName: z.string().trim().min(1, 'La razon social es requerida').max(200),
+  ruc: optionalText(40),
+  country: optionalText(80),
+  city: optionalText(120),
+  industry: optionalText(120),
+  source: optionalText(120),
+  notes: optionalText(5000),
+  phones: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+  emails: z.array(z.string().trim().email().max(200)).max(20).default([]),
+  status: z.nativeEnum(LeadStatus).default(LeadStatus.NEW),
+  ownerEmail: z
+    .string()
+    .trim()
+    .email('Owner email invalido')
+    .max(200)
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value.toLowerCase() : undefined)),
+});
+
+export const mergeDuplicateLeadsSchema = z.object({
+  tenantSlug: z.string().min(1),
+  primaryLeadId: z.string().min(1),
+  duplicateLeadIds: z.array(z.string().min(1)).min(1).max(20),
 });
 
 export const requestReassignSchema = z.object({
