@@ -4,11 +4,7 @@ import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import type { LeadStatus, ReassignmentStatus } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import {
-  archiveLeadAction,
-  assignLeadAction,
-  resolveLeadReassignmentAction,
-} from '@/lib/lead-actions';
+import { archiveLeadAction, assignLeadAction } from '@/lib/lead-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +45,7 @@ import {
 import { BulkAssignDialog } from './bulk-assign-dialog';
 import { LeadFormDialog } from './lead-form-dialog';
 import { ReassignRequestDialog } from './reassign-request-dialog';
+import { ResolveReassignmentDialog } from './resolve-reassignment-dialog';
 
 type LeadOwnerOption = {
   id: string;
@@ -91,6 +88,7 @@ type PendingReassignment = {
   leadBusinessName: string;
   reason: string;
   createdAt: string;
+  requestedOwnerId: string | null;
   requestedBy: { name: string | null; email: string };
   requestedOwner: { name: string | null; email: string } | null;
 };
@@ -98,7 +96,7 @@ type PendingReassignment = {
 interface LeadTableProps {
   tenantSlug: string;
   leads: LeadRow[];
-  owners: LeadOwnerOption[];
+  assignableOwners: LeadOwnerOption[];
   totalCount: number;
   assignmentsEnabled: boolean;
   canAssign: boolean;
@@ -253,61 +251,10 @@ function ArchiveLeadButton({ tenantSlug, leadId }: { tenantSlug: string; leadId:
   );
 }
 
-function ResolveReassignmentButtons({
-  tenantSlug,
-  requestId,
-}: {
-  tenantSlug: string;
-  requestId: string;
-}) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-
-  function resolve(status: 'APPROVED' | 'REJECTED') {
-    startTransition(async () => {
-      try {
-        await resolveLeadReassignmentAction({
-          tenantSlug,
-          requestId,
-          status,
-        });
-        toast.success(`Solicitud ${status === 'APPROVED' ? 'aprobada' : 'rechazada'}`);
-        router.refresh();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo resolver la solicitud';
-        toast.error(message);
-      }
-    });
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        type="button"
-        size="sm"
-        variant="secondary"
-        disabled={isPending}
-        onClick={() => resolve('APPROVED')}
-      >
-        Aprobar
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="destructive"
-        disabled={isPending}
-        onClick={() => resolve('REJECTED')}
-      >
-        Rechazar
-      </Button>
-    </div>
-  );
-}
-
 export function LeadTable({
   tenantSlug,
   leads,
-  owners,
+  assignableOwners,
   totalCount,
   assignmentsEnabled,
   canAssign,
@@ -353,13 +300,13 @@ export function LeadTable({
           {canAssign && (
             <BulkAssignDialog
               tenantSlug={tenantSlug}
-              owners={owners}
+              owners={assignableOwners}
               leadIds={activeSelectedLeadIds}
             />
           )}
           <LeadFormDialog
             tenantSlug={tenantSlug}
-            owners={owners}
+            owners={assignableOwners}
             canAssign={canAssign}
             trigger={<Button type="button">+ Nuevo lead</Button>}
           />
@@ -371,7 +318,7 @@ export function LeadTable({
           <TableHeader>
             <TableRow>
               {canAssign && (
-                <TableHead className="w-[36px]">
+                <TableHead className="w-9">
                   <input
                     type="checkbox"
                     aria-label="Seleccionar todos los leads"
@@ -404,7 +351,7 @@ export function LeadTable({
                       />
                     </TableCell>
                   )}
-                  <TableCell className="min-w-[250px]">
+                  <TableCell className="min-w-60">
                     <p className="font-medium">{lead.businessName}</p>
                     <div className="space-y-0.5 text-xs text-muted-foreground">
                       {lead.ruc && <p>RUC: {lead.ruc}</p>}
@@ -435,7 +382,7 @@ export function LeadTable({
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDate(lead.updatedAt)}
                   </TableCell>
-                  <TableCell className="max-w-[220px]">
+                  <TableCell className="max-w-56">
                     {latestRequest ? (
                       <div className="space-y-1 text-xs">
                         <Badge variant={getRequestVariant(latestRequest.status)}>
@@ -451,11 +398,11 @@ export function LeadTable({
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-wrap items-center justify-end gap-1">
-                      {canAssign && owners.length > 0 && (
+                      {canAssign && assignableOwners.length > 0 && (
                         <AssignLeadDialog
                           tenantSlug={tenantSlug}
                           leadId={lead.id}
-                          owners={owners}
+                          owners={assignableOwners}
                           trigger={
                             <Button type="button" variant="ghost" size="sm">
                               Asignar
@@ -468,7 +415,7 @@ export function LeadTable({
                         <>
                           <LeadFormDialog
                             tenantSlug={tenantSlug}
-                            owners={owners}
+                            owners={assignableOwners}
                             canAssign={canAssign}
                             lead={lead}
                             trigger={
@@ -486,7 +433,7 @@ export function LeadTable({
                             <ReassignRequestDialog
                               tenantSlug={tenantSlug}
                               leadId={lead.id}
-                              owners={owners}
+                              owners={assignableOwners}
                               trigger={
                                 <Button type="button" variant="ghost" size="sm">
                                   Solicitar reasignacion
@@ -542,7 +489,31 @@ export function LeadTable({
                   )}
                   <p className="text-xs">{request.reason}</p>
                 </div>
-                <ResolveReassignmentButtons tenantSlug={tenantSlug} requestId={request.id} />
+                <div className="flex flex-wrap gap-2">
+                  <ResolveReassignmentDialog
+                    tenantSlug={tenantSlug}
+                    requestId={request.id}
+                    status="APPROVED"
+                    owners={assignableOwners}
+                    defaultOwnerId={request.requestedOwnerId}
+                    trigger={
+                      <Button type="button" size="sm" variant="secondary">
+                        Aprobar
+                      </Button>
+                    }
+                  />
+                  <ResolveReassignmentDialog
+                    tenantSlug={tenantSlug}
+                    requestId={request.id}
+                    status="REJECTED"
+                    owners={assignableOwners}
+                    trigger={
+                      <Button type="button" size="sm" variant="destructive">
+                        Rechazar
+                      </Button>
+                    }
+                  />
+                </div>
               </div>
             ))}
           </div>

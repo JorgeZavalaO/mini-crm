@@ -1,36 +1,184 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Mini CRM Logistic
 
-## Getting Started
+CRM multi-tenant orientado a equipos comerciales del sector logística. El proyecto está construido con `Next.js 16`, `React 19`, `Prisma`, `NextAuth` y `shadcn/ui`, con foco en gestión de leads, control de acceso por rol y monetización por planes/features.
 
-First, run the development server:
+## Estado actual
+
+### Ya implementado
+
+- Autenticación por credenciales y acceso `SuperAdmin`.
+- Multi-tenancy por `tenantSlug`.
+- RBAC por tenant (`ADMIN`, `SUPERVISOR`, `VENDEDOR`, `FREELANCE`, `PASANTE`).
+- CRUD de leads con filtros, asignación y reasignación.
+- Dashboard tenant básico.
+- Panel `SuperAdmin` para tenants, planes y features.
+- Gestión de equipo con alta, activación/desactivación y remoción segura.
+- Configuración de Prisma migrada a `prisma.config.ts` y runtime conectado con `@prisma/adapter-pg`.
+- Suite inicial de pruebas unitarias con `Vitest`.
+
+### En progreso
+
+- Sprint 2.2: robustecimiento del flujo de reasignaciones y validación de owners elegibles.
+- Sprint 2.3: estabilización de tooling Prisma 7 y cobertura de pruebas del core.
+
+### Pendiente
+
+- Lead detail page.
+- Documents MVP.
+- Import + deduplicación.
+- Tasks, interactions, notifications y client portal.
+- Hardening productivo: auditoría, observabilidad y más tests.
+
+## Roadmap resumido
+
+| Sprint | Objetivo                                         | Estado         |
+| ------ | ------------------------------------------------ | -------------- |
+| 2.1    | Estabilización de `team`                         | ✅ Completado  |
+| 2.2    | Reasignaciones + validaciones del core comercial | 🟡 En progreso |
+| 2.3    | Configuración Prisma + pruebas base              | 🟡 En progreso |
+| 3      | Lead detail + dashboard útil para operación      | ⏳ Pendiente   |
+| 4      | Documents MVP o Import/Dedupe MVP                | ⏳ Pendiente   |
+| 5      | Invitaciones / onboarding de usuarios            | ⏳ Pendiente   |
+| 6      | Hardening para producción                        | ⏳ Pendiente   |
+
+## Stack
+
+- `Next.js 16.1.4`
+- `React 19.2`
+- `NextAuth 5 beta`
+- `Prisma 7.6`
+- `@prisma/adapter-pg`
+- `PostgreSQL`
+- `Tailwind CSS 4`
+- `shadcn/ui`
+- `Zod`
+- `Vitest`
+
+## Requisitos
+
+- `Node.js 20+`
+- `pnpm`
+- Base de datos PostgreSQL accesible desde `DATABASE_URL`
+
+## Variables de entorno
+
+El proyecto usa `.env` y trae una plantilla en `.env.example`.
+
+Variables mínimas:
+
+- `DATABASE_URL`
+
+## Puesta en marcha
+
+### 1. Instalar dependencias
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configurar entorno
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+copy .env.example .env
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Completa `DATABASE_URL` con tu conexión local o remota.
 
-## Learn More
+### 3. Generar cliente Prisma y aplicar migraciones
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm prisma:generate
+pnpm prisma:migrate
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Cargar datos semilla
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+pnpm prisma:seed
+```
 
-## Deploy on Vercel
+Usuarios de prueba creados por el seed:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `superadmin@example.com / changeme`
+- `admin@acme.com / admin123`
+- `vendedor@acme.com / vendedor123`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 5. Levantar la app
+
+```bash
+pnpm dev
+```
+
+## Scripts principales
+
+| Script                 | Descripción                        |
+| ---------------------- | ---------------------------------- |
+| `pnpm dev`             | Levanta el entorno de desarrollo   |
+| `pnpm build`           | Compila la aplicación              |
+| `pnpm lint`            | Ejecuta ESLint                     |
+| `pnpm test`            | Corre pruebas unitarias con Vitest |
+| `pnpm test:watch`      | Modo watch de Vitest               |
+| `pnpm prisma:generate` | Genera Prisma Client               |
+| `pnpm prisma:migrate`  | Ejecuta migraciones de desarrollo  |
+| `pnpm prisma:validate` | Valida schema/config de Prisma     |
+| `pnpm prisma:seed`     | Carga datos semilla                |
+| `pnpm prisma:studio`   | Abre Prisma Studio                 |
+
+## Estructura funcional actual
+
+### Tenant app
+
+- `app/[tenantSlug]/dashboard`
+- `app/[tenantSlug]/leads`
+- `app/[tenantSlug]/team`
+- `app/[tenantSlug]/profile`
+- `app/[tenantSlug]/documents` _(placeholder)_
+
+### SuperAdmin
+
+- `app/(superadmin)/superadmin`
+- `app/(superadmin)/superadmin/plans`
+- `app/(superadmin)/superadmin/tenants`
+
+## Últimos avances documentados
+
+### Sprint 2.1
+
+- Permisos coherentes en módulo `team`.
+- Protección de ruta `team/new`.
+- Remoción real de miembros.
+- Salvaguardas para no autoeliminar admins ni dejar tenants sin administradores.
+
+### Sprint 2.2
+
+- Reglas de owners elegibles para leads (`VENDEDOR+`).
+- Prevención de solicitudes pendientes duplicadas.
+- Validación de owner sugerido en reasignaciones.
+- Resolución de reasignaciones con owner final y nota opcional.
+
+### Sprint 2.3
+
+- Migración completa a `prisma.config.ts`.
+- Upgrade a Prisma `7.6.0`.
+- Integración de `@prisma/adapter-pg` para runtime y seed.
+- Eliminación de configuración Prisma deprecada en `package.json`.
+- Arranque de suite de pruebas unitarias con `Vitest`.
+
+## Calidad y validación
+
+Antes de cerrar un hito o sprint:
+
+1. Ejecutar `pnpm lint`
+2. Ejecutar `pnpm test`
+3. Ejecutar `pnpm build`
+4. Actualizar `README.md`
+5. Actualizar `CHANGELOG.md`
+
+## Documentación viva
+
+Este repositorio sigue una regla simple:
+
+- cada hito cerrado actualiza `README.md`
+- cada avance funcional se registra en `CHANGELOG.md`
+
+Sí, la idea es que la documentación deje de ir un sprint por detrás del código. Milagros modernos.

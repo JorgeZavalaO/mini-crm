@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getTenantActionContextBySlug, assertTenantFeatureById } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { canOwnLeads } from '@/lib/lead-owner';
 import {
   normalizeEmails,
   normalizeLeadName,
@@ -61,10 +62,17 @@ async function assertFeatureEnabled(tenantId: string, featureKey: 'CRM_LEADS' | 
 async function assertOwnerBelongsToTenant(tenantId: string, ownerId: string) {
   const membership = await db.membership.findUnique({
     where: { userId_tenantId: { userId: ownerId, tenantId } },
-    select: { userId: true, isActive: true },
+    select: { userId: true, isActive: true, role: true },
   });
   if (!membership || !membership.isActive) {
     throw new AppError('El owner seleccionado no pertenece al tenant o esta inactivo', 400);
+  }
+
+  if (!canOwnLeads(membership.role)) {
+    throw new AppError(
+      'El owner seleccionado debe ser un miembro activo con rol vendedor o superior',
+      400,
+    );
   }
 }
 
@@ -327,7 +335,24 @@ export async function requestLeadReassignmentAction(input: unknown) {
     throw new AppError('Ya tienes permisos para editar este lead', 400);
   }
 
+  const existingPendingRequest = await db.leadReassignmentRequest.findFirst({
+    where: {
+      tenantId: ctx.tenantId,
+      leadId: lead.id,
+      status: ReassignmentStatus.PENDING,
+    },
+    select: { id: true },
+  });
+
+  if (existingPendingRequest) {
+    throw new AppError('Ya existe una solicitud pendiente para este lead', 409);
+  }
+
   if (parsed.data.requestedOwnerId) {
+    if (parsed.data.requestedOwnerId === lead.ownerId) {
+      throw new AppError('El owner sugerido ya es el owner actual del lead', 400);
+    }
+
     await assertOwnerBelongsToTenant(ctx.tenantId, parsed.data.requestedOwnerId);
   }
 
@@ -371,6 +396,10 @@ export async function resolveLeadReassignmentAction(input: unknown) {
   }
 
   const ownerIdToApply = parsed.data.ownerId ?? request.requestedOwnerId ?? undefined;
+
+  if (parsed.data.status === ReassignmentStatus.APPROVED && !ownerIdToApply) {
+    throw new AppError('Debes seleccionar un owner para aprobar la reasignacion', 400);
+  }
 
   if (ownerIdToApply) {
     await assertOwnerBelongsToTenant(ctx.tenantId, ownerIdToApply);

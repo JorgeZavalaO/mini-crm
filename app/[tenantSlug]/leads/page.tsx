@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
+import { getAssignableLeadOwnerOptions, toLeadOwnerOption } from '@/lib/lead-owner';
 import { normalizeLeadName, normalizeRuc } from '@/lib/lead-normalization';
 import { canAssignLeads, canEditLead, canResolveReassignment } from '@/lib/lead-permissions';
 import { leadFiltersSchema } from '@/lib/validators';
@@ -141,6 +142,7 @@ export default async function LeadsPage({
         where: { tenantId: tenant.id, isActive: true },
         orderBy: { createdAt: 'asc' },
         select: {
+          isActive: true,
           role: true,
           user: { select: { id: true, name: true, email: true } },
         },
@@ -167,6 +169,7 @@ export default async function LeadsPage({
               leadId: true,
               reason: true,
               createdAt: true,
+              requestedOwnerId: true,
               lead: { select: { businessName: true } },
               requestedBy: { select: { name: true, email: true } },
               requestedOwner: { select: { name: true, email: true } },
@@ -176,12 +179,8 @@ export default async function LeadsPage({
     ],
   );
 
-  const owners = activeOwners.map((membershipRow) => ({
-    id: membershipRow.user.id,
-    name: membershipRow.user.name ?? '',
-    email: membershipRow.user.email,
-    role: membershipRow.role,
-  }));
+  const owners = activeOwners.map(toLeadOwnerOption);
+  const assignableOwners = getAssignableLeadOwnerOptions(activeOwners);
 
   const leads = rawLeads.map((lead) => ({
     ...lead,
@@ -201,6 +200,7 @@ export default async function LeadsPage({
     leadBusinessName: request.lead.businessName,
     reason: request.reason,
     createdAt: request.createdAt.toISOString(),
+    requestedOwnerId: request.requestedOwnerId,
     requestedBy: request.requestedBy,
     requestedOwner: request.requestedOwner,
   }));
@@ -242,10 +242,10 @@ export default async function LeadsPage({
       <LeadTable
         tenantSlug={tenantSlug}
         leads={leads}
-        owners={owners}
+        assignableOwners={assignableOwners}
         totalCount={totalCount}
         assignmentsEnabled={assignmentsEnabled}
-        canAssign={canAssign}
+        canAssign={canAssign && assignableOwners.length > 0}
         canResolveReassignments={canResolve}
         pendingReassignments={pendingReassignments}
       />
