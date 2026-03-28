@@ -69,4 +69,33 @@ describe('loginAction', () => {
       error: 'Demasiados intentos de acceso. Espera unos minutos antes de volver a intentar.',
     });
   });
+
+  it('permite omitir slug para intentar acceso de superadmin', async () => {
+    const formData = new FormData();
+    formData.set('email', 'superadmin@example.com');
+    formData.set('password', 'changeme');
+
+    await loginAction(undefined, formData);
+
+    expect(getStatusMock).toHaveBeenCalledWith({
+      slug: 'superadmin',
+      email: 'superadmin@example.com',
+      ip: '203.0.113.10',
+    });
+    expect(signInMock).toHaveBeenCalledWith('credentials', {
+      slug: 'superadmin',
+      email: 'superadmin@example.com',
+      password: 'changeme',
+      redirectTo: '/superadmin',
+    });
+  });
+
+  it('sigue exigiendo email y contrasena', async () => {
+    const formData = new FormData();
+
+    const result = await loginAction(undefined, formData);
+
+    expect(result).toEqual({ error: 'Email y contrasena son requeridos' });
+    expect(signInMock).not.toHaveBeenCalled();
+  });
 });

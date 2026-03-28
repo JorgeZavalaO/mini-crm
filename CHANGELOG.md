@@ -2,6 +2,18 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-28] Fix seed demo auth recovery
+
+### Changed
+
+- `prisma/seed.ts` ahora vuelve a sincronizar los usuarios demo (`superadmin`, `admin`, `vendedor`) con sus credenciales esperadas en cada re-seed para evitar entornos locales con passwords stale o flags desalineados.
+- El seed también reactiva y normaliza las memberships base del tenant `acme-logistics` durante la recarga de datos de prueba.
+- El login ahora permite omitir el `slug` cuando se ingresa con una cuenta `SuperAdmin`; las cuentas tenant siguen usando `slug` para resolver su contexto.
+
+### Fixed
+
+- Se corrige el caso en el que `superadmin@example.com` u otros usuarios demo quedaban imposibilitados de iniciar sesión porque ya existían en la base con password antigua, `isSuperAdmin` incorrecto o memberships inactivas.
+
 ## [2026-03-28] Post Sprint 6 - Hardening de acceso y saneamiento de features
 
 ### Added

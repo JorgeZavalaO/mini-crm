@@ -17,13 +17,15 @@ export async function loginAction(_prevState: { error?: string } | undefined, fo
   const email = (formData.get('email') as string | null)?.trim().toLowerCase();
   const password = (formData.get('password') as string | null) ?? '';
 
-  if (!slug || !email || !password) {
-    return { error: 'Todos los campos son requeridos' };
+  if (!email || !password) {
+    return { error: 'Email y contrasena son requeridos' };
   }
+
+  const normalizedSlug = slug || SUPERADMIN_SLUG;
 
   const requestHeaders = await headers();
   const rateLimitStatus = authRateLimiter.getStatus({
-    slug,
+    slug: normalizedSlug,
     email,
     ip: getClientIpFromHeaders(requestHeaders),
   });
@@ -32,11 +34,11 @@ export async function loginAction(_prevState: { error?: string } | undefined, fo
     return { error: RATE_LIMIT_LOGIN_ERROR };
   }
 
-  const redirectTo = slug === SUPERADMIN_SLUG ? '/superadmin' : `/${slug}/dashboard`;
+  const redirectTo = !slug || slug === SUPERADMIN_SLUG ? '/superadmin' : `/${slug}/dashboard`;
 
   try {
     await signIn('credentials', {
-      slug,
+      slug: normalizedSlug,
       email,
       password,
       redirectTo,

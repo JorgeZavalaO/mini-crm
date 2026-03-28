@@ -58,10 +58,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = (credentials?.email as string | undefined)?.trim().toLowerCase();
         const password = credentials?.password as string | undefined;
 
-        if (!slug || !email || !password) return null;
+        if (!email || !password) return null;
+
+        const normalizedSlug = slug || SUPERADMIN_SLUG;
 
         const attemptContext: AuthAttemptContext = {
-          slug,
+          slug: normalizedSlug,
           email,
           ip: getClientIpFromHeaders(request.headers),
         };
@@ -84,7 +86,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!valid) return rejectAuthorizationAttempt(attemptContext, 'invalid_password');
 
           // ── Acceso al panel superadmin ───────────────────────────
-          if (slug === SUPERADMIN_SLUG) {
+          if (normalizedSlug === SUPERADMIN_SLUG) {
             if (!user.isSuperAdmin) {
               return rejectAuthorizationAttempt(attemptContext, 'superadmin_forbidden');
             }
@@ -103,7 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // ── Acceso a cuenta empresa ──────────────────────────────
           const tenant = await db.tenant.findUnique({
-            where: { slug },
+            where: { slug: normalizedSlug },
             select: { id: true, slug: true, isActive: true, deletedAt: true },
           });
 

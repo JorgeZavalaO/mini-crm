@@ -1,23 +1,15 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Prisma, PrismaClient } from '@prisma/client';
 import 'dotenv/config';
-import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
-import { promisify } from 'node:util';
 import { getEnv } from '../lib/env';
 import { FEATURE_KEYS, PLAN_FEATURE_BUNDLES, PLAN_SEEDS } from '../lib/feature-catalog';
 import { logger } from '../lib/logger';
+import { hashPassword } from '../lib/password';
 
-const scrypt = promisify(scryptCallback);
 const connectionString = getEnv().DATABASE_URL;
 
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
-
-async function hash(password: string): Promise<string> {
-  const salt = randomBytes(16).toString('hex');
-  const dk = (await scrypt(password, salt, 64)) as Buffer;
-  return `scrypt$${salt}$${dk.toString('hex')}`;
-}
 
 async function seedPlans() {
   const plans = new Map<
@@ -126,52 +118,70 @@ async function main() {
     });
   }
 
+  const superAdminPasswordHash = await hashPassword('changeme');
+  const adminPasswordHash = await hashPassword('admin123');
+  const sellerPasswordHash = await hashPassword('vendedor123');
+
   const superAdmin = await prisma.user.upsert({
     where: { email: 'superadmin@example.com' },
-    update: {},
+    update: {
+      name: 'Super Admin',
+      password: superAdminPasswordHash,
+      isSuperAdmin: true,
+    },
     create: {
       name: 'Super Admin',
       email: 'superadmin@example.com',
-      password: await hash('changeme'),
+      password: superAdminPasswordHash,
       isSuperAdmin: true,
     },
   });
 
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@acme.com' },
-    update: {},
+    update: {
+      name: 'Admin Acme',
+      password: adminPasswordHash,
+      isSuperAdmin: false,
+    },
     create: {
       name: 'Admin Acme',
       email: 'admin@acme.com',
-      password: await hash('admin123'),
+      password: adminPasswordHash,
+      isSuperAdmin: false,
     },
   });
 
   const seller = await prisma.user.upsert({
     where: { email: 'vendedor@acme.com' },
-    update: {},
+    update: {
+      name: 'Carlos Vendedor',
+      password: sellerPasswordHash,
+      isSuperAdmin: false,
+    },
     create: {
       name: 'Carlos Vendedor',
       email: 'vendedor@acme.com',
-      password: await hash('vendedor123'),
+      password: sellerPasswordHash,
+      isSuperAdmin: false,
     },
   });
 
   await prisma.membership.upsert({
     where: { userId_tenantId: { userId: superAdmin.id, tenantId: tenant.id } },
-    update: {},
+    update: { role: 'ADMIN', isActive: true },
     create: { userId: superAdmin.id, tenantId: tenant.id, role: 'ADMIN' },
   });
 
   await prisma.membership.upsert({
     where: { userId_tenantId: { userId: adminUser.id, tenantId: tenant.id } },
-    update: {},
+    update: { role: 'ADMIN', isActive: true },
     create: { userId: adminUser.id, tenantId: tenant.id, role: 'ADMIN' },
   });
 
   await prisma.membership.upsert({
     where: { userId_tenantId: { userId: seller.id, tenantId: tenant.id } },
-    update: {},
+    update: { role: 'VENDEDOR', isActive: true },
     create: { userId: seller.id, tenantId: tenant.id, role: 'VENDEDOR' },
   });
 
@@ -229,6 +239,7 @@ async function main() {
   }
 
   logger.info('Seed complete');
+  logger.info('Demo credentials and baseline memberships refreshed for local QA');
   logger.info('Test users:', [
     'superadmin@example.com / changeme (SuperAdmin)',
     'admin@acme.com / admin123 (Tenant Admin)',

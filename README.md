@@ -110,11 +110,15 @@ pnpm prisma:migrate
 pnpm prisma:seed
 ```
 
+Volver a ejecutar el seed también repara las credenciales demo y las memberships base de `acme-logistics`, útil cuando el entorno local quedó desalineado tras cambios previos o pruebas manuales.
+
 Usuarios de prueba creados por el seed:
 
 - `superadmin@example.com / changeme`
 - `admin@acme.com / admin123`
 - `vendedor@acme.com / vendedor123`
+
+Para ingresar como `SuperAdmin`, el login ya no requiere `slug`; basta con el email y la contrasena. Para cuentas tenant, el `slug` del tenant sigue siendo obligatorio.
 
 ### 5. Levantar la app
 

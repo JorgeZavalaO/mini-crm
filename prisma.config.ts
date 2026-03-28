@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { defineConfig } from 'prisma/config';
+import { getValidatedEnv } from './lib/env';
 
-const databaseUrl = process.env.DATABASE_URL?.trim();
+const appEnv = getValidatedEnv(process.env);
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -9,5 +10,7 @@ export default defineConfig({
     path: 'prisma/migrations',
     seed: 'tsx prisma/seed.ts',
   },
-  ...(databaseUrl ? { datasource: { url: databaseUrl } } : {}),
+  datasource: {
+    url: appEnv.DATABASE_URL,
+  },
 });

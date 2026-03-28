@@ -22,7 +22,9 @@ export default function LoginPage() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Iniciar sesion</CardTitle>
-        <CardDescription>Ingresa tu empresa, email y contrasena</CardDescription>
+        <CardDescription>
+          Ingresa tu email y contrasena. El slug solo es necesario para cuentas tenant.
+        </CardDescription>
       </CardHeader>
 
       <form action={formAction}>
@@ -40,9 +42,12 @@ export default function LoginPage() {
               name="slug"
               type="text"
               placeholder="mi-empresa"
-              required
               autoComplete="organization"
             />
+            <p className="text-xs text-muted-foreground">
+              Opcional para `SuperAdmin`. Si lo dejas vacio, el acceso intentara ir al panel
+              principal.
+            </p>
           </div>
 
           <div className="space-y-2">
