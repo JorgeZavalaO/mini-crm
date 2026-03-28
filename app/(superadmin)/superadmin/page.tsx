@@ -15,6 +15,20 @@ import { ToggleTenantButton } from './toggle-tenant-button';
 import { CreateTenantDialog } from '@/components/superadmin/create-tenant-dialog';
 import { TenantLifecycleButton } from '@/components/superadmin/tenant-lifecycle-button';
 
+type SuperadminTenantRow = {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  deletedAt: Date | null;
+  maxUsers: number | null;
+  maxStorageGb: number | null;
+  retentionDays: number | null;
+  plan: { name: string } | null;
+  memberships: Array<{ id: string }>;
+  _count: { leads: number };
+};
+
 const superadminTenantInclude = {
   plan: { select: { name: true } },
   memberships: { where: { isActive: true }, select: { id: true } },
@@ -42,6 +56,8 @@ export default async function SuperadminPage() {
       include: superadminTenantInclude,
     }),
   ]);
+
+  const tenantRows = tenants as SuperadminTenantRow[];
 
   return (
     <div className="min-w-0 space-y-8">
@@ -109,7 +125,7 @@ export default async function SuperadminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenants.map((t) => {
+              {tenantRows.map((t: SuperadminTenantRow) => {
                 const stateLabel = t.deletedAt ? 'Baja' : t.isActive ? 'Activo' : 'Inactivo';
                 const stateVariant = t.deletedAt
                   ? 'destructive'
@@ -153,7 +169,7 @@ export default async function SuperadminPage() {
                   </TableRow>
                 );
               })}
-              {tenants.length === 0 && (
+              {tenantRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     No hay empresas registradas aun.
