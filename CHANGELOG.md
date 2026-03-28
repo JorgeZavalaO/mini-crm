@@ -2,6 +2,25 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-28] Post Sprint 6 - Hardening de acceso y saneamiento de features
+
+### Added
+
+- Nuevo módulo `lib/auth-rate-limit.ts` para aplicar throttling temporal a intentos fallidos de autenticación.
+- Nuevas pruebas para rate limiting de auth y para el comportamiento neutral del `loginAction`.
+
+### Changed
+
+- `auth.ts` ahora aplica rate limiting al proveedor de credenciales y registra intentos fallidos con contexto saneado.
+- `lib/auth-actions.ts` ahora devuelve mensajes neutrales de login y frena intentos ya bloqueados antes de relanzar auth.
+- `lib/feature-catalog.ts`, `feature-service.ts` y la UI `SuperAdmin` ahora distinguen entre features soportadas y features futuras.
+- `.env.example` y `README.md` ahora documentan la configuración de rate limiting para auth.
+
+### Fixed
+
+- Se elimina la fuga de información por mensajes diferenciados en login (`tenant`, membresía o acceso a superadmin).
+- Se evita que features no implementadas sigan ofreciéndose o activándose desde planes y settings de tenants.
+
 ## [2026-03-28] Sprint 6 - Hardening para producción
 
 ### Added

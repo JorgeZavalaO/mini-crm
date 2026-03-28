@@ -18,6 +18,9 @@ describe('env validation', () => {
 
     expect(result.AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
     expect(result.LOG_LEVEL).toBe('debug');
+    expect(result.AUTH_RATE_LIMIT_WINDOW_MS).toBe(600000);
+    expect(result.AUTH_RATE_LIMIT_MAX_ATTEMPTS).toBe(5);
+    expect(result.AUTH_RATE_LIMIT_BLOCK_MS).toBe(900000);
   });
 
   it('exige AUTH_SECRET robusto en producción', () => {
@@ -28,5 +31,15 @@ describe('env validation', () => {
         AUTH_SECRET: 'short-secret',
       } as NodeJS.ProcessEnv),
     ).toThrow('AUTH_SECRET debe existir y tener al menos 32 caracteres en producción');
+  });
+
+  it('valida que la configuracion de rate limit sea numerica y positiva', () => {
+    expect(() =>
+      getValidatedEnv({
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgresql://demo',
+        AUTH_RATE_LIMIT_MAX_ATTEMPTS: '0',
+      } as NodeJS.ProcessEnv),
+    ).toThrow('AUTH_RATE_LIMIT_MAX_ATTEMPTS debe ser un entero mayor o igual a 1');
   });
 });

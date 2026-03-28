@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { FeatureKey } from '@prisma/client';
 import { toast } from 'sonner';
-import { FEATURE_DESCRIPTION, FEATURE_KEYS, FEATURE_LABEL } from '@/lib/feature-catalog';
+import { FEATURE_DESCRIPTION, FEATURE_LABEL, SUPPORTED_FEATURE_KEYS } from '@/lib/feature-catalog';
 import {
   setTenantFeatureAction,
   updateTenantBasicsAction,
@@ -73,7 +73,7 @@ export function TenantSettingsTabs({ tenant, plans, features }: TenantSettingsTa
 
   const initialFeatureMap = useMemo(() => {
     const map = new Map(features.map((f) => [f.featureKey, f]));
-    return FEATURE_KEYS.map((featureKey) => ({
+    return SUPPORTED_FEATURE_KEYS.map((featureKey) => ({
       featureKey,
       enabled: map.get(featureKey)?.enabled ?? false,
       configText:
@@ -212,6 +212,9 @@ export function TenantSettingsTabs({ tenant, plans, features }: TenantSettingsTa
       </TabsContent>
 
       <TabsContent value="modulos" className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Solo se pueden activar modulos que ya cuentan con soporte operativo dentro del producto.
+        </p>
         {featureRows.map((row, idx) => (
           <div key={row.featureKey} className="rounded-lg border p-4">
             <div className="flex items-start justify-between gap-4">
@@ -239,7 +242,7 @@ export function TenantSettingsTabs({ tenant, plans, features }: TenantSettingsTa
                     ),
                   )
                 }
-                className="min-h-[120px] font-mono text-xs"
+                className="min-h-30 font-mono text-xs"
               />
               <Button
                 type="button"

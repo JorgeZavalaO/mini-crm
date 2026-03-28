@@ -6,6 +6,9 @@ export type AppEnv = {
   DATABASE_URL: string;
   AUTH_SECRET: string;
   LOG_LEVEL: LogLevel;
+  AUTH_RATE_LIMIT_WINDOW_MS: number;
+  AUTH_RATE_LIMIT_MAX_ATTEMPTS: number;
+  AUTH_RATE_LIMIT_BLOCK_MS: number;
 };
 
 const FALLBACK_DEV_AUTH_SECRET = 'dev-only-auth-secret-change-me-please-32';
@@ -27,6 +30,24 @@ function parseLogLevel(value: string | undefined, nodeEnv: RuntimeMode): LogLeve
   return nodeEnv === 'development' ? 'debug' : 'info';
 }
 
+function parsePositiveInteger(
+  value: string | undefined,
+  fallback: number,
+  envName: string,
+  min = 1,
+) {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < min) {
+    throw new Error(`${envName} debe ser un entero mayor o igual a ${min}`);
+  }
+
+  return parsed;
+}
+
 export function getValidatedEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
   const nodeEnv = parseRuntimeMode(source.NODE_ENV);
   const databaseUrl = source.DATABASE_URL?.trim();
@@ -46,6 +67,24 @@ export function getValidatedEnv(source: NodeJS.ProcessEnv = process.env): AppEnv
     AUTH_SECRET:
       rawAuthSecret && rawAuthSecret.length >= 32 ? rawAuthSecret : FALLBACK_DEV_AUTH_SECRET,
     LOG_LEVEL: parseLogLevel(source.LOG_LEVEL, nodeEnv),
+    AUTH_RATE_LIMIT_WINDOW_MS: parsePositiveInteger(
+      source.AUTH_RATE_LIMIT_WINDOW_MS,
+      10 * 60 * 1000,
+      'AUTH_RATE_LIMIT_WINDOW_MS',
+      1_000,
+    ),
+    AUTH_RATE_LIMIT_MAX_ATTEMPTS: parsePositiveInteger(
+      source.AUTH_RATE_LIMIT_MAX_ATTEMPTS,
+      5,
+      'AUTH_RATE_LIMIT_MAX_ATTEMPTS',
+      1,
+    ),
+    AUTH_RATE_LIMIT_BLOCK_MS: parsePositiveInteger(
+      source.AUTH_RATE_LIMIT_BLOCK_MS,
+      15 * 60 * 1000,
+      'AUTH_RATE_LIMIT_BLOCK_MS',
+      1_000,
+    ),
   };
 }
 

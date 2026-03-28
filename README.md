@@ -18,7 +18,8 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Panel `SuperAdmin` para tenants, planes y features.
 - Gestión de equipo con alta, activación/desactivación y remoción segura.
 - Invitaciones de equipo con onboarding por enlace seguro y aceptación para usuarios nuevos o existentes.
-- Hardening MVP para producción: validación central de entorno, `proxy.ts` con headers de seguridad y fallbacks globales de error.
+- Hardening MVP para producción: validación central de entorno, `proxy.ts` con headers de seguridad, rate limiting inicial en login y fallbacks globales de error.
+- Catálogo comercial saneado: SuperAdmin solo puede activar y vender features ya soportadas por el producto.
 - Configuración de Prisma migrada a `prisma.config.ts` y runtime conectado con `@prisma/adapter-pg`.
 - Suite inicial de pruebas unitarias con `Vitest`.
 
@@ -76,6 +77,9 @@ Variables recomendadas:
 
 - `LOG_LEVEL`
 - `NODE_ENV`
+- `AUTH_RATE_LIMIT_WINDOW_MS`
+- `AUTH_RATE_LIMIT_MAX_ATTEMPTS`
+- `AUTH_RATE_LIMIT_BLOCK_MS`
 
 ## Puesta en marcha
 
@@ -218,6 +222,12 @@ pnpm dev
 - Logger estructurado con niveles y salida JSON en producción.
 - Fallbacks globales de error (`app/error.tsx` y `app/global-error.tsx`) para degradación segura.
 - Nueva cobertura unitaria para validación de entorno, logger y headers de seguridad.
+
+### Post Sprint 6 (hardening incremental)
+
+- Mensajes de login neutralizados para evitar enumeración de tenants, usuarios y accesos.
+- Rate limiting inicial para intentos de autenticación, aplicado tanto en la acción de login como en el proveedor de credenciales.
+- Features futuras (`INTERACTIONS`, `TASKS`, `NOTIFICATIONS`, `CLIENT_PORTAL`, `QUOTING_BASIC`) retiradas del catálogo comercial activo hasta contar con implementación real.
 
 ## Calidad y validación
 

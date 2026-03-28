@@ -3,7 +3,7 @@
 import { Prisma, type FeatureKey } from '@prisma/client';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
-import { FEATURE_KEYS } from '@/lib/feature-catalog';
+import { FEATURE_KEYS, isSupportedFeatureKey } from '@/lib/feature-catalog';
 import { materializeTenantFeaturesFromPlan } from '@/lib/feature-service';
 import { hashPassword } from '@/lib/password';
 import { revalidatePath } from 'next/cache';
@@ -32,13 +32,13 @@ function parseEnabledFeatures(formData: FormData): FeatureKey[] {
   if (asStrings.length === 1 && asStrings[0].trim().startsWith('[')) {
     try {
       const arr = JSON.parse(asStrings[0]) as string[];
-      return arr.filter((key): key is FeatureKey => FEATURE_KEYS.includes(key as FeatureKey));
+      return arr.filter((key): key is FeatureKey => isSupportedFeatureKey(key as FeatureKey));
     } catch {
       return [];
     }
   }
 
-  return asStrings.filter((key): key is FeatureKey => FEATURE_KEYS.includes(key as FeatureKey));
+  return asStrings.filter((key): key is FeatureKey => isSupportedFeatureKey(key as FeatureKey));
 }
 
 async function revalidateTenantViews(tenantId: string) {
@@ -382,8 +382,8 @@ export async function setTenantFeatureAction(
   configText?: string,
 ) {
   await assertSuperAdmin();
-  if (!FEATURE_KEYS.includes(featureKey)) {
-    throw new Error('Feature invalida');
+  if (!isSupportedFeatureKey(featureKey)) {
+    throw new Error('La feature solicitada no esta disponible en esta version');
   }
 
   let parsedConfig: unknown = null;

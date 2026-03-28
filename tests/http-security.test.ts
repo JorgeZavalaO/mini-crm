@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSecurityHeaders } from '@/lib/http-security';
+import { buildSecurityHeaders, getClientIpFromHeaders } from '@/lib/http-security';
 
 describe('http security headers', () => {
   it('incluye headers base y request id', () => {
@@ -15,5 +15,13 @@ describe('http security headers', () => {
     expect(buildSecurityHeaders({ isHttps: true })['strict-transport-security']).toContain(
       'max-age=63072000',
     );
+  });
+
+  it('extrae la ip del cliente desde x-forwarded-for cuando existe', () => {
+    const headers = new Headers({
+      'x-forwarded-for': '203.0.113.10, 198.51.100.4',
+    });
+
+    expect(getClientIpFromHeaders(headers)).toBe('203.0.113.10');
   });
 });

@@ -4,7 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { FeatureKey } from '@prisma/client';
-import { FEATURE_DESCRIPTION, FEATURE_KEYS, FEATURE_LABEL } from '@/lib/feature-catalog';
+import { FEATURE_DESCRIPTION, FEATURE_LABEL, SUPPORTED_FEATURE_KEYS } from '@/lib/feature-catalog';
 import { togglePlanAction, updatePlanAction } from '@/lib/superadmin-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -119,7 +119,7 @@ export function PlanEditCard({ plan }: PlanEditCardProps) {
           <div className="space-y-2">
             <Label>Features incluidas</Label>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {FEATURE_KEYS.map((featureKey: FeatureKey) => (
+              {SUPPORTED_FEATURE_KEYS.map((featureKey: FeatureKey) => (
                 <label
                   key={featureKey}
                   className="flex items-start gap-2 rounded-md border p-2 text-sm"
@@ -140,6 +140,10 @@ export function PlanEditCard({ plan }: PlanEditCardProps) {
                 </label>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground">
+              Las features futuras o no implementadas permanecen fuera del catalogo comercial hasta
+              su entrega real.
+            </p>
           </div>
 
           <Button type="submit" disabled={pending}>

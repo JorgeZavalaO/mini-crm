@@ -1,10 +1,16 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { signIn } from '@/auth';
-import { db } from '@/lib/db';
+import { authRateLimiter } from '@/lib/auth-rate-limit';
+import { getClientIpFromHeaders } from '@/lib/http-security';
 import { AuthError } from 'next-auth';
 
 const SUPERADMIN_SLUG = 'superadmin';
+const GENERIC_LOGIN_ERROR =
+  'No se pudo iniciar sesion. Verifica tus credenciales o el acceso al panel.';
+const RATE_LIMIT_LOGIN_ERROR =
+  'Demasiados intentos de acceso. Espera unos minutos antes de volver a intentar.';
 
 export async function loginAction(_prevState: { error?: string } | undefined, formData: FormData) {
   const slug = (formData.get('slug') as string | null)?.trim().toLowerCase();
@@ -15,32 +21,15 @@ export async function loginAction(_prevState: { error?: string } | undefined, fo
     return { error: 'Todos los campos son requeridos' };
   }
 
-  const user = await db.user.findUnique({
-    where: { email },
-    select: { id: true, isSuperAdmin: true },
+  const requestHeaders = await headers();
+  const rateLimitStatus = authRateLimiter.getStatus({
+    slug,
+    email,
+    ip: getClientIpFromHeaders(requestHeaders),
   });
-  if (!user) return { error: 'Credenciales invalidas' };
 
-  if (slug === SUPERADMIN_SLUG) {
-    if (!user.isSuperAdmin) {
-      return { error: 'No tienes acceso al panel de administracion' };
-    }
-  } else {
-    const tenant = await db.tenant.findUnique({
-      where: { slug },
-      select: { id: true, isActive: true, deletedAt: true },
-    });
-    if (!tenant || !tenant.isActive || tenant.deletedAt) {
-      return { error: 'Empresa no encontrada o inactiva' };
-    }
-
-    const membership = await db.membership.findUnique({
-      where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
-      select: { isActive: true },
-    });
-    if (!membership || !membership.isActive) {
-      return { error: 'No formas parte de esta empresa' };
-    }
+  if (rateLimitStatus.limited) {
+    return { error: RATE_LIMIT_LOGIN_ERROR };
   }
 
   const redirectTo = slug === SUPERADMIN_SLUG ? '/superadmin' : `/${slug}/dashboard`;
@@ -54,7 +43,7 @@ export async function loginAction(_prevState: { error?: string } | undefined, fo
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: 'Credenciales invalidas' };
+      return { error: GENERIC_LOGIN_ERROR };
     }
     throw error;
   }

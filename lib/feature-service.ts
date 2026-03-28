@@ -1,16 +1,11 @@
 import { Prisma, type FeatureKey } from '@prisma/client';
 import { db } from '@/lib/db';
-import { FEATURE_KEYS } from '@/lib/feature-catalog';
+import { CORE_DEFAULT_FEATURE_KEYS, FEATURE_KEYS } from '@/lib/feature-catalog';
 
 export type TenantFeatureMap = Record<FeatureKey, boolean>;
 
 function coreDefaultEnabled(featureKey: FeatureKey) {
-  return (
-    featureKey === 'DASHBOARD' ||
-    featureKey === 'CRM_LEADS' ||
-    featureKey === 'ASSIGNMENTS' ||
-    featureKey === 'INTERACTIONS'
-  );
+  return CORE_DEFAULT_FEATURE_KEYS.includes(featureKey);
 }
 
 function toFeatureMap(rows: Array<{ featureKey: FeatureKey; enabled: boolean }>): TenantFeatureMap {

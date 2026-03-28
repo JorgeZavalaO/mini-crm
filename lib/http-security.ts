@@ -3,6 +3,29 @@ export type SecurityHeaderOptions = {
   requestId?: string;
 };
 
+export type HeadersLike = Pick<Headers, 'get'>;
+
+export function getClientIpFromHeaders(headers: HeadersLike) {
+  const forwardedFor = headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const firstIp = forwardedFor
+      .split(',')
+      .map((value) => value.trim())
+      .find(Boolean);
+
+    if (firstIp) {
+      return firstIp;
+    }
+  }
+
+  return (
+    headers.get('cf-connecting-ip') ??
+    headers.get('x-real-ip') ??
+    headers.get('x-vercel-forwarded-for') ??
+    null
+  );
+}
+
 export function buildSecurityHeaders({ isHttps = false, requestId }: SecurityHeaderOptions = {}) {
   const headers: Record<string, string> = {
     'x-content-type-options': 'nosniff',

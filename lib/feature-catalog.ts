@@ -16,6 +16,31 @@ export const FEATURE_KEYS: FeatureKey[] = [
   'NOTIFICATIONS',
 ];
 
+export const SUPPORTED_FEATURE_KEYS: FeatureKey[] = [
+  'CRM_LEADS',
+  'ASSIGNMENTS',
+  'DOCUMENTS',
+  'IMPORT',
+  'DEDUPE',
+  'DASHBOARD',
+];
+
+export const COMING_SOON_FEATURE_KEYS: FeatureKey[] = [
+  'INTERACTIONS',
+  'TASKS',
+  'QUOTING_BASIC',
+  'CLIENT_PORTAL',
+  'NOTIFICATIONS',
+];
+
+export const CORE_DEFAULT_FEATURE_KEYS: FeatureKey[] = ['DASHBOARD', 'CRM_LEADS', 'ASSIGNMENTS'];
+
+const supportedFeatureSet = new Set<FeatureKey>(SUPPORTED_FEATURE_KEYS);
+
+export function isSupportedFeatureKey(featureKey: FeatureKey) {
+  return supportedFeatureSet.has(featureKey);
+}
+
 export const FEATURE_LABEL: Record<FeatureKey, string> = {
   CRM_LEADS: 'CRM Leads',
   ASSIGNMENTS: 'Asignaciones',
@@ -52,30 +77,21 @@ export const PLAN_FEATURE_BUNDLES: Record<
     DASHBOARD: { enabled: true },
     CRM_LEADS: { enabled: true },
     ASSIGNMENTS: { enabled: true },
-    INTERACTIONS: { enabled: true },
   },
   GROWTH: {
     DASHBOARD: { enabled: true },
     CRM_LEADS: { enabled: true },
     ASSIGNMENTS: { enabled: true },
-    INTERACTIONS: { enabled: true },
-    TASKS: { enabled: true },
     IMPORT: { enabled: true },
     DEDUPE: { enabled: true },
-    NOTIFICATIONS: { enabled: true },
   },
   SCALE: {
     CRM_LEADS: { enabled: true },
     ASSIGNMENTS: { enabled: true },
-    INTERACTIONS: { enabled: true },
-    TASKS: { enabled: true },
     DOCUMENTS: { enabled: true },
     IMPORT: { enabled: true },
     DEDUPE: { enabled: true },
     DASHBOARD: { enabled: true },
-    QUOTING_BASIC: { enabled: true },
-    CLIENT_PORTAL: { enabled: true },
-    NOTIFICATIONS: { enabled: true },
   },
 };
 
@@ -108,7 +124,7 @@ export const PLAN_SEEDS: PlanSeedDefinition[] = [
   {
     key: 'SCALE',
     name: 'Scale',
-    description: 'Plan avanzado con catálogo completo.',
+    description: 'Plan avanzado con todos los modulos operativos actuales.',
     maxUsers: 100,
     maxStorageGb: 100,
     retentionDays: 730,

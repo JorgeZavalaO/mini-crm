@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { PLAN_FEATURE_BUNDLES } from '@/lib/feature-catalog';
+import {
+  COMING_SOON_FEATURE_KEYS,
+  PLAN_FEATURE_BUNDLES,
+  SUPPORTED_FEATURE_KEYS,
+} from '@/lib/feature-catalog';
 
 describe('feature catalog - sprint 4 bundles', () => {
   it('habilita IMPORT y DEDUPE para Growth y Scale, pero no para Starter', () => {
@@ -17,5 +21,21 @@ describe('feature catalog - sprint 4 bundles', () => {
     expect(PLAN_FEATURE_BUNDLES.STARTER.DOCUMENTS?.enabled ?? false).toBe(false);
     expect(PLAN_FEATURE_BUNDLES.GROWTH.DOCUMENTS?.enabled ?? false).toBe(false);
     expect(PLAN_FEATURE_BUNDLES.SCALE.DOCUMENTS?.enabled).toBe(true);
+  });
+
+  it('no marca como soportadas las features futuras aun no implementadas', () => {
+    expect(SUPPORTED_FEATURE_KEYS).not.toContain('INTERACTIONS');
+    expect(SUPPORTED_FEATURE_KEYS).not.toContain('TASKS');
+    expect(SUPPORTED_FEATURE_KEYS).not.toContain('NOTIFICATIONS');
+    expect(SUPPORTED_FEATURE_KEYS).not.toContain('CLIENT_PORTAL');
+    expect(SUPPORTED_FEATURE_KEYS).not.toContain('QUOTING_BASIC');
+  });
+
+  it('mantiene las features futuras deshabilitadas en todos los bundles', () => {
+    for (const featureKey of COMING_SOON_FEATURE_KEYS) {
+      expect(PLAN_FEATURE_BUNDLES.STARTER[featureKey]?.enabled ?? false).toBe(false);
+      expect(PLAN_FEATURE_BUNDLES.GROWTH[featureKey]?.enabled ?? false).toBe(false);
+      expect(PLAN_FEATURE_BUNDLES.SCALE[featureKey]?.enabled ?? false).toBe(false);
+    }
   });
 });
