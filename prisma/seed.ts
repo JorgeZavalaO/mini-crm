@@ -3,14 +3,12 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import 'dotenv/config';
 import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
 import { promisify } from 'node:util';
+import { getEnv } from '../lib/env';
 import { FEATURE_KEYS, PLAN_FEATURE_BUNDLES, PLAN_SEEDS } from '../lib/feature-catalog';
+import { logger } from '../lib/logger';
 
 const scrypt = promisify(scryptCallback);
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error('DATABASE_URL no está configurada');
-}
+const connectionString = getEnv().DATABASE_URL;
 
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
@@ -77,7 +75,7 @@ async function seedPlans() {
 }
 
 async function main() {
-  console.log('Seeding data...');
+  logger.info('Seeding data...');
   const plans = await seedPlans();
   const defaultTenantPlan = plans.get('GROWTH');
   if (!defaultTenantPlan) throw new Error('Growth plan not found while seeding');
@@ -230,16 +228,17 @@ async function main() {
     }
   }
 
-  console.log('Seed complete');
-  console.log('Test users:');
-  console.log(' - superadmin@example.com / changeme (SuperAdmin)');
-  console.log(' - admin@acme.com / admin123 (Tenant Admin)');
-  console.log(' - vendedor@acme.com / vendedor123 (Seller)');
+  logger.info('Seed complete');
+  logger.info('Test users:', [
+    'superadmin@example.com / changeme (SuperAdmin)',
+    'admin@acme.com / admin123 (Tenant Admin)',
+    'vendedor@acme.com / vendedor123 (Seller)',
+  ]);
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    logger.error('Seed failed', { error: e });
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

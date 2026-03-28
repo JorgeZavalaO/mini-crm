@@ -1,11 +1,15 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { db } from '@/lib/db';
+import { getEnv } from '@/lib/env';
+import { logger } from '@/lib/logger';
 import { verifyPassword } from '@/lib/password';
 
 const SUPERADMIN_SLUG = 'superadmin';
+const appEnv = getEnv();
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: appEnv.AUTH_SECRET,
   providers: [
     Credentials({
       credentials: {
@@ -20,50 +24,59 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!slug || !email || !password) return null;
 
-        const user = await db.user.findUnique({ where: { email } });
-        if (!user) return null;
+        try {
+          const user = await db.user.findUnique({ where: { email } });
+          if (!user) return null;
 
-        const valid = await verifyPassword(password, user.password);
-        if (!valid) return null;
+          const valid = await verifyPassword(password, user.password);
+          if (!valid) return null;
 
-        // ── Acceso al panel superadmin ───────────────────────────
-        if (slug === SUPERADMIN_SLUG) {
-          if (!user.isSuperAdmin) return null;
+          // ── Acceso al panel superadmin ───────────────────────────
+          if (slug === SUPERADMIN_SLUG) {
+            if (!user.isSuperAdmin) return null;
+            return {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              isSuperAdmin: true,
+              tenantId: null,
+              tenantSlug: null,
+              role: null,
+            };
+          }
+
+          // ── Acceso a cuenta empresa ──────────────────────────────
+          const tenant = await db.tenant.findUnique({
+            where: { slug },
+            select: { id: true, slug: true, isActive: true, deletedAt: true },
+          });
+
+          if (!tenant || !tenant.isActive || tenant.deletedAt) return null;
+
+          const membership = await db.membership.findUnique({
+            where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
+            select: { role: true, isActive: true, tenantId: true },
+          });
+
+          if (!membership || !membership.isActive) return null;
+
           return {
             id: user.id,
             name: user.name,
             email: user.email,
-            isSuperAdmin: true,
-            tenantId: null,
-            tenantSlug: null,
-            role: null,
+            isSuperAdmin: user.isSuperAdmin,
+            tenantId: tenant.id,
+            tenantSlug: tenant.slug,
+            role: membership.role,
           };
+        } catch (error) {
+          logger.error('Error inesperado durante authorize()', {
+            slug,
+            email,
+            error,
+          });
+          return null;
         }
-
-        // ── Acceso a cuenta empresa ──────────────────────────────
-        const tenant = await db.tenant.findUnique({
-          where: { slug },
-          select: { id: true, slug: true, isActive: true, deletedAt: true },
-        });
-
-        if (!tenant || !tenant.isActive || tenant.deletedAt) return null;
-
-        const membership = await db.membership.findUnique({
-          where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
-          select: { role: true, isActive: true, tenantId: true },
-        });
-
-        if (!membership || !membership.isActive) return null;
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          isSuperAdmin: user.isSuperAdmin,
-          tenantId: tenant.id,
-          tenantSlug: tenant.slug,
-          role: membership.role,
-        };
       },
     }),
   ],

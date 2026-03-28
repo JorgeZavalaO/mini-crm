@@ -15,6 +15,7 @@ describe('prisma config migration', () => {
     const rawConfigFile = readFileSync(new URL('../prisma.config.ts', import.meta.url), 'utf8');
 
     expect(rawConfigFile).toContain('datasource:');
-    expect(rawConfigFile).toContain("url: process.env.DATABASE_URL ?? ''");
+    expect(rawConfigFile).toContain('getValidatedEnv(process.env)');
+    expect(rawConfigFile).toContain('url: appEnv.DATABASE_URL');
   });
 });

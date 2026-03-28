@@ -18,18 +18,19 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Panel `SuperAdmin` para tenants, planes y features.
 - Gestión de equipo con alta, activación/desactivación y remoción segura.
 - Invitaciones de equipo con onboarding por enlace seguro y aceptación para usuarios nuevos o existentes.
+- Hardening MVP para producción: validación central de entorno, `proxy.ts` con headers de seguridad y fallbacks globales de error.
 - Configuración de Prisma migrada a `prisma.config.ts` y runtime conectado con `@prisma/adapter-pg`.
 - Suite inicial de pruebas unitarias con `Vitest`.
 
 ### En progreso
 
-- Preparación de Sprint 6: hardening para producción.
+- Preparación de backlog post-Sprint 6: auditoría avanzada, observabilidad y más tests de integración.
 
 ### Pendiente
 
 - Documents MVP.
 - Tasks, interactions, notifications y client portal.
-- Hardening productivo: auditoría, observabilidad y más tests.
+- Hardening productivo adicional: auditoría avanzada, observabilidad profunda y más tests end-to-end.
 
 ## Roadmap resumido
 
@@ -41,7 +42,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 3      | Lead detail + dashboard útil para operación      | ✅ Completado |
 | 4      | Documents MVP o Import/Dedupe MVP                | ✅ Completado |
 | 5      | Invitaciones / onboarding de usuarios            | ✅ Completado |
-| 6      | Hardening para producción                        | ⏳ Pendiente  |
+| 6      | Hardening para producción                        | ✅ Completado |
 
 ## Stack
 
@@ -69,6 +70,12 @@ El proyecto usa `.env` y trae una plantilla en `.env.example`.
 Variables mínimas:
 
 - `DATABASE_URL`
+- `AUTH_SECRET`
+
+Variables recomendadas:
+
+- `LOG_LEVEL`
+- `NODE_ENV`
 
 ## Puesta en marcha
 
@@ -202,6 +209,15 @@ pnpm dev
 - Compatibilidad con usuarios nuevos y con usuarios ya existentes en la plataforma.
 - Reserva de cupos del plan mientras existan invitaciones activas para evitar sobreasignación.
 - Nueva cobertura de pruebas para validadores y utilidades del flujo de invitaciones.
+
+### Sprint 6 (cierre)
+
+- Validación central de entorno reutilizable para app, Prisma config y seed.
+- Migración de `middleware.ts` a `proxy.ts` para alinearse con Next.js 16 y eliminar la deprecación.
+- Headers de seguridad base y `x-request-id` en el borde para endurecer respuestas HTTP.
+- Logger estructurado con niveles y salida JSON en producción.
+- Fallbacks globales de error (`app/error.tsx` y `app/global-error.tsx`) para degradación segura.
+- Nueva cobertura unitaria para validación de entorno, logger y headers de seguridad.
 
 ## Calidad y validación
 

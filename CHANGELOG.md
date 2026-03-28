@@ -2,6 +2,29 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-28] Sprint 6 - Hardening para producción
+
+### Added
+
+- Nuevo módulo `lib/env.ts` para validación central de variables críticas y defaults seguros fuera de producción.
+- Nuevo módulo `lib/http-security.ts` para construir headers defensivos reutilizables.
+- Nuevos fallbacks `app/error.tsx` y `app/global-error.tsx` para degradación segura en App Router.
+- Nuevas pruebas para hardening de entorno, logger y headers de seguridad.
+
+### Changed
+
+- `middleware.ts` se migró a `proxy.ts` para alinearse con la convención de Next.js 16.
+- `auth.ts`, `lib/db.ts`, `prisma.config.ts` y `prisma/seed.ts` ahora consumen validación compartida de entorno.
+- `lib/logger.ts` ahora soporta niveles, contexto estructurado y salida JSON en producción.
+- `next.config.ts` ahora endurece el runtime con `reactStrictMode` y elimina `X-Powered-By`.
+- `.env.example` ahora documenta `AUTH_SECRET`, `NODE_ENV` y `LOG_LEVEL`.
+
+### Fixed
+
+- Se elimina el warning de deprecación por convención `middleware` durante el build.
+- Se evita depender de secretos implícitos al centralizar `AUTH_SECRET` para auth/proxy.
+- Se endurecen las respuestas HTTP con headers defensivos y trazabilidad básica por request.
+
 ## [2026-03-28] Sprint 5 - Invitaciones y onboarding de usuarios
 
 ### Added
