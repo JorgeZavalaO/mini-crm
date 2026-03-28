@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,15 +15,11 @@ import { ToggleTenantButton } from './toggle-tenant-button';
 import { CreateTenantDialog } from '@/components/superadmin/create-tenant-dialog';
 import { TenantLifecycleButton } from '@/components/superadmin/tenant-lifecycle-button';
 
-const superadminTenantInclude = Prisma.validator<Prisma.TenantInclude>()({
+const superadminTenantInclude = {
   plan: { select: { name: true } },
   memberships: { where: { isActive: true }, select: { id: true } },
   _count: { select: { leads: { where: { deletedAt: null } } } },
-});
-
-type SuperadminTenantRow = Prisma.TenantGetPayload<{
-  include: typeof superadminTenantInclude;
-}>;
+} as const;
 
 export default async function SuperadminPage() {
   const [tenantCount, userCount, leadCount, plans, tenants] = await Promise.all([
@@ -114,7 +109,7 @@ export default async function SuperadminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenants.map((t: SuperadminTenantRow) => {
+              {tenants.map((t) => {
                 const stateLabel = t.deletedAt ? 'Baja' : t.isActive ? 'Activo' : 'Inactivo';
                 const stateVariant = t.deletedAt
                   ? 'destructive'
