@@ -16,11 +16,13 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
 - Panel `SuperAdmin` para tenants, planes y features.
+- UX del `SuperAdmin` refinada: tabla de planes con dialogs de alta, detalle, edición y activación/desactivación.
 - Gestión de equipo con alta, activación/desactivación y remoción segura.
 - Invitaciones de equipo con onboarding por enlace seguro y aceptación para usuarios nuevos o existentes.
 - Hardening MVP para producción: validación central de entorno, `proxy.ts` con headers de seguridad, rate limiting inicial en login y fallbacks globales de error.
 - Catálogo comercial saneado: SuperAdmin solo puede activar y vender features ya soportadas por el producto.
 - Configuración de Prisma migrada a `prisma.config.ts` y runtime conectado con `@prisma/adapter-pg`.
+- Menú de cuenta en avatar para tenant y `SuperAdmin`, con acceso directo a perfil y cierre de sesión.
 - Suite inicial de pruebas unitarias con `Vitest`.
 
 ### En progreso
@@ -168,6 +170,7 @@ pnpm dev
 
 - `app/(superadmin)/superadmin`
 - `app/(superadmin)/superadmin/plans`
+- `app/(superadmin)/superadmin/profile`
 - `app/(superadmin)/superadmin/tenants`
 
 ## Últimos avances documentados
@@ -237,6 +240,13 @@ pnpm dev
 - Mensajes de login neutralizados para evitar enumeración de tenants, usuarios y accesos.
 - Rate limiting inicial para intentos de autenticación, aplicado tanto en la acción de login como en el proveedor de credenciales.
 - Features futuras (`INTERACTIONS`, `TASKS`, `NOTIFICATIONS`, `CLIENT_PORTAL`, `QUOTING_BASIC`) retiradas del catálogo comercial activo hasta contar con implementación real.
+
+### UX/UI SuperAdmin (iteración actual)
+
+- `superadmin/plans` ahora presenta un catálogo tabular con acciones por fila para ver detalle, editar y activar/desactivar sin salir de la pantalla.
+- La creación de planes se trasladó a un diálogo contextual para mantener el flujo administrativo compacto.
+- El avatar del sidebar ahora abre un menú de cuenta con acceso a perfil y cierre de sesión, tanto en tenant como en `SuperAdmin`.
+- Nuevo módulo `superadmin/profile` para consultar la identidad del administrador y sus memberships vinculadas.
 
 ## Calidad y validación
 

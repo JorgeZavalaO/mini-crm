@@ -2,6 +2,25 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-29] UX/UI SuperAdmin - planes tabulares y perfil desde avatar
+
+### Added
+
+- Nuevo componente reutilizable `components/sidebar-user-menu.tsx` para centralizar el menú de cuenta en sidebars.
+- Nueva ruta `app/(superadmin)/superadmin/profile` para visualizar identidad, accesos rápidos y memberships del `SuperAdmin`.
+- Nuevos dialogs de planes para alta, detalle, edición y activación/desactivación desde la tabla administrativa.
+
+### Changed
+
+- `app/(superadmin)/superadmin/plans` ahora usa una tabla operativa con acciones por fila en lugar de tarjetas individuales.
+- `components/superadmin/plan-create-form.tsx` y `components/superadmin/plan-edit-card.tsx` se refactorizaron para reutilizarse dentro de dialogs.
+- `components/superadmin-sidebar.tsx` y `components/tenant-sidebar.tsx` ahora resuelven perfil y cierre de sesión desde el avatar del usuario.
+
+### Fixed
+
+- Se reduce la fricción para administrar muchos planes al concentrar creación, consulta y edición en una sola vista.
+- Se corrige la ausencia de un módulo de perfil para `SuperAdmin` y se alinea el patrón de cuenta entre panel tenant y panel administrativo.
+
 ## [2026-03-28] Fix seed demo auth recovery
 
 ### Changed

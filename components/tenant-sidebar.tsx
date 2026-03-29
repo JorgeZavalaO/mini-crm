@@ -11,22 +11,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import {
-  Building2,
-  Copy,
-  FileText,
-  LayoutDashboard,
-  LogOut,
-  Target,
-  Upload,
-  User,
-  Users,
-} from 'lucide-react';
+import { Building2, Copy, FileText, LayoutDashboard, Target, Upload, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { SidebarUserMenu } from '@/components/sidebar-user-menu';
 
 interface TenantSidebarProps {
   tenantSlug: string;
@@ -66,7 +54,6 @@ export function TenantSidebar({
       ? [{ href: `/${tenantSlug}/documents`, label: 'Documentos', icon: FileText }]
       : []),
     ...(showTeam ? [{ href: `/${tenantSlug}/team`, label: 'Equipo', icon: Users }] : []),
-    { href: `/${tenantSlug}/profile`, label: 'Mi cuenta', icon: User },
   ];
 
   return (
@@ -115,41 +102,14 @@ export function TenantSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="cursor-default hover:bg-transparent active:bg-transparent"
-            >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg bg-sidebar-accent text-sidebar-accent-foreground">
-                  {(userName ?? userEmail)
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .toUpperCase()
-                    .slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{userName ?? userEmail}</span>
-                <span className="truncate text-xs text-sidebar-foreground/70">{userEmail}</span>
-              </div>
-              {role && (
-                <Badge variant="outline" className="ml-auto shrink-0 text-xs">
-                  {role}
-                </Badge>
-              )}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              tooltip="Cerrar sesion"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <LogOut />
-              <span>Cerrar sesion</span>
-            </SidebarMenuButton>
+            <SidebarUserMenu
+              userName={userName}
+              userEmail={userEmail}
+              profileHref={`/${tenantSlug}/profile`}
+              profileLabel="Mi cuenta"
+              badgeLabel={role}
+              avatarFallbackClassName="rounded-lg bg-sidebar-accent text-sidebar-accent-foreground"
+            />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>

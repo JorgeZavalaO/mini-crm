@@ -11,11 +11,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { LayoutDashboard, Layers, LogOut, PlusCircle, Settings2 } from 'lucide-react';
+import { LayoutDashboard, Layers, PlusCircle, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { SidebarUserMenu } from '@/components/sidebar-user-menu';
 
 interface SuperadminSidebarProps {
   userName: string | null;
@@ -82,36 +81,14 @@ export function SuperadminSidebar({ userName, userEmail }: SuperadminSidebarProp
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              className="cursor-default hover:bg-transparent active:bg-transparent"
-            >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarFallback className="rounded-lg bg-red-600 text-white">
-                  {(userName ?? userEmail)
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .toUpperCase()
-                    .slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{userName ?? userEmail}</span>
-                <span className="truncate text-xs text-sidebar-foreground/70">{userEmail}</span>
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              tooltip="Cerrar sesión"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <LogOut />
-              <span>Cerrar sesión</span>
-            </SidebarMenuButton>
+            <SidebarUserMenu
+              userName={userName}
+              userEmail={userEmail}
+              profileHref="/superadmin/profile"
+              profileLabel="Mi perfil"
+              badgeLabel="ADMIN"
+              avatarFallbackClassName="rounded-lg bg-red-600 text-white"
+            />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
