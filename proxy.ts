@@ -1,10 +1,7 @@
-import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
-import { getEnv } from '@/lib/env';
+import { auth } from '@/auth';
 import { buildSecurityHeaders } from '@/lib/http-security';
 import { logger } from '@/lib/logger';
-
-const appEnv = getEnv();
 
 function applySecurityHeaders(request: NextRequest, response: NextResponse, requestId: string) {
   const isHttps =
@@ -32,13 +29,14 @@ function finalizeResponse(request: NextRequest, response: NextResponse, requestI
  *                                     se hace en el layout de [tenantSlug], que tiene acceso a DB)
  *   /                               → redirige según sesión
  */
-export async function proxy(req: NextRequest) {
+export const proxy = auth(async (req) => {
   const requestId = req.headers.get('x-request-id') ?? crypto.randomUUID();
 
   try {
     const { pathname } = req.nextUrl;
-    const token = await getToken({ req, secret: appEnv.AUTH_SECRET });
-    const isLoggedIn = !!token;
+    const session = req.auth;
+    const isLoggedIn = Boolean(session?.user);
+    const user = session?.user ?? null;
 
     if (pathname === '/register') {
       return finalizeResponse(
@@ -52,9 +50,9 @@ export async function proxy(req: NextRequest) {
       pathname === '/' || pathname === '/login' || pathname.startsWith('/api/auth');
 
     if (isLoggedIn && pathname === '/login') {
-      const dest = token.tenantSlug
-        ? `/${token.tenantSlug}/dashboard`
-        : token.isSuperAdmin
+      const dest = user?.tenantSlug
+        ? `/${user.tenantSlug}/dashboard`
+        : user?.isSuperAdmin
           ? '/superadmin'
           : '/login';
       return finalizeResponse(req, NextResponse.redirect(new URL(dest, req.nextUrl)), requestId);
@@ -73,8 +71,8 @@ export async function proxy(req: NextRequest) {
         );
       }
 
-      if (!token.isSuperAdmin) {
-        const dest = token.tenantSlug ? `/${token.tenantSlug}/dashboard` : '/login';
+      if (!user?.isSuperAdmin) {
+        const dest = user?.tenantSlug ? `/${user.tenantSlug}/dashboard` : '/login';
         return finalizeResponse(req, NextResponse.redirect(new URL(dest, req.nextUrl)), requestId);
       }
 
@@ -97,7 +95,7 @@ export async function proxy(req: NextRequest) {
 
     return finalizeResponse(req, NextResponse.redirect(new URL('/login', req.nextUrl)), requestId);
   }
-}
+});
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],

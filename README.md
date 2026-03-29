@@ -75,6 +75,7 @@ Variables mínimas:
 
 Variables recomendadas:
 
+- `AUTH_TRUST_HOST` (si despliegas detrás de reverse proxy fuera de Vercel o quieres dejarlo explícito en producción)
 - `LOG_LEVEL`
 - `NODE_ENV`
 - `AUTH_RATE_LIMIT_WINDOW_MS`
@@ -119,6 +120,10 @@ Usuarios de prueba creados por el seed:
 - `vendedor@acme.com / vendedor123`
 
 Para ingresar como `SuperAdmin`, el login ya no requiere `slug`; basta con el email y la contrasena. Para cuentas tenant, el `slug` del tenant sigue siendo obligatorio.
+
+En despliegues productivos detrás de proxy/reverse proxy, asegúrate de que `AUTH_SECRET` esté configurado correctamente y considera fijar `AUTH_TRUST_HOST=true` en el entorno si tu plataforma no lo infiere automáticamente.
+
+La protección de rutas en `proxy.ts` usa el wrapper `auth(...)` de Auth.js para leer la misma sesión que exponen `/api/auth/session` y los server components; esto evita discrepancias de lectura del token entre el borde y el runtime principal.
 
 ### 5. Levantar la app
 

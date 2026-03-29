@@ -9,6 +9,8 @@ Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 - `prisma/seed.ts` ahora vuelve a sincronizar los usuarios demo (`superadmin`, `admin`, `vendedor`) con sus credenciales esperadas en cada re-seed para evitar entornos locales con passwords stale o flags desalineados.
 - El seed también reactiva y normaliza las memberships base del tenant `acme-logistics` durante la recarga de datos de prueba.
 - El login ahora permite omitir el `slug` cuando se ingresa con una cuenta `SuperAdmin`; las cuentas tenant siguen usando `slug` para resolver su contexto.
+- `auth.ts` ahora declara explícitamente `trustHost: true` para endurecer el login en despliegues detrás de proxy como Vercel y evitar bucles de autenticación por host no confiado.
+- `proxy.ts` ahora protege rutas usando el wrapper oficial `auth(...)` en lugar de leer el token manualmente, alineando la resolución de sesión del borde con `/api/auth/session`.
 
 ### Fixed
 
