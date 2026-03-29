@@ -83,7 +83,7 @@ export default async function SuperadminProfilePage() {
               <Link href="/superadmin/plans">Gestionar planes</Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/superadmin/tenants/new">Crear empresa</Link>
+              <Link href="/superadmin">Gestionar empresas</Link>
             </Button>
             <Button asChild>
               <Link href="/superadmin">Ver dashboard</Link>

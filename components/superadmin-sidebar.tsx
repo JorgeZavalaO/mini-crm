@@ -11,7 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { LayoutDashboard, Layers, PlusCircle, Settings2 } from 'lucide-react';
+import { LayoutDashboard, Layers, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SidebarUserMenu } from '@/components/sidebar-user-menu';
@@ -24,7 +24,6 @@ interface SuperadminSidebarProps {
 const navItems = [
   { href: '/superadmin', label: 'Panel', icon: LayoutDashboard, exact: true },
   { href: '/superadmin/plans', label: 'Planes', icon: Layers, exact: false },
-  { href: '/superadmin/tenants/new', label: 'Nueva empresa', icon: PlusCircle, exact: true },
 ];
 
 export function SuperadminSidebar({ userName, userEmail }: SuperadminSidebarProps) {
