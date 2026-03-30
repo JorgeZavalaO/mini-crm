@@ -47,6 +47,14 @@ enum FeatureKey {
   NOTIFICATIONS
 }
 
+enum InteractionType {
+  CALL
+  EMAIL
+  NOTE
+  VISIT
+  WHATSAPP
+}
+
 // ─── Multi-tenant ───────────────────────────────────────
 
 model Tenant {
@@ -65,6 +73,7 @@ model Tenant {
   teamInvitations          TeamInvitation[]
   leads                    Lead[]
   leadReassignmentRequests LeadReassignmentRequest[]
+  interactions             Interaction[]
   features                 TenantFeature[]
   plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
@@ -126,6 +135,7 @@ model User {
   requestedLeadReassignments LeadReassignmentRequest[] @relation("LeadReassignmentRequestedBy")
   resolvedLeadReassignments  LeadReassignmentRequest[] @relation("LeadReassignmentResolvedBy")
   targetLeadReassignments    LeadReassignmentRequest[] @relation("LeadReassignmentTargetOwner")
+  interactions               Interaction[]             @relation("InteractionAuthor")
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -144,21 +154,21 @@ model Membership {
 }
 
 model TeamInvitation {
-  id               String   @id @default(cuid())
+  id               String    @id @default(cuid())
   tenantId         String
   email            String
-  role             Role     @default(VENDEDOR)
-  tokenHash        String   @unique
+  role             Role      @default(VENDEDOR)
+  tokenHash        String    @unique
   invitedById      String
   acceptedByUserId String?
   expiresAt        DateTime
   acceptedAt       DateTime?
   canceledAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invitedBy        User     @relation("TeamInvitationInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
-  acceptedByUser   User?    @relation("TeamInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy        User      @relation("TeamInvitationInvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedByUser   User?     @relation("TeamInvitationAcceptedBy", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([tenantId, email])
@@ -189,6 +199,7 @@ model Lead {
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
   reassignmentRequests LeadReassignmentRequest[]
+  interactions         Interaction[]
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
@@ -218,4 +229,23 @@ model LeadReassignmentRequest {
 
   @@index([tenantId, status])
   @@index([leadId, status])
+}
+
+model Interaction {
+  id         String          @id @default(cuid())
+  leadId     String
+  tenantId   String
+  authorId   String
+  type       InteractionType
+  subject    String?
+  notes      String
+  occurredAt DateTime
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  lead       Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author     User            @relation("InteractionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([tenantId, leadId])
 }

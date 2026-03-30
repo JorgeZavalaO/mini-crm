@@ -24,11 +24,17 @@ describe('feature catalog - sprint 4 bundles', () => {
   });
 
   it('no marca como soportadas las features futuras aun no implementadas', () => {
-    expect(SUPPORTED_FEATURE_KEYS).not.toContain('INTERACTIONS');
     expect(SUPPORTED_FEATURE_KEYS).not.toContain('TASKS');
     expect(SUPPORTED_FEATURE_KEYS).not.toContain('NOTIFICATIONS');
     expect(SUPPORTED_FEATURE_KEYS).not.toContain('CLIENT_PORTAL');
     expect(SUPPORTED_FEATURE_KEYS).not.toContain('QUOTING_BASIC');
+  });
+
+  it('marca INTERACTIONS como feature soportada disponible en GROWTH y SCALE', () => {
+    expect(SUPPORTED_FEATURE_KEYS).toContain('INTERACTIONS');
+    expect(PLAN_FEATURE_BUNDLES.STARTER.INTERACTIONS?.enabled ?? false).toBe(false);
+    expect(PLAN_FEATURE_BUNDLES.GROWTH.INTERACTIONS?.enabled).toBe(true);
+    expect(PLAN_FEATURE_BUNDLES.SCALE.INTERACTIONS?.enabled).toBe(true);
   });
 
   it('mantiene las features futuras deshabilitadas en todos los bundles', () => {

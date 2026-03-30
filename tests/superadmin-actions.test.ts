@@ -426,7 +426,7 @@ describe('setTenantFeatureAction', () => {
   });
 
   it('lanza error cuando la feature no está soportada en esta versión', async () => {
-    await expect(setTenantFeatureAction('tenant-1', 'INTERACTIONS', true)).rejects.toThrow(
+    await expect(setTenantFeatureAction('tenant-1', 'TASKS', true)).rejects.toThrow(
       /no esta disponible/i,
     );
   });

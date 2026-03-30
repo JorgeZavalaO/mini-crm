@@ -23,10 +23,10 @@ export const SUPPORTED_FEATURE_KEYS: FeatureKey[] = [
   'IMPORT',
   'DEDUPE',
   'DASHBOARD',
+  'INTERACTIONS',
 ];
 
 export const COMING_SOON_FEATURE_KEYS: FeatureKey[] = [
-  'INTERACTIONS',
   'TASKS',
   'QUOTING_BASIC',
   'CLIENT_PORTAL',
@@ -84,6 +84,7 @@ export const PLAN_FEATURE_BUNDLES: Record<
     ASSIGNMENTS: { enabled: true },
     IMPORT: { enabled: true },
     DEDUPE: { enabled: true },
+    INTERACTIONS: { enabled: true },
   },
   SCALE: {
     CRM_LEADS: { enabled: true },
@@ -92,6 +93,7 @@ export const PLAN_FEATURE_BUNDLES: Record<
     IMPORT: { enabled: true },
     DEDUPE: { enabled: true },
     DASHBOARD: { enabled: true },
+    INTERACTIONS: { enabled: true },
   },
 };
 

@@ -1,4 +1,4 @@
-import { LeadStatus, ReassignmentStatus } from '@prisma/client';
+import { InteractionType, LeadStatus, ReassignmentStatus } from '@prisma/client';
 import { z } from 'zod';
 import { ROLES } from '@/lib/rbac';
 
@@ -141,4 +141,22 @@ export const resolveReassignSchema = z.object({
   status: z.enum([ReassignmentStatus.APPROVED, ReassignmentStatus.REJECTED]),
   ownerId: nullableId,
   resolutionNote: optionalText(1000),
+});
+
+export const createInteractionSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: z.string().min(1),
+  type: z.nativeEnum(InteractionType),
+  subject: optionalText(200),
+  notes: z.string().trim().min(1, 'Las notas son requeridas').max(5000),
+  occurredAt: z.coerce.date(),
+});
+
+export const updateInteractionSchema = createInteractionSchema.extend({
+  interactionId: z.string().min(1),
+});
+
+export const deleteInteractionSchema = z.object({
+  tenantSlug: z.string().min(1),
+  interactionId: z.string().min(1),
 });

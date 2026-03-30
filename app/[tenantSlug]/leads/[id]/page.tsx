@@ -4,7 +4,12 @@ import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { getAssignableLeadOwnerOptions, type LeadOwnerMembership } from '@/lib/lead-owner';
-import { canAssignLeads, canEditLead, canResolveReassignment } from '@/lib/lead-permissions';
+import {
+  canAssignLeads,
+  canCreateInteraction,
+  canEditLead,
+  canResolveReassignment,
+} from '@/lib/lead-permissions';
 import {
   getLeadStatusVariant,
   getReassignmentStatusVariant,
@@ -14,6 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { InteractionTimeline } from '@/components/leads/interaction-timeline';
 import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
 import { ResolveReassignmentDialog } from '../components/resolve-reassignment-dialog';
@@ -44,6 +50,7 @@ export default async function LeadDetailPage({
   };
 
   const assignmentsEnabled = await isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS');
+  const interactionsEnabled = await isTenantFeatureEnabled(tenant.id, 'INTERACTIONS');
 
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
     ? db.membership.findMany({
@@ -57,7 +64,25 @@ export default async function LeadDetailPage({
       })
     : Promise.resolve([]);
 
-  const [lead, activeOwners] = await Promise.all([
+  const interactionsPromise = interactionsEnabled
+    ? db.interaction.findMany({
+        where: { leadId: id, tenantId: tenant.id },
+        orderBy: { occurredAt: 'desc' },
+        select: {
+          id: true,
+          leadId: true,
+          type: true,
+          subject: true,
+          notes: true,
+          occurredAt: true,
+          createdAt: true,
+          authorId: true,
+          author: { select: { name: true, email: true } },
+        },
+      })
+    : Promise.resolve([]);
+
+  const [lead, activeOwners, interactions] = await Promise.all([
     db.lead.findFirst({
       where: { id, tenantId: tenant.id, deletedAt: null },
       select: {
@@ -94,6 +119,7 @@ export default async function LeadDetailPage({
       },
     }),
     activeOwnersPromise,
+    interactionsPromise,
   ]);
 
   if (!lead) {
@@ -104,6 +130,7 @@ export default async function LeadDetailPage({
   const canAssign = assignmentsEnabled && canAssignLeads(actor);
   const canResolve = assignmentsEnabled && canResolveReassignment(actor);
   const canEdit = canEditLead(actor, { ownerId: lead.ownerId });
+  const canCreateInteractionForLead = interactionsEnabled && canCreateInteraction(actor);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -382,6 +409,28 @@ export default async function LeadDetailPage({
           </Card>
         </div>
       </div>
+
+      {interactionsEnabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Timeline de interacciones</CardTitle>
+            <CardDescription>
+              Historial de llamadas, emails, notas y visitas registrados para este lead.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InteractionTimeline
+              interactions={interactions}
+              tenantSlug={tenantSlug}
+              leadId={lead.id}
+              currentUserId={actor.userId}
+              currentRole={actor.role}
+              isSuperAdmin={actor.isSuperAdmin}
+              canCreate={canCreateInteractionForLead}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
