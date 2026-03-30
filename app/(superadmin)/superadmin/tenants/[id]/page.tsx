@@ -4,15 +4,6 @@ import { db } from '@/lib/db';
 import { requireSuperAdmin } from '@/lib/auth-guard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { ToggleTenantButton } from '../../toggle-tenant-button';
 import { TenantLifecycleButton } from '@/components/superadmin/tenant-lifecycle-button';
 import { TenantSettingsTabs } from '@/components/superadmin/tenant-settings-tabs';
@@ -94,74 +85,14 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         }}
         plans={plans}
         features={tenant.features}
+        memberships={tenant.memberships.map((m) => ({
+          id: m.id,
+          role: m.role,
+          isActive: m.isActive,
+          createdAt: m.createdAt,
+          user: m.user,
+        }))}
       />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Miembros activos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {tenant.memberships.filter((m) => m.isActive).length}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Leads</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{tenant._count.leads}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Limites</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <p>Usuarios: {tenant.maxUsers ?? '-'}</p>
-            <p>Storage: {tenant.maxStorageGb ?? '-'} GB</p>
-            <p>Retencion: {tenant.retentionDays ?? '-'} dias</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Miembros</h2>
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Rol</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tenant.memberships.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell>{m.user.name ?? '-'}</TableCell>
-                  <TableCell className="text-muted-foreground">{m.user.email}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{m.role}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={m.isActive ? 'default' : 'destructive'}>
-                      {m.isActive ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
     </div>
   );
 }
