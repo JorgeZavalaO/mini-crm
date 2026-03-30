@@ -1,5 +1,6 @@
 'use client';
 
+import type { InteractionType } from '@prisma/client';
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
@@ -18,14 +19,26 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 
+const TYPE_LABEL: Record<InteractionType, string> = {
+  CALL: 'llamada',
+  EMAIL: 'email',
+  NOTE: 'nota',
+  VISIT: 'visita',
+  WHATSAPP: 'WhatsApp',
+};
+
 type DeleteInteractionButtonProps = {
   tenantSlug: string;
   interactionId: string;
+  type: InteractionType;
+  subject: string | null;
 };
 
 export function DeleteInteractionButton({
   tenantSlug,
   interactionId,
+  type,
+  subject,
 }: DeleteInteractionButtonProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -61,7 +74,8 @@ export function DeleteInteractionButton({
         <AlertDialogHeader>
           <AlertDialogTitle>¿Eliminar interacción?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta acción es permanente y no se puede deshacer.
+            Se eliminará la {TYPE_LABEL[type]}
+            {subject ? ` "${subject}"` : ''}. Esta acción es permanente y no se puede deshacer.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

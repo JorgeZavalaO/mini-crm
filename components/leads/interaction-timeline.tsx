@@ -1,10 +1,12 @@
 import type { InteractionType } from '@prisma/client';
 import { Mail, MessageCircle, MessageSquare, Phone, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AddInteractionDialog } from '@/components/leads/add-interaction-dialog';
-import { EditInteractionDialog } from '@/components/leads/edit-interaction-dialog';
 import { DeleteInteractionButton } from '@/components/leads/delete-interaction-button';
+import { EditInteractionDialog } from '@/components/leads/edit-interaction-dialog';
 
 function formatRelative(date: Date): string {
   const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
@@ -72,13 +74,30 @@ const TYPE_LABEL: Record<InteractionType, string> = {
   WHATSAPP: 'WhatsApp',
 };
 
-const TYPE_COLOR: Record<InteractionType, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  CALL: 'default',
-  EMAIL: 'secondary',
-  NOTE: 'outline',
-  VISIT: 'default',
-  WHATSAPP: 'secondary',
+const DOT_COLOR: Record<InteractionType, string> = {
+  CALL: 'bg-blue-500',
+  EMAIL: 'bg-green-500',
+  NOTE: 'bg-amber-500',
+  VISIT: 'bg-purple-500',
+  WHATSAPP: 'bg-emerald-500',
 };
+
+const ICON_BG: Record<InteractionType, string> = {
+  CALL: 'bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400',
+  EMAIL: 'bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400',
+  NOTE: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400',
+  VISIT: 'bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400',
+  WHATSAPP: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400',
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
 
 function canActOnInteraction(
   authorId: string,
@@ -106,69 +125,132 @@ export function InteractionTimeline({
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">
-          Interacciones{' '}
-          {interactions.length > 0 && (
-            <span className="text-muted-foreground font-normal">({interactions.length})</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">Interacciones</span>
+          {sorted.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {sorted.length}
+            </Badge>
           )}
-        </h3>
-        {canCreate && <AddInteractionDialog tenantSlug={tenantSlug} leadId={leadId} />}
+        </div>
+        {canCreate && sorted.length > 0 && (
+          <AddInteractionDialog tenantSlug={tenantSlug} leadId={leadId} />
+        )}
       </div>
 
-      {sorted.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          Sin interacciones registradas.{' '}
-          {canCreate && 'Registra la primera llamada, nota o visita.'}
-        </p>
-      ) : (
-        <ol className="space-y-3">
-          {sorted.map((item) => {
-            const canAct = canActOnInteraction(
-              item.authorId,
-              currentUserId,
-              currentRole,
-              isSuperAdmin,
-            );
-            const authorLabel = item.author.name ?? item.author.email;
+      {/* Empty state */}
+      {sorted.length === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <MessageSquare className="size-10 text-muted-foreground/40" />
+          <div>
+            <p className="text-sm font-medium">Sin interacciones registradas</p>
+            {canCreate && (
+              <p className="text-xs text-muted-foreground">
+                Registra la primera llamada, nota o visita.
+              </p>
+            )}
+          </div>
+          {canCreate && <AddInteractionDialog tenantSlug={tenantSlug} leadId={leadId} />}
+        </div>
+      )}
 
-            return (
-              <li key={item.id} className="bg-muted/40 rounded-lg border px-4 py-3 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={TYPE_COLOR[item.type]} className="gap-1 text-xs">
-                        {TYPE_ICON[item.type]}
-                        {TYPE_LABEL[item.type]}
-                      </Badge>
-                      {item.subject && <span className="truncate font-medium">{item.subject}</span>}
+      {/* Timeline */}
+      {sorted.length > 0 && (
+        <div className="relative pl-8">
+          {/* Vertical line — centered at left-3.5 (14px) */}
+          <div className="absolute bottom-0 left-3.5 top-4 w-px bg-border" aria-hidden="true" />
+          <ol className="space-y-4">
+            {sorted.map((item) => {
+              const canAct = canActOnInteraction(
+                item.authorId,
+                currentUserId,
+                currentRole,
+                isSuperAdmin,
+              );
+              const authorLabel = item.author.name ?? item.author.email;
+
+              return (
+                <li key={item.id} className="relative">
+                  {/* Dot — center at 14px from container left (-left-6 = -24px; li left = 32px; 32-24=8; center=8+6=14px ✓) */}
+                  <span
+                    className={cn(
+                      'absolute -left-6 top-3.5 h-3 w-3 rounded-full ring-2 ring-background',
+                      DOT_COLOR[item.type],
+                    )}
+                    aria-hidden="true"
+                  />
+
+                  {/* Card */}
+                  <div className="rounded-lg border bg-card shadow-sm">
+                    {/* Card header */}
+                    <div className="flex items-start justify-between gap-2 p-3 pb-2">
+                      <div className="flex min-w-0 items-start gap-2.5">
+                        <div
+                          className={cn(
+                            'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
+                            ICON_BG[item.type],
+                          )}
+                        >
+                          {TYPE_ICON[item.type]}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <span className="text-xs font-semibold">{TYPE_LABEL[item.type]}</span>
+                            {item.subject && (
+                              <span className="truncate text-sm font-medium">{item.subject}</span>
+                            )}
+                          </div>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <time
+                                dateTime={new Date(item.occurredAt).toISOString()}
+                                className="cursor-default text-xs text-muted-foreground"
+                              >
+                                {formatRelative(new Date(item.occurredAt))}
+                              </time>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {formatAbsolute(new Date(item.occurredAt))}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
+
+                      {canAct && (
+                        <div className="flex shrink-0 items-center gap-0.5">
+                          <EditInteractionDialog tenantSlug={tenantSlug} interaction={item} />
+                          <DeleteInteractionButton
+                            tenantSlug={tenantSlug}
+                            interactionId={item.id}
+                            subject={item.subject}
+                            type={item.type}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <p className="text-muted-foreground whitespace-pre-wrap">{item.notes}</p>
-                    <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-2 text-xs">
-                      <span>{authorLabel}</span>
-                      <span>·</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <time dateTime={item.occurredAt.toISOString()}>
-                            {formatRelative(new Date(item.occurredAt))}
-                          </time>
-                        </TooltipTrigger>
-                        <TooltipContent>{formatAbsolute(new Date(item.occurredAt))}</TooltipContent>
-                      </Tooltip>
+
+                    {/* Notes */}
+                    <p className="whitespace-pre-wrap px-3 pb-3 text-sm text-muted-foreground">
+                      {item.notes}
+                    </p>
+
+                    {/* Author footer */}
+                    <div className="flex items-center gap-1.5 border-t px-3 py-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[9px]">
+                          {getInitials(authorLabel)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs text-muted-foreground">{authorLabel}</span>
                     </div>
                   </div>
-
-                  {canAct && (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <EditInteractionDialog tenantSlug={tenantSlug} interaction={item} />
-                      <DeleteInteractionButton tenantSlug={tenantSlug} interactionId={item.id} />
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
       )}
     </div>
   );

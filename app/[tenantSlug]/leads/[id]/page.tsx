@@ -1,5 +1,18 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import {
+  ArrowLeft,
+  Building2,
+  Clock,
+  Hash,
+  Layers,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  RefreshCw,
+  User as UserIcon,
+} from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
@@ -16,9 +29,11 @@ import {
   LEAD_STATUS_LABEL,
   REASSIGNMENT_STATUS_LABEL,
 } from '@/lib/lead-status';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InteractionTimeline } from '@/components/leads/interaction-timeline';
 import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
@@ -32,6 +47,15 @@ function formatDate(value: Date) {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
 }
 
 export default async function LeadDetailPage({
@@ -49,8 +73,10 @@ export default async function LeadDetailPage({
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
   };
 
-  const assignmentsEnabled = await isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS');
-  const interactionsEnabled = await isTenantFeatureEnabled(tenant.id, 'INTERACTIONS');
+  const [assignmentsEnabled, interactionsEnabled] = await Promise.all([
+    isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
+    isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
+  ]);
 
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
     ? db.membership.findMany({
@@ -132,31 +158,76 @@ export default async function LeadDetailPage({
   const canEdit = canEditLead(actor, { ownerId: lead.ownerId });
   const canCreateInteractionForLead = interactionsEnabled && canCreateInteraction(actor);
 
+  const ownerLabel = lead.owner?.name || lead.owner?.email;
+  const locationParts = [lead.city, lead.country].filter(Boolean);
+
   return (
     <div className="min-w-0 space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
+      {/* ── Hero ── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 gap-4">
+          <Avatar className="h-14 w-14 shrink-0 text-lg">
+            <AvatarFallback className="bg-primary/10 font-semibold text-primary">
+              {getInitials(lead.businessName)}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="min-w-0 space-y-1.5">
             <Badge variant={getLeadStatusVariant(lead.status)}>
               {LEAD_STATUS_LABEL[lead.status]}
             </Badge>
-            {lead.owner ? (
-              <Badge variant="secondary">Owner: {lead.owner.name || lead.owner.email}</Badge>
-            ) : (
-              <Badge variant="outline">Sin owner</Badge>
+            <h1 className="truncate text-2xl font-bold leading-tight">{lead.businessName}</h1>
+
+            {/* Owner */}
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              {ownerLabel ? (
+                <>
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="text-[10px]">
+                      {getInitials(ownerLabel)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span>{ownerLabel}</span>
+                </>
+              ) : (
+                <>
+                  <UserIcon className="size-3.5" />
+                  <span className="italic">Sin owner asignado</span>
+                </>
+              )}
+            </div>
+
+            {/* Meta */}
+            {(lead.source || locationParts.length > 0 || lead.ruc) && (
+              <div className="flex flex-wrap items-center gap-x-1 text-xs text-muted-foreground">
+                {lead.source && <span>{lead.source}</span>}
+                {lead.source && locationParts.length > 0 && <span aria-hidden>·</span>}
+                {locationParts.length > 0 && <span>{locationParts.join(', ')}</span>}
+                {(lead.source || locationParts.length > 0) && lead.ruc && (
+                  <span aria-hidden>·</span>
+                )}
+                {lead.ruc && <span>RUC {lead.ruc}</span>}
+              </div>
             )}
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold">{lead.businessName}</h1>
-            <p className="text-muted-foreground">
-              Vista operacional del lead, su owner y el historial de reasignaciones.
-            </p>
+
+            {/* Timestamps */}
+            <div className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Clock className="size-3" />
+                Actualizado {formatDate(lead.updatedAt)}
+              </span>
+              <span>Creado {formatDate(lead.createdAt)}</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/${tenantSlug}/leads`}>Volver a leads</Link>
+        {/* Actions */}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/${tenantSlug}/leads`}>
+              <ArrowLeft className="size-3.5" />
+              Leads
+            </Link>
           </Button>
 
           {canEdit && (
@@ -165,7 +236,11 @@ export default async function LeadDetailPage({
               owners={assignableOwners}
               canAssign={canAssign}
               lead={lead}
-              trigger={<Button type="button">Editar lead</Button>}
+              trigger={
+                <Button type="button" size="sm">
+                  Editar lead
+                </Button>
+              }
             />
           )}
 
@@ -174,63 +249,51 @@ export default async function LeadDetailPage({
               tenantSlug={tenantSlug}
               leadId={lead.id}
               owners={assignableOwners}
-              trigger={<Button type="button">Solicitar reasignación</Button>}
+              trigger={
+                <Button type="button" size="sm">
+                  Solicitar reasignación
+                </Button>
+              }
             />
           )}
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Estado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{LEAD_STATUS_LABEL[lead.status]}</p>
-          </CardContent>
-        </Card>
+      {/* ── Tabs ── */}
+      <Tabs defaultValue="datos">
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="datos" className="gap-1.5">
+            <Building2 className="size-3.5" />
+            Datos
+          </TabsTrigger>
+          <TabsTrigger value="interacciones" disabled={!interactionsEnabled} className="gap-1.5">
+            <MessageSquare className="size-3.5" />
+            Interacciones
+            {interactions.length > 0 && (
+              <Badge
+                variant="secondary"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
+              >
+                {interactions.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="reasignaciones" className="gap-1.5">
+            <RefreshCw className="size-3.5" />
+            Reasignaciones
+            {lead.reassignmentRequests.length > 0 && (
+              <Badge
+                variant="secondary"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
+              >
+                {lead.reassignmentRequests.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Owner actual
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-semibold">
-              {lead.owner?.name || lead.owner?.email || 'Sin owner'}
-            </p>
-            {lead.owner && <p className="text-sm text-muted-foreground">{lead.owner.email}</p>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">Origen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{lead.source || '—'}</p>
-            <p className="text-sm text-muted-foreground">
-              {lead.city || lead.country || 'Ubicación no registrada'}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Actualización
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-base font-semibold">{formatDate(lead.updatedAt)}</p>
-            <p className="text-sm text-muted-foreground">Creado: {formatDate(lead.createdAt)}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <div className="space-y-6">
+        {/* ── Tab: Datos ── */}
+        <TabsContent value="datos" className="mt-6 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Datos comerciales</CardTitle>
@@ -238,26 +301,38 @@ export default async function LeadDetailPage({
                 Información principal del prospecto y su contexto de negocio.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Razón social
-                </p>
-                <p className="font-medium">{lead.businessName}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">RUC</p>
-                <p className="font-medium">{lead.ruc || 'No registrado'}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Rubro</p>
-                <p className="font-medium">{lead.industry || 'No registrado'}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Ubicación</p>
-                <p className="font-medium">
-                  {[lead.city, lead.country].filter(Boolean).join(', ') || 'No registrada'}
-                </p>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                <div className="flex items-start gap-3 px-6 py-3.5">
+                  <Building2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">Razón social</p>
+                    <p className="font-medium">{lead.businessName}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 px-6 py-3.5">
+                  <Hash className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">RUC</p>
+                    <p className="font-medium">{lead.ruc || 'No registrado'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 px-6 py-3.5">
+                  <Layers className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Rubro</p>
+                    <p className="font-medium">{lead.industry || 'No registrado'}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 px-6 py-3.5">
+                  <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Ubicación</p>
+                    <p className="font-medium">
+                      {[lead.city, lead.country].filter(Boolean).join(', ') || 'No registrada'}
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -267,13 +342,24 @@ export default async function LeadDetailPage({
               <CardTitle>Contacto</CardTitle>
               <CardDescription>Canales disponibles para contactar al prospecto.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-2">
+            <CardContent className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Teléfonos</p>
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Phone className="size-3.5" />
+                  Teléfonos
+                </p>
                 {lead.phones.length > 0 ? (
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1.5">
                     {lead.phones.map((phone) => (
-                      <li key={phone}>{phone}</li>
+                      <li key={phone}>
+                        <a
+                          href={`tel:${phone}`}
+                          className="flex items-center gap-1.5 text-sm hover:underline"
+                        >
+                          <Phone className="size-3 text-muted-foreground" />
+                          {phone}
+                        </a>
+                      </li>
                     ))}
                   </ul>
                 ) : (
@@ -282,11 +368,22 @@ export default async function LeadDetailPage({
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Emails</p>
+                <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <Mail className="size-3.5" />
+                  Emails
+                </p>
                 {lead.emails.length > 0 ? (
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1.5">
                     {lead.emails.map((email) => (
-                      <li key={email}>{email}</li>
+                      <li key={email}>
+                        <a
+                          href={`mailto:${email}`}
+                          className="flex items-center gap-1.5 text-sm hover:underline"
+                        >
+                          <Mail className="size-3 text-muted-foreground" />
+                          {email}
+                        </a>
+                      </li>
                     ))}
                   </ul>
                 ) : (
@@ -313,9 +410,36 @@ export default async function LeadDetailPage({
               )}
             </CardContent>
           </Card>
-        </div>
+        </TabsContent>
 
-        <div className="space-y-6">
+        {/* ── Tab: Interacciones ── */}
+        <TabsContent value="interacciones" className="mt-6">
+          {interactionsEnabled ? (
+            <Card>
+              <CardContent className="pt-6">
+                <InteractionTimeline
+                  interactions={interactions}
+                  tenantSlug={tenantSlug}
+                  leadId={lead.id}
+                  currentUserId={actor.userId}
+                  currentRole={actor.role}
+                  isSuperAdmin={actor.isSuperAdmin}
+                  canCreate={canCreateInteractionForLead}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+              <MessageSquare className="size-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                El módulo de interacciones no está activo para este tenant.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Reasignaciones ── */}
+        <TabsContent value="reasignaciones" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Historial de reasignaciones</CardTitle>
@@ -325,9 +449,12 @@ export default async function LeadDetailPage({
             </CardHeader>
             <CardContent>
               {lead.reassignmentRequests.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Este lead no tiene solicitudes de reasignación todavía.
-                </p>
+                <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+                  <RefreshCw className="size-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">
+                    Este lead no tiene solicitudes de reasignación todavía.
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-4">
                   {lead.reassignmentRequests.map((request) => (
@@ -352,7 +479,7 @@ export default async function LeadDetailPage({
                             ? request.requestedOwner.name || request.requestedOwner.email
                             : 'Sin sugerencia'}
                         </p>
-                        <p className="whitespace-pre-wrap text-sm">{request.reason}</p>
+                        <p className="whitespace-pre-wrap">{request.reason}</p>
                       </div>
 
                       {request.resolutionNote && (
@@ -407,30 +534,8 @@ export default async function LeadDetailPage({
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
-
-      {interactionsEnabled && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Timeline de interacciones</CardTitle>
-            <CardDescription>
-              Historial de llamadas, emails, notas y visitas registrados para este lead.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InteractionTimeline
-              interactions={interactions}
-              tenantSlug={tenantSlug}
-              leadId={lead.id}
-              currentUserId={actor.userId}
-              currentRole={actor.role}
-              isSuperAdmin={actor.isSuperAdmin}
-              canCreate={canCreateInteractionForLead}
-            />
-          </CardContent>
-        </Card>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

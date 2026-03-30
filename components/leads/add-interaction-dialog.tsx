@@ -3,8 +3,9 @@
 import type { InteractionType } from '@prisma/client';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { PlusCircle } from 'lucide-react';
+import { Mail, MessageCircle, MessageSquare, Phone, PlusCircle, Users } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { createInteractionAction } from '@/lib/interaction-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,13 +28,15 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
-const TYPE_OPTIONS: Array<{ value: InteractionType; label: string }> = [
-  { value: 'CALL', label: 'Llamada' },
-  { value: 'EMAIL', label: 'Email' },
-  { value: 'NOTE', label: 'Nota' },
-  { value: 'VISIT', label: 'Visita' },
-  { value: 'WHATSAPP', label: 'WhatsApp' },
+const TYPE_OPTIONS: Array<{ value: InteractionType; label: string; icon: React.ReactNode }> = [
+  { value: 'CALL', label: 'Llamada', icon: <Phone className="size-3.5" /> },
+  { value: 'EMAIL', label: 'Email', icon: <Mail className="size-3.5" /> },
+  { value: 'NOTE', label: 'Nota', icon: <MessageSquare className="size-3.5" /> },
+  { value: 'VISIT', label: 'Visita', icon: <Users className="size-3.5" /> },
+  { value: 'WHATSAPP', label: 'WhatsApp', icon: <MessageCircle className="size-3.5" /> },
 ];
+
+const NOTES_MAX = 5000;
 
 function toLocalDatetimeValue(date: Date) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -49,6 +52,7 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [submitted, setSubmitted] = useState(false);
 
   const [type, setType] = useState<InteractionType>('CALL');
   const [subject, setSubject] = useState('');
@@ -60,9 +64,12 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
     setSubject('');
     setNotes('');
     setOccurredAt(toLocalDatetimeValue(new Date()));
+    setSubmitted(false);
   }
 
   function onSubmit() {
+    setSubmitted(true);
+    if (!notes.trim()) return;
     startTransition(async () => {
       try {
         await createInteractionAction({
@@ -117,7 +124,10 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
                 <SelectContent>
                   {TYPE_OPTIONS.map((o) => (
                     <SelectItem key={o.value} value={o.value}>
-                      {o.label}
+                      <div className="flex items-center gap-2">
+                        {o.icon}
+                        {o.label}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -156,9 +166,22 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Describe brevemente la interacción..."
               rows={4}
-              maxLength={5000}
-              required
+              maxLength={NOTES_MAX}
+              className="resize-none"
             />
+            <div className="flex items-center justify-between gap-2">
+              {submitted && !notes.trim() && (
+                <p className="text-xs text-destructive">Las notas son obligatorias.</p>
+              )}
+              <p
+                className={cn(
+                  'ml-auto text-xs',
+                  notes.length > NOTES_MAX * 0.96 ? 'text-destructive' : 'text-muted-foreground',
+                )}
+              >
+                {notes.length}/{NOTES_MAX}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -166,7 +189,7 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
             Cancelar
           </Button>
-          <Button onClick={onSubmit} disabled={isPending || !notes.trim()}>
+          <Button onClick={onSubmit} disabled={isPending}>
             {isPending ? 'Guardando...' : 'Guardar'}
           </Button>
         </DialogFooter>
