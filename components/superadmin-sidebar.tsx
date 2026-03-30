@@ -37,7 +37,7 @@ export function SuperadminSidebar({ userName, userEmail }: SuperadminSidebarProp
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/superadmin">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-red-600 text-white">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Settings2 className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
@@ -86,7 +86,7 @@ export function SuperadminSidebar({ userName, userEmail }: SuperadminSidebarProp
               profileHref="/superadmin/profile"
               profileLabel="Mi perfil"
               badgeLabel="ADMIN"
-              avatarFallbackClassName="rounded-lg bg-red-600 text-white"
+              avatarFallbackClassName="rounded-lg bg-primary text-primary-foreground"
             />
           </SidebarMenuItem>
         </SidebarMenu>

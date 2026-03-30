@@ -11,7 +11,7 @@ export default async function SuperadminLayout({ children }: { children: React.R
   if (!session.user.isSuperAdmin) redirect('/login');
 
   return (
-    <SidebarProvider defaultOpen={true} className="dark">
+    <SidebarProvider defaultOpen={true}>
       <SuperadminSidebar
         userName={session.user.name ?? null}
         userEmail={session.user.email ?? ''}

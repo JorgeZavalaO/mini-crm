@@ -43,7 +43,7 @@ export function SidebarUserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <SidebarMenuButton size="lg" tooltip="Cuenta y sesión">
-          <Avatar className="h-8 w-8 rounded-lg">
+          <Avatar className="size-8 rounded-lg">
             <AvatarFallback className={avatarFallbackClassName}>{initials}</AvatarFallback>
           </Avatar>
           <div className="grid flex-1 text-left text-sm leading-tight">
@@ -58,7 +58,7 @@ export function SidebarUserMenu({
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="end" className="w-64">
-        <DropdownMenuLabel className="space-y-1">
+        <DropdownMenuLabel className="flex flex-col gap-1">
           <div className="truncate font-semibold">{userName ?? userEmail}</div>
           <div className="truncate text-xs font-normal text-muted-foreground">{userEmail}</div>
         </DropdownMenuLabel>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ThemePreferencesCard } from '@/components/theme-preferences-card';
 
 export default async function ProfilePage({ params }: { params: Promise<{ tenantSlug: string }> }) {
   const { tenantSlug } = await params;
@@ -70,6 +71,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ tenant
           </div>
         </CardContent>
       </Card>
+
+      <ThemePreferencesCard />
     </div>
   );
 }

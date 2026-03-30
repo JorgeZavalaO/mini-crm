@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { db } from '@/lib/db';
 import { requireSuperAdmin } from '@/lib/auth-guard';
+import { ThemePreferencesCard } from '@/components/theme-preferences-card';
 
 export default async function SuperadminProfilePage() {
   const session = await requireSuperAdmin();
@@ -90,6 +91,8 @@ export default async function SuperadminProfilePage() {
             </Button>
           </CardContent>
         </Card>
+
+        <ThemePreferencesCard />
       </div>
 
       <Card>
