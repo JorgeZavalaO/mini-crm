@@ -19,11 +19,12 @@ describe('import utils', () => {
 
   it('acepta alias de columnas y construye records', () => {
     const records = parseImportCsvRecords(
-      'razon_social,telefonos,correos,estado\nAcme,+51 999 111 222,ventas@acme.com,Contactado',
+      'razon_social,ruc,telefonos,correos,estado\nAcme,20123456789,+51 999 111 222,ventas@acme.com,Contactado',
     );
 
     expect(records[0]).toMatchObject({
       businessName: 'Acme',
+      ruc: '20123456789',
       phones: '+51 999 111 222',
       emails: 'ventas@acme.com',
       status: 'Contactado',
@@ -32,6 +33,7 @@ describe('import utils', () => {
 
   it('convierte una fila CSV a payload importable', () => {
     const row = mapCsvRecordToImportRow({
+      ruc: '20123456789',
       businessName: 'Acme Logistics',
       phones: '+51 999 111 222; +51 955 000 111',
       emails: 'ventas@acme.com;ops@acme.com',
@@ -41,7 +43,7 @@ describe('import utils', () => {
 
     expect(row).toEqual({
       businessName: 'Acme Logistics',
-      ruc: undefined,
+      ruc: '20123456789',
       country: undefined,
       city: undefined,
       industry: undefined,

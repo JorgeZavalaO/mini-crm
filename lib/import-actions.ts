@@ -29,6 +29,7 @@ type LeadActorContext = {
 type ImportRowResult = {
   rowNumber: number;
   businessName: string;
+  ruc: string;
   outcome: 'READY' | 'CREATED' | 'SKIPPED' | 'ERROR';
   message: string;
 };
@@ -195,8 +196,8 @@ function buildImportCreateData(
   ownerId: string | null,
 ): Prisma.LeadUncheckedCreateInput {
   return {
-    businessName: row.businessName.trim(),
-    ruc: row.ruc?.trim() ?? null,
+    businessName: (row.businessName?.trim() || row.ruc).trim(),
+    ruc: row.ruc.trim(),
     rucNormalized: normalized.rucNormalized,
     nameNormalized: normalized.nameNormalized,
     country: row.country ?? null,
@@ -245,7 +246,7 @@ async function buildImportExecutionPlan(
       const row = importLeadRowSchema.parse(mapCsvRecordToImportRow(csvRecord));
       const normalized = {
         rucNormalized: normalizeRuc(row.ruc),
-        nameNormalized: normalizeLeadName(row.businessName),
+        nameNormalized: normalizeLeadName(row.businessName ?? row.ruc),
         emails: normalizeEmails(row.emails),
         phones: normalizePhones(row.phones),
       };
@@ -273,7 +274,8 @@ async function buildImportExecutionPlan(
       const message = error instanceof Error ? error.message : 'No se pudo analizar la fila';
       planRows.push({
         rowNumber,
-        businessName: csvRecord.businessName || `Fila ${rowNumber}`,
+        businessName: csvRecord.businessName || csvRecord.ruc || `Fila ${rowNumber}`,
+        ruc: csvRecord.ruc || '',
         outcome: 'ERROR',
         message,
       });
@@ -291,7 +293,8 @@ async function buildImportExecutionPlan(
     if (normalized.rucNormalized && seenRucs.has(normalized.rucNormalized)) {
       planRows.push({
         rowNumber,
-        businessName: row.businessName,
+        businessName: row.businessName || row.ruc,
+        ruc: row.ruc,
         outcome: 'SKIPPED',
         message: 'Duplicado dentro del mismo archivo por RUC',
       });
@@ -301,7 +304,8 @@ async function buildImportExecutionPlan(
     if (normalized.emails.some((email) => seenEmails.has(email))) {
       planRows.push({
         rowNumber,
-        businessName: row.businessName,
+        businessName: row.businessName || row.ruc,
+        ruc: row.ruc,
         outcome: 'SKIPPED',
         message: 'Duplicado dentro del mismo archivo por email',
       });
@@ -311,7 +315,8 @@ async function buildImportExecutionPlan(
     if (normalized.phones.some((phone) => seenPhones.has(phone))) {
       planRows.push({
         rowNumber,
-        businessName: row.businessName,
+        businessName: row.businessName || row.ruc,
+        ruc: row.ruc,
         outcome: 'SKIPPED',
         message: 'Duplicado dentro del mismo archivo por teléfono',
       });
@@ -325,7 +330,8 @@ async function buildImportExecutionPlan(
     if (existingDuplicateMessage) {
       planRows.push({
         rowNumber,
-        businessName: row.businessName,
+        businessName: row.businessName || row.ruc,
+        ruc: row.ruc,
         outcome: 'SKIPPED',
         message: existingDuplicateMessage,
       });
@@ -338,7 +344,8 @@ async function buildImportExecutionPlan(
 
     planRows.push({
       rowNumber,
-      businessName: row.businessName,
+      businessName: row.businessName || row.ruc,
+      ruc: row.ruc,
       outcome: 'READY',
       message: ownerId ? 'Listo para importar con owner asignado' : 'Listo para importar',
       createData: buildImportCreateData(ctx.tenant.id, row, normalized, ownerId),
@@ -379,6 +386,7 @@ export async function previewImportLeadsAction(input: unknown) {
     results: rows.map((row) => ({
       rowNumber: row.rowNumber,
       businessName: row.businessName,
+      ruc: row.ruc,
       outcome: row.outcome,
       message: row.message,
     })),
@@ -396,6 +404,7 @@ export async function importLeadsAction(input: unknown) {
       results.push({
         rowNumber: row.rowNumber,
         businessName: row.businessName,
+        ruc: row.ruc,
         outcome: row.outcome === 'READY' ? 'ERROR' : row.outcome,
         message: row.outcome === 'READY' ? 'La fila no pudo prepararse para importar' : row.message,
       });
@@ -407,6 +416,7 @@ export async function importLeadsAction(input: unknown) {
       results.push({
         rowNumber: row.rowNumber,
         businessName: row.businessName,
+        ruc: row.ruc,
         outcome: 'CREATED',
         message: 'Lead importado correctamente',
       });
@@ -415,6 +425,7 @@ export async function importLeadsAction(input: unknown) {
       results.push({
         rowNumber: row.rowNumber,
         businessName: row.businessName,
+        ruc: row.ruc,
         outcome: 'ERROR',
         message,
       });

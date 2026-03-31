@@ -36,6 +36,7 @@ type ImportOutcome = 'READY' | 'CREATED' | 'SKIPPED' | 'ERROR';
 type ImportResult = {
   rowNumber: number;
   businessName: string;
+  ruc: string;
   outcome: ImportOutcome;
   message: string;
 };
@@ -197,6 +198,7 @@ function ResultsTable({
               <TableRow>
                 <TableHead className="w-12 pl-4">Fila</TableHead>
                 <TableHead>Lead</TableHead>
+                <TableHead className="w-36 font-mono text-xs">RUC / Código</TableHead>
                 <TableHead className="w-24">Estado</TableHead>
                 <TableHead className="pr-4">Detalle</TableHead>
               </TableRow>
@@ -209,6 +211,9 @@ function ResultsTable({
                 >
                   <TableCell className="pl-4 text-muted-foreground">{result.rowNumber}</TableCell>
                   <TableCell className="font-medium">{result.businessName}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {result.ruc || <span className="italic opacity-40">—</span>}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={outcomeBadgeClass(result.outcome)}>
                       {outcomeLabel(result.outcome)}
@@ -271,7 +276,7 @@ async function downloadTemplate(): Promise<void> {
     ],
     [
       'Distribuidora Sur EIRL',
-      '',
+      '20333456789',
       'Peru',
       'Arequipa',
       'Retail',

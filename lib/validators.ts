@@ -103,8 +103,8 @@ export const importCsvSchema = z.object({
 });
 
 export const importLeadRowSchema = z.object({
-  businessName: z.string().trim().min(1, 'La razon social es requerida').max(200),
-  ruc: optionalText(40),
+  businessName: optionalText(200),
+  ruc: z.string().trim().min(1, 'El RUC/código es requerido').max(40),
   country: optionalText(80),
   city: optionalText(120),
   industry: optionalText(120),

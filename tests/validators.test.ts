@@ -74,6 +74,7 @@ describe('lead validators', () => {
 
   it('valida filas importadas ya transformadas', () => {
     const result = importLeadRowSchema.parse({
+      ruc: '20123456789',
       businessName: 'Acme Logistics',
       phones: ['+51 999 111 222'],
       emails: ['ventas@acme.com'],
@@ -81,6 +82,7 @@ describe('lead validators', () => {
       ownerEmail: 'admin@acme.com',
     });
 
+    expect(result.ruc).toBe('20123456789');
     expect(result.ownerEmail).toBe('admin@acme.com');
     expect(result.status).toBe(LeadStatus.CONTACTED);
   });

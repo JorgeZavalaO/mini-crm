@@ -110,8 +110,8 @@ export default async function LeadImportPage({
                 <CardTitle className="text-sm">Columnas del archivo</CardTitle>
               </div>
               <CardDescription>
-                <code className="rounded bg-muted px-1 text-xs font-mono">businessName</code> es la
-                única columna obligatoria.
+                <code className="rounded bg-muted px-1 text-xs font-mono">ruc</code> es la única
+                columna obligatoria — se usa como clave de deduplicación.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -125,8 +125,16 @@ export default async function LeadImportPage({
                 </TableHeader>
                 <TableBody>
                   {[
-                    { col: 'businessName', required: true, desc: 'Razón social o nombre del lead' },
-                    { col: 'ruc', required: false, desc: 'RUC u otro identificador fiscal' },
+                    {
+                      col: 'ruc',
+                      required: true,
+                      desc: 'RUC u otro código único de empresa (clave de duplicados)',
+                    },
+                    {
+                      col: 'businessName',
+                      required: false,
+                      desc: 'Razón social — si se omite, se usa el RUC',
+                    },
                     { col: 'country', required: false, desc: 'País' },
                     { col: 'city', required: false, desc: 'Ciudad' },
                     { col: 'industry', required: false, desc: 'Rubro o sector' },

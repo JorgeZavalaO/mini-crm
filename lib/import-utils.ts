@@ -144,8 +144,8 @@ export function parseImportCsvRecords(input: string): RawCsvRecord[] {
     (header) => COLUMN_ALIASES[normalizeHeader(header)] ?? header.trim(),
   );
 
-  if (!headers.includes('businessName')) {
-    throw new Error('El CSV debe incluir la columna businessName');
+  if (!headers.includes('ruc')) {
+    throw new Error('El archivo debe incluir la columna ruc (RUC/código de empresa)');
   }
 
   return dataRows.map((row) => {
@@ -161,8 +161,8 @@ export function parseImportCsvRecords(input: string): RawCsvRecord[] {
 
 export function mapCsvRecordToImportRow(record: RawCsvRecord) {
   return {
-    businessName: record.businessName ?? '',
-    ruc: record.ruc || undefined,
+    businessName: record.businessName || undefined,
+    ruc: record.ruc ?? '',
     country: record.country || undefined,
     city: record.city || undefined,
     industry: record.industry || undefined,
