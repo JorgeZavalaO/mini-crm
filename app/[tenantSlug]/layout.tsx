@@ -5,6 +5,7 @@ import { hasRole } from '@/lib/rbac';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { TenantSidebar } from '@/components/tenant-sidebar';
+import { NotificationsBell } from '@/components/notifications-bell';
 
 export default async function TenantLayout({
   children,
@@ -41,6 +42,9 @@ export default async function TenantLayout({
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <span className="text-sm font-medium text-muted-foreground">{tenant.name}</span>
+            <div className="ml-auto flex items-center gap-1">
+              <NotificationsBell tenantSlug={tenantSlug} />
+            </div>
           </header>
           <div className="flex min-w-0 flex-1 flex-col gap-4 p-4 pt-0">{children}</div>
         </SidebarInset>
