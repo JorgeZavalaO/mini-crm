@@ -1,12 +1,22 @@
 'use client';
 
-import type { InteractionType } from '@prisma/client';
-import { useState, useTransition } from 'react';
+import type { InteractionType, LeadStatus } from '@prisma/client';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, MessageCircle, MessageSquare, Phone, PlusCircle, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  Mail,
+  MessageCircle,
+  MessageSquare,
+  Phone,
+  PlusCircle,
+  Users,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { createInteractionAction } from '@/lib/interaction-actions';
+import { suggestStatusTransition } from '@/lib/lead-status-transitions';
+import { LEAD_STATUS_LABEL } from '@/lib/lead-status';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
 const TYPE_OPTIONS: Array<{ value: InteractionType; label: string; icon: React.ReactNode }> = [
@@ -46,9 +57,14 @@ function toLocalDatetimeValue(date: Date) {
 type AddInteractionDialogProps = {
   tenantSlug: string;
   leadId: string;
+  currentStatus: LeadStatus;
 };
 
-export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialogProps) {
+export function AddInteractionDialog({
+  tenantSlug,
+  leadId,
+  currentStatus,
+}: AddInteractionDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -58,6 +74,14 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
   const [subject, setSubject] = useState('');
   const [notes, setNotes] = useState('');
   const [occurredAt, setOccurredAt] = useState(toLocalDatetimeValue(new Date()));
+  const [applyTransition, setApplyTransition] = useState(false);
+
+  const suggestedStatus = suggestStatusTransition(currentStatus, type);
+
+  // Activar switch automáticamente cuando haya una sugerencia
+  useEffect(() => {
+    setApplyTransition(suggestedStatus != null);
+  }, [suggestedStatus]);
 
   function resetForm() {
     setType('CALL');
@@ -65,6 +89,7 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
     setNotes('');
     setOccurredAt(toLocalDatetimeValue(new Date()));
     setSubmitted(false);
+    setApplyTransition(false);
   }
 
   function onSubmit() {
@@ -79,6 +104,7 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
           subject: subject.trim() || undefined,
           notes,
           occurredAt: new Date(occurredAt),
+          targetStatus: applyTransition && suggestedStatus != null ? suggestedStatus : undefined,
         });
         toast.success('Interacción registrada');
         setOpen(false);
@@ -183,6 +209,26 @@ export function AddInteractionDialog({ tenantSlug, leadId }: AddInteractionDialo
               </p>
             </div>
           </div>
+
+          {/* Status transition suggestion */}
+          {suggestedStatus != null && (
+            <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2.5">
+              <div className="flex items-center gap-2 text-sm">
+                <ArrowRight className="size-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">Cambiar estado:</span>
+                <span className="font-medium">{LEAD_STATUS_LABEL[currentStatus]}</span>
+                <ArrowRight className="size-3 text-muted-foreground" />
+                <span className="font-medium text-primary">
+                  {LEAD_STATUS_LABEL[suggestedStatus]}
+                </span>
+              </div>
+              <Switch
+                checked={applyTransition}
+                onCheckedChange={setApplyTransition}
+                aria-label="Aplicar cambio de estado"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

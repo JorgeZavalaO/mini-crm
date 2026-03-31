@@ -150,6 +150,7 @@ export const createInteractionSchema = z.object({
   subject: optionalText(200),
   notes: z.string().trim().min(1, 'Las notas son requeridas').max(5000),
   occurredAt: z.coerce.date(),
+  targetStatus: z.nativeEnum(LeadStatus).optional(),
 });
 
 export const updateInteractionSchema = createInteractionSchema.extend({

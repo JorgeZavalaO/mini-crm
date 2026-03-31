@@ -25,7 +25,9 @@ const dbMock = vi.hoisted(() => ({
   },
   lead: {
     findFirst: vi.fn(),
+    update: vi.fn(),
   },
+  $transaction: vi.fn(),
 }));
 
 vi.mock('@/lib/db', () => ({ db: dbMock }));
@@ -103,8 +105,13 @@ describe('createInteractionAction', () => {
     vi.clearAllMocks();
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
-    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'NEW' });
     dbMock.interaction.create.mockResolvedValue({ id: INTERACTION_ID });
+    dbMock.lead.update.mockResolvedValue({});
+    // Simula la transacción ejecutando el callback con el mismo mock
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
+      fn(dbMock),
+    );
   });
 
   it('lanza AppError 400 cuando faltan campos requeridos', async () => {
@@ -171,6 +178,45 @@ describe('createInteractionAction', () => {
       }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
+    expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads`);
+  });
+
+  it('no actualiza el estado del lead cuando no se envía targetStatus', async () => {
+    await createInteractionAction(VALID_CREATE_INPUT);
+    expect(dbMock.lead.update).not.toHaveBeenCalled();
+  });
+
+  it('actualiza el estado del lead cuando targetStatus coincide con la sugerencia (NEW+CALL → CONTACTED)', async () => {
+    await createInteractionAction({ ...VALID_CREATE_INPUT, targetStatus: 'CONTACTED' });
+    expect(dbMock.lead.update).toHaveBeenCalledWith({
+      where: { id: LEAD_ID },
+      data: { status: 'CONTACTED' },
+    });
+  });
+
+  it('ignora targetStatus cuando no coincide con la regla del servidor (NOTE no puede avanzar)', async () => {
+    await createInteractionAction({
+      ...VALID_CREATE_INPUT,
+      type: 'NOTE',
+      targetStatus: 'CONTACTED',
+    });
+    expect(dbMock.lead.update).not.toHaveBeenCalled();
+  });
+
+  it('ignora targetStatus cuando el estado del lead no permite transición (QUALIFIED es terminal)', async () => {
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'QUALIFIED' });
+    await createInteractionAction({ ...VALID_CREATE_INPUT, targetStatus: 'WON' });
+    expect(dbMock.lead.update).not.toHaveBeenCalled();
+  });
+
+  it('no actualiza el estado cuando el lead ya está en CONTACTED y solo EMAIL (sin regla)', async () => {
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'CONTACTED' });
+    await createInteractionAction({
+      ...VALID_CREATE_INPUT,
+      type: 'EMAIL',
+      targetStatus: 'QUALIFIED',
+    });
+    expect(dbMock.lead.update).not.toHaveBeenCalled();
   });
 
   it('permite a PASANTE registrar interacciones (cualquier miembro activo puede)', async () => {

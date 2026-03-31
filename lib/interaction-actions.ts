@@ -9,6 +9,7 @@ import {
   canDeleteInteraction,
   canEditInteraction,
 } from '@/lib/lead-permissions';
+import { suggestStatusTransition } from '@/lib/lead-status-transitions';
 import {
   createInteractionSchema,
   deleteInteractionSchema,
@@ -61,7 +62,7 @@ export async function createInteractionAction(input: unknown) {
   if (!parsed.success) {
     throw new AppError(parsed.error.issues[0]?.message ?? 'Datos de interacción inválidos', 400);
   }
-  const { tenantSlug, leadId, type, subject, notes, occurredAt } = parsed.data;
+  const { tenantSlug, leadId, type, subject, notes, occurredAt, targetStatus } = parsed.data;
 
   const ctx = await getInteractionContext(tenantSlug);
 
@@ -71,27 +72,44 @@ export async function createInteractionAction(input: unknown) {
 
   const lead = await db.lead.findFirst({
     where: { id: leadId, tenantId: ctx.tenantId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!lead) {
     throw new AppError('Lead no encontrado', 404);
   }
 
-  const interaction = await db.interaction.create({
-    data: {
-      leadId,
-      tenantId: ctx.tenantId,
-      authorId: ctx.userId,
-      type,
-      subject: subject ?? null,
-      notes,
-      occurredAt,
-    },
-    select: { id: true },
+  // Re-validar la transición en el servidor para no confiar en el cliente
+  const allowedTarget = targetStatus != null ? suggestStatusTransition(lead.status, type) : null;
+  const applyStatus =
+    allowedTarget != null && allowedTarget === targetStatus ? allowedTarget : null;
+
+  const interactionId = await db.$transaction(async (tx) => {
+    const created = await tx.interaction.create({
+      data: {
+        leadId,
+        tenantId: ctx.tenantId,
+        authorId: ctx.userId,
+        type,
+        subject: subject ?? null,
+        notes,
+        occurredAt,
+      },
+      select: { id: true },
+    });
+
+    if (applyStatus != null) {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { status: applyStatus },
+      });
+    }
+
+    return created.id;
   });
 
   revalidateLeadViews(tenantSlug, leadId);
-  return { success: true, interactionId: interaction.id };
+  revalidatePath(`/${tenantSlug}/leads`);
+  return { success: true, interactionId };
 }
 
 export async function updateInteractionAction(input: unknown) {

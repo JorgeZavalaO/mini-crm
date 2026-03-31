@@ -425,6 +425,7 @@ export default async function LeadDetailPage({
                   currentRole={actor.role}
                   isSuperAdmin={actor.isSuperAdmin}
                   canCreate={canCreateInteractionForLead}
+                  currentStatus={lead.status}
                 />
               </CardContent>
             </Card>

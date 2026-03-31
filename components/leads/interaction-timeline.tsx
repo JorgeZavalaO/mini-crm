@@ -1,4 +1,4 @@
-import type { InteractionType } from '@prisma/client';
+import type { InteractionType, LeadStatus } from '@prisma/client';
 import { Mail, MessageCircle, MessageSquare, Phone, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -56,6 +56,7 @@ type InteractionTimelineProps = {
   currentRole: string | null;
   isSuperAdmin: boolean;
   canCreate: boolean;
+  currentStatus: LeadStatus;
 };
 
 const TYPE_ICON: Record<InteractionType, React.ReactNode> = {
@@ -118,6 +119,7 @@ export function InteractionTimeline({
   currentRole,
   isSuperAdmin,
   canCreate,
+  currentStatus,
 }: InteractionTimelineProps) {
   const sorted = [...interactions].sort(
     (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
@@ -136,7 +138,11 @@ export function InteractionTimeline({
           )}
         </div>
         {canCreate && sorted.length > 0 && (
-          <AddInteractionDialog tenantSlug={tenantSlug} leadId={leadId} />
+          <AddInteractionDialog
+            tenantSlug={tenantSlug}
+            leadId={leadId}
+            currentStatus={currentStatus}
+          />
         )}
       </div>
 
@@ -152,7 +158,13 @@ export function InteractionTimeline({
               </p>
             )}
           </div>
-          {canCreate && <AddInteractionDialog tenantSlug={tenantSlug} leadId={leadId} />}
+          {canCreate && (
+            <AddInteractionDialog
+              tenantSlug={tenantSlug}
+              leadId={leadId}
+              currentStatus={currentStatus}
+            />
+          )}
         </div>
       )}
 
