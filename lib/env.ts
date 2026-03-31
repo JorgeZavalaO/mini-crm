@@ -9,6 +9,7 @@ export type AppEnv = {
   AUTH_RATE_LIMIT_WINDOW_MS: number;
   AUTH_RATE_LIMIT_MAX_ATTEMPTS: number;
   AUTH_RATE_LIMIT_BLOCK_MS: number;
+  BLOB_READ_WRITE_TOKEN: string | undefined;
 };
 
 const FALLBACK_DEV_AUTH_SECRET = 'dev-only-auth-secret-change-me-please-32';
@@ -67,6 +68,7 @@ export function getValidatedEnv(source: NodeJS.ProcessEnv = process.env): AppEnv
     AUTH_SECRET:
       rawAuthSecret && rawAuthSecret.length >= 32 ? rawAuthSecret : FALLBACK_DEV_AUTH_SECRET,
     LOG_LEVEL: parseLogLevel(source.LOG_LEVEL, nodeEnv),
+    BLOB_READ_WRITE_TOKEN: source.BLOB_READ_WRITE_TOKEN?.trim() || undefined,
     AUTH_RATE_LIMIT_WINDOW_MS: parsePositiveInteger(
       source.AUTH_RATE_LIMIT_WINDOW_MS,
       10 * 60 * 1000,

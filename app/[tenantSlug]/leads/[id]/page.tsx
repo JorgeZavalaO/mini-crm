@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Building2,
   Clock,
+  FileText,
   Hash,
   Layers,
   Mail,
@@ -29,12 +30,15 @@ import {
   LEAD_STATUS_LABEL,
   REASSIGNMENT_STATUS_LABEL,
 } from '@/lib/lead-status';
+import { listLeadDocumentsAction } from '@/lib/document-actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InteractionTimeline } from '@/components/leads/interaction-timeline';
+import { DocumentList } from '@/components/documents/document-list';
+import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
 import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
 import { ResolveReassignmentDialog } from '../components/resolve-reassignment-dialog';
@@ -73,9 +77,10 @@ export default async function LeadDetailPage({
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
   };
 
-  const [assignmentsEnabled, interactionsEnabled] = await Promise.all([
+  const [assignmentsEnabled, interactionsEnabled, documentsEnabled] = await Promise.all([
     isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
     isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
+    isTenantFeatureEnabled(tenant.id, 'DOCUMENTS'),
   ]);
 
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
@@ -108,7 +113,11 @@ export default async function LeadDetailPage({
       })
     : Promise.resolve([]);
 
-  const [lead, activeOwners, interactions] = await Promise.all([
+  const documentsPromise = documentsEnabled
+    ? listLeadDocumentsAction(id, tenantSlug).catch(() => [])
+    : Promise.resolve([]);
+
+  const [lead, activeOwners, interactions, documents] = await Promise.all([
     db.lead.findFirst({
       where: { id, tenantId: tenant.id, deletedAt: null },
       select: {
@@ -146,6 +155,7 @@ export default async function LeadDetailPage({
     }),
     activeOwnersPromise,
     interactionsPromise,
+    documentsPromise,
   ]);
 
   if (!lead) {
@@ -287,6 +297,18 @@ export default async function LeadDetailPage({
                 className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
               >
                 {lead.reassignmentRequests.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="documentos" disabled={!documentsEnabled} className="gap-1.5">
+            <FileText className="size-3.5" />
+            Documentos
+            {documents.length > 0 && (
+              <Badge
+                variant="secondary"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
+              >
+                {documents.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -535,6 +557,33 @@ export default async function LeadDetailPage({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── Tab: Documentos ── */}
+        <TabsContent value="documentos" className="mt-6 space-y-4">
+          {documentsEnabled ? (
+            <>
+              <DocumentUploadZone
+                tenantSlug={tenantSlug}
+                leadId={lead.id}
+                currentUserId={actor.userId}
+              />
+              <DocumentList
+                documents={documents}
+                tenantSlug={tenantSlug}
+                currentUserId={actor.userId}
+                currentRole={actor.role}
+                isSuperAdmin={actor.isSuperAdmin}
+              />
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+              <FileText className="size-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                El módulo de documentos no está activo para este tenant.
+              </p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

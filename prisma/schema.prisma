@@ -75,6 +75,7 @@ model Tenant {
   leadReassignmentRequests LeadReassignmentRequest[]
   interactions             Interaction[]
   features                 TenantFeature[]
+  documents                Document[]
   plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -136,6 +137,7 @@ model User {
   resolvedLeadReassignments  LeadReassignmentRequest[] @relation("LeadReassignmentResolvedBy")
   targetLeadReassignments    LeadReassignmentRequest[] @relation("LeadReassignmentTargetOwner")
   interactions               Interaction[]             @relation("InteractionAuthor")
+  uploadedDocuments          Document[]                @relation("DocumentUploader")
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -200,6 +202,7 @@ model Lead {
   updatedAt            DateTime                  @updatedAt
   reassignmentRequests LeadReassignmentRequest[]
   interactions         Interaction[]
+  documents            Document[]
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
@@ -248,4 +251,28 @@ model Interaction {
 
   @@index([leadId])
   @@index([tenantId, leadId])
+}
+
+// ─── Documents ──────────────────────────────────────────
+
+model Document {
+  id           String    @id @default(cuid())
+  tenantId     String
+  leadId       String?
+  uploadedById String
+  name         String
+  blobUrl      String
+  blobPathname String
+  mimeType     String
+  sizeBytes    Int
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead         Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  uploadedBy   User      @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, leadId])
+  @@index([uploadedById])
 }

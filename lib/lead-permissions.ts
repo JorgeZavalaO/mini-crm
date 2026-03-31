@@ -52,3 +52,15 @@ export function canEditInteraction(ctx: LeadPermissionContext, authorId: string)
 export function canDeleteInteraction(ctx: LeadPermissionContext, authorId: string): boolean {
   return canEditInteraction(ctx, authorId);
 }
+
+export function canUploadDocument(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  return ctx.isActiveMember;
+}
+
+export function canDeleteDocument(ctx: LeadPermissionContext, uploadedById: string): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  if (ctx.userId === uploadedById) return true;
+  return hasRole(ctx.role, 'SUPERVISOR');
+}

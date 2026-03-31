@@ -161,3 +161,13 @@ export const deleteInteractionSchema = z.object({
   tenantSlug: z.string().min(1),
   interactionId: z.string().min(1),
 });
+
+export const uploadDocumentSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: z.string().min(1).optional(),
+});
+
+export const deleteDocumentSchema = z.object({
+  tenantSlug: z.string().min(1),
+  documentId: z.string().min(1),
+});
