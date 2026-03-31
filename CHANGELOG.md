@@ -2,6 +2,33 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-31] Importación por Excel + Documentos completos
+
+### Added
+
+- Nuevo módulo de documentos implementado end-to-end:
+  - `lib/document-actions.ts` con acciones de subir, eliminar y listar documentos.
+  - `components/documents/document-upload-zone.tsx` con carga drag-and-drop.
+  - `components/documents/document-list.tsx` con tabla, descarga y acciones por archivo.
+  - `app/[tenantSlug]/documents/page.tsx` como repositorio general de documentos del tenant.
+- Nueva pestaña `Documentos` en `app/[tenantSlug]/leads/[id]/page.tsx` para gestionar archivos por lead.
+- Soporte de almacenamiento en `@vercel/blob` para archivos del módulo `DOCUMENTS`.
+- Cobertura de pruebas para documentos en `tests/document-actions.test.ts`.
+
+### Changed
+
+- `next.config.ts` ahora declara `serverActions.bodySizeLimit = '5mb'` para cargas de documentos.
+- `prisma/schema.prisma` incorpora el modelo `Document` y sus relaciones (`Tenant`, `Lead`, `User`).
+- La importación de leads migró de pegado manual a carga de archivo (`.xlsx/.xls/.csv`) con UX mejorada.
+- Se añadió descarga de plantilla Excel con filas de ejemplo para carga masiva.
+- La importación ahora requiere `ruc` como columna obligatoria y clave principal para deduplicación.
+- `businessName` pasa a opcional en importación; si no viene informado, se usa `ruc` como fallback.
+
+### Fixed
+
+- Se corrigen inconsistencias de props en vistas de documentos (`docs`/`documents` y props no soportadas).
+- Se garantiza compatibilidad de build y tipado tras la integración del módulo de documentos.
+
 ## [2026-03-29] UX/UI SuperAdmin - planes tabulares y perfil desde avatar
 
 ### Added

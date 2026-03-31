@@ -10,8 +10,9 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Multi-tenancy por `tenantSlug`.
 - RBAC por tenant (`ADMIN`, `SUPERVISOR`, `VENDEDOR`, `FREELANCE`, `PASANTE`).
 - CRUD de leads con filtros, asignación y reasignación.
-- Importación MVP de leads por CSV pegado en texto.
+- Importación masiva de leads por archivo Excel (`.xlsx/.xls`) o CSV, con análisis previo y confirmación en 2 pasos.
 - Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
+- Módulo de documentos operativo: carga, listado y eliminación con almacenamiento en Vercel Blob.
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -31,7 +32,6 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### Pendiente
 
-- Documents MVP.
 - Tasks, interactions, notifications y client portal.
 - Hardening productivo adicional: auditoría avanzada, observabilidad profunda y más tests end-to-end.
 
@@ -43,7 +43,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 2.2    | Reasignaciones + validaciones del core comercial | ✅ Completado |
 | 2.3    | Configuración Prisma + pruebas base              | ✅ Completado |
 | 3      | Lead detail + dashboard útil para operación      | ✅ Completado |
-| 4      | Documents MVP o Import/Dedupe MVP                | ✅ Completado |
+| 4      | Import/Dedupe + Documents MVP                    | ✅ Completado |
 | 5      | Invitaciones / onboarding de usuarios            | ✅ Completado |
 | 6      | Hardening para producción                        | ✅ Completado |
 
@@ -78,6 +78,7 @@ Variables mínimas:
 Variables recomendadas:
 
 - `AUTH_TRUST_HOST` (si despliegas detrás de reverse proxy fuera de Vercel o quieres dejarlo explícito en producción)
+- `BLOB_READ_WRITE_TOKEN` (requerido para el módulo `DOCUMENTS` en producción)
 - `LOG_LEVEL`
 - `NODE_ENV`
 - `AUTH_RATE_LIMIT_WINDOW_MS`
@@ -159,7 +160,7 @@ pnpm dev
 - `app/[tenantSlug]/leads/dedupe`
 - `app/[tenantSlug]/team`
 - `app/[tenantSlug]/profile`
-- `app/[tenantSlug]/documents` _(placeholder)_
+- `app/[tenantSlug]/documents`
 
 ### Auth / onboarding
 
@@ -247,6 +248,15 @@ pnpm dev
 - La creación de planes se trasladó a un diálogo contextual para mantener el flujo administrativo compacto.
 - El avatar del sidebar ahora abre un menú de cuenta con acceso a perfil y cierre de sesión, tanto en tenant como en `SuperAdmin`.
 - Nuevo módulo `superadmin/profile` para consultar la identidad del administrador y sus memberships vinculadas.
+
+### Iteración actual: Importación + Documentos (mar-2026)
+
+- `leads/import` migró de pegado manual a carga de archivo (`.xlsx/.xls/.csv`) con UX drag-and-drop.
+- Se añadió descarga de plantilla Excel con cabeceras oficiales y filas de ejemplo para carga masiva.
+- La importación ahora exige `ruc` como campo obligatorio y lo usa como clave principal de deduplicación.
+- `businessName` pasa a opcional durante importación (si falta, se usa el valor de `ruc` como fallback).
+- Nuevo módulo `documents` completo: subida (máx. 5 MB), listado, descarga y eliminación con control de permisos.
+- Se habilitó pestaña `Documentos` en el detalle de lead y repositorio general en `/{tenantSlug}/documents`.
 
 ## Calidad y validación
 

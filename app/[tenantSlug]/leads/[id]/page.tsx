@@ -563,13 +563,9 @@ export default async function LeadDetailPage({
         <TabsContent value="documentos" className="mt-6 space-y-4">
           {documentsEnabled ? (
             <>
-              <DocumentUploadZone
-                tenantSlug={tenantSlug}
-                leadId={lead.id}
-                currentUserId={actor.userId}
-              />
+              <DocumentUploadZone tenantSlug={tenantSlug} leadId={lead.id} />
               <DocumentList
-                documents={documents}
+                docs={documents}
                 tenantSlug={tenantSlug}
                 currentUserId={actor.userId}
                 currentRole={actor.role}

@@ -45,7 +45,7 @@ export default async function DocumentsPage({
           <CardDescription>PDF, Word, Excel o imagen — máximo 5 MB por archivo.</CardDescription>
         </CardHeader>
         <CardContent>
-          <DocumentUploadZone tenantSlug={tenantSlug} currentUserId={actor.userId} />
+          <DocumentUploadZone tenantSlug={tenantSlug} />
         </CardContent>
       </Card>
 
@@ -66,7 +66,7 @@ export default async function DocumentsPage({
         </CardHeader>
         <CardContent className="p-0">
           <DocumentList
-            documents={documents}
+            docs={documents}
             tenantSlug={tenantSlug}
             currentUserId={actor.userId}
             currentRole={actor.role}
