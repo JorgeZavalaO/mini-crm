@@ -11,6 +11,7 @@ import {
   ThumbsDown,
   Trash2,
 } from 'lucide-react';
+import { QuotePdfButton } from './quote-pdf-button';
 import { changeQuoteStatusAction, deleteQuoteAction, type QuoteRow } from '@/lib/quote-actions';
 import {
   AlertDialog,
@@ -253,6 +254,17 @@ export function QuoteList({
                               <Eye className="mr-2 size-3.5" />
                               Ver detalle
                             </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem asChild>
+                            <QuotePdfButton
+                              quoteId={quote.id}
+                              tenantSlug={tenantSlug}
+                              quoteNumber={quote.quoteNumber}
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start gap-2 px-2 py-1.5 font-normal text-sm h-auto"
+                            />
                           </DropdownMenuItem>
 
                           {canModerate() && nexts.length > 0 && (

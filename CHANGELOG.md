@@ -2,6 +2,29 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v0.8.0 · 2026-03-31] Sprint 7.2 — PDF de cotizaciones
+
+### Added
+
+- `jspdf` + `jspdf-autotable` como dependencias de producción para generación de PDF en el cliente sin servidor extra.
+- `components/quotes/quote-pdf-button.tsx`: componente client reutilizable que genera el PDF con lazy import (`import('jspdf')`) para no impactar el bundle inicial. Diseño del PDF: encabezado azul con número y estado, sección de cliente y metadatos en dos columnas, tabla de ítems con cabecera azul y filas alternadas, bloque de totales alineado a la derecha, sesión de notas y footer con página y fecha de generación.
+
+### Changed
+
+- `app/[tenantSlug]/quotes/[id]/page.tsx`: botón **Descargar PDF** en el encabezado, junto al botón Volver.
+- `components/quotes/quote-list.tsx`: opción **Descargar PDF** en el `DropdownMenu` de acciones de cada fila, separada visualmente de las acciones de estado.
+
+## [v0.7.0 · 2026-03-31] Sprint 7.1 — Campanita de notificaciones
+
+### Added
+
+- `lib/notifications-actions.ts`: server action `getTenantNotificationsAction` que agrega 6 tipos de notificaciones contextuales por tenant: leads sin asignar (ámbar), leads nuevos (azul), leads ganados (verde), cotizaciones generadas (violeta), cotizaciones aceptadas (verde) y cotizaciones rechazadas (rojo). Solo SUPERVISOR+ ve las reasignaciones pendientes.
+- `components/notifications-bell.tsx`: componente client con botón campanita y Popover; badge rojo si hay items críticos (sin asignar / reasignación pendiente), badge primario para el resto; `ScrollArea` para listas largas; recarga automática al abrir y botón de actualización manual.
+
+### Changed
+
+- `app/[tenantSlug]/layout.tsx`: `NotificationsBell` inyectada en el header a la derecha, visible para todos los miembros del tenant.
+
 ## [2026-03-31] Sprint 7 UX/UI — Buscadores en Cotizaciones y Filtros de Leads
 
 ### Added

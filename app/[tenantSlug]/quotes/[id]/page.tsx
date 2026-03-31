@@ -6,6 +6,7 @@ import { getQuoteDetailAction } from '@/lib/quote-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { QuotePdfButton } from '@/components/quotes/quote-pdf-button';
 import {
   Table,
   TableBody,
@@ -63,12 +64,19 @@ export default async function QuoteDetailPage({
             Lead: {quote.lead.businessName} {quote.lead.ruc ? `· RUC ${quote.lead.ruc}` : ''}
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/${tenantSlug}/quotes`}>
-            <ArrowLeft className="size-3.5" />
-            Volver
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <QuotePdfButton
+            quoteId={quote.id}
+            tenantSlug={tenantSlug}
+            quoteNumber={quote.quoteNumber}
+          />
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/${tenantSlug}/quotes`}>
+              <ArrowLeft className="size-3.5" />
+              Volver
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

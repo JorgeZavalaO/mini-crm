@@ -14,6 +14,8 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
 - Módulo de documentos operativo: carga, listado y eliminación con almacenamiento en Vercel Blob.
 - Módulo de cotizaciones operativo: CRUD de cotizaciones con ítems, cálculo de subtotal/impuesto/total, estados (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y soporte de moneda (`PEN`/`USD`).
+- Campanita de notificaciones en el dashboard de tenant: leads sin asignar, leads nuevos, leads ganados, cotizaciones generadas, aceptadas y rechazadas de los últimos 7 días.
+- Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle.
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -29,7 +31,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### En progreso
 
-- Preparación de backlog post-Sprint 7: edición de cotizaciones en UI, generación de PDF y envío por email.
+- Envío de cotización por email al cliente.
 
 ### Pendiente
 
@@ -48,6 +50,8 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 5      | Invitaciones / onboarding de usuarios            | ✅ Completado |
 | 6      | Hardening para producción                        | ✅ Completado |
 | 7      | Cotizaciones MVP + Documentos completos          | ✅ Completado |
+| 7.1    | Notificaciones en tiempo real                    | ✅ Completado |
+| 7.2    | PDF de cotizaciones descargable                  | ✅ Completado |
 
 ## Stack
 
@@ -284,6 +288,18 @@ pnpm dev
 - Cuatro tarjetas de resumen estadístico (Borrador/Enviada/Aceptada/Rechazada) con borde de color semántico en la página principal de cotizaciones.
 - Trazabilidad automática: al crear una cotización se registra una interacción tipo `NOTE` en el historial del lead con el número y total de la cotización.
 - Empty state estilizado con borde discontinuo cuando no hay cotizaciones.
+
+### Sprint 7.2 — PDF de cotizaciones
+
+- `components/quotes/quote-pdf-button.tsx`: jsPDF cargado con dynamic import. PDF con encabezado azul, datos del cliente, tabla de ítems, totales y footer con fecha de generación.
+- Botón **Descargar PDF** en la página de detalle de cotización.
+- Opción **Descargar PDF** en el dropdown de acciones de la lista de cotizaciones.
+
+### Sprint 7 UX/UI — Notificaciones (campanita)
+
+- `lib/notifications-actions.ts` con 6 tipos de notificación contextual por tenant.
+- `components/notifications-bell.tsx`: Popover con ScrollArea, badge semántico (rojo = crítico, primario = informativo), recarga al abrir.
+- Inyectado en header de `app/[tenantSlug]/layout.tsx`.
 
 ### Sprint 7 UX/UI — Buscadores en Cotizaciones y Filtros de Leads
 
