@@ -5,9 +5,16 @@ import { canOwnLeads } from '@/lib/lead-owner';
 import { canImportLeads } from '@/lib/lead-permissions';
 import { db } from '@/lib/db';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
-import { IMPORT_SAMPLE_CSV } from '@/lib/import-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { ImportForm } from './import-form';
 
 export default async function LeadImportPage({
@@ -48,7 +55,8 @@ export default async function LeadImportPage({
         <div>
           <h1 className="text-3xl font-bold">Importación de leads</h1>
           <p className="text-muted-foreground">
-            MVP de carga masiva por CSV pegado en texto, ahora con preflight antes de confirmar.
+            Carga masiva de leads desde Excel (.xlsx) o CSV, con análisis de duplicados antes de
+            confirmar.
           </p>
         </div>
 
@@ -63,20 +71,58 @@ export default async function LeadImportPage({
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <ImportForm tenantSlug={tenantSlug} sampleCsv={IMPORT_SAMPLE_CSV} />
+        <ImportForm tenantSlug={tenantSlug} />
 
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Formato soportado</CardTitle>
+              <CardTitle>Columnas del archivo</CardTitle>
               <CardDescription>
-                Usa encabezados amigables o la plantilla base. `businessName` es obligatorio.
+                Descarga la plantilla desde el formulario. <code>businessName</code> es la única
+                columna obligatoria.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs leading-6">
-                {IMPORT_SAMPLE_CSV}
-              </pre>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Columna</TableHead>
+                    <TableHead>Requerida</TableHead>
+                    <TableHead>Descripción</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[
+                    { col: 'businessName', required: true, desc: 'Razón social o nombre del lead' },
+                    { col: 'ruc', required: false, desc: 'RUC u otro identificador fiscal' },
+                    { col: 'country', required: false, desc: 'País' },
+                    { col: 'city', required: false, desc: 'Ciudad' },
+                    { col: 'industry', required: false, desc: 'Rubro o sector' },
+                    { col: 'source', required: false, desc: 'Fuente (Web, Referido…)' },
+                    { col: 'notes', required: false, desc: 'Notas internas' },
+                    { col: 'phones', required: false, desc: 'Teléfonos separados por ;' },
+                    { col: 'emails', required: false, desc: 'Correos separados por ;' },
+                    {
+                      col: 'status',
+                      required: false,
+                      desc: 'NEW · CONTACTED · QUALIFIED · WON · LOST',
+                    },
+                    { col: 'ownerEmail', required: false, desc: 'Email del miembro asignado' },
+                  ].map(({ col, required, desc }) => (
+                    <TableRow key={col}>
+                      <TableCell className="font-mono text-xs">{col}</TableCell>
+                      <TableCell>
+                        {required ? (
+                          <span className="font-semibold text-primary">Sí</span>
+                        ) : (
+                          <span className="text-muted-foreground">No</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{desc}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 
@@ -85,14 +131,20 @@ export default async function LeadImportPage({
               <CardTitle>Notas operativas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <p>- Paso 1: analiza el CSV para validar estructura, owners y duplicados.</p>
+              <p>- Sube un Excel (.xlsx / .xls) o un CSV. Solo se lee la primera hoja.</p>
+              <p>- Paso 1: analiza el archivo para validar estructura, owners y duplicados.</p>
               <p>- Paso 2: confirma la importación solo con las filas listas.</p>
               <p>- La importación omite duplicados detectados por RUC, email o teléfono.</p>
-              <p>- Para múltiples teléfonos/emails en una celda usa `;` o salto de línea.</p>
-              <p>- Los estados válidos son: `NEW`, `CONTACTED`, `QUALIFIED`, `WON`, `LOST`.</p>
               <p>
-                - También acepta etiquetas en español: `Nuevo`, `Contactado`, `Calificado`,
-                `Ganado`, `Perdido`.
+                - Para múltiples teléfonos/emails en una celda usa <code>;</code> como separador.
+              </p>
+              <p>
+                - Los estados válidos son: <code>NEW</code>, <code>CONTACTED</code>,{' '}
+                <code>QUALIFIED</code>, <code>WON</code>, <code>LOST</code>.
+              </p>
+              <p>
+                - También acepta etiquetas en español: <code>Nuevo</code>, <code>Contactado</code>,{' '}
+                <code>Calificado</code>, <code>Ganado</code>, <code>Perdido</code>.
               </p>
             </CardContent>
           </Card>
