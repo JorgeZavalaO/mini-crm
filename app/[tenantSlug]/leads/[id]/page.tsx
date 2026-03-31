@@ -41,7 +41,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InteractionTimeline } from '@/components/leads/interaction-timeline';
 import { DocumentList } from '@/components/documents/document-list';
 import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
-import { QuoteCreateForm } from '@/components/quotes/quote-create-form';
+import { QuoteDialogTrigger } from '@/components/quotes/quote-dialog-trigger';
 import { QuoteList } from '@/components/quotes/quote-list';
 import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
@@ -605,44 +605,31 @@ export default async function LeadDetailPage({
           )}
         </TabsContent>
 
-        <TabsContent value="cotizaciones" className="mt-6 space-y-4">
+        <TabsContent value="cotizaciones" className="mt-6">
           {quotingEnabled ? (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Nueva cotización para este lead</CardTitle>
-                  <CardDescription>
-                    Registra items, moneda e impuesto para generar la propuesta comercial.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <QuoteCreateForm
-                    tenantSlug={tenantSlug}
-                    defaultLeadId={lead.id}
-                    leads={[{ id: lead.id, businessName: lead.businessName, ruc: lead.ruc }]}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Historial de cotizaciones</CardTitle>
-                  <CardDescription>
-                    Seguimiento de propuestas comerciales asociadas a este lead.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <QuoteList
-                    quotes={quotes}
-                    tenantSlug={tenantSlug}
-                    currentUserId={actor.userId}
-                    currentRole={actor.role}
-                    isSuperAdmin={actor.isSuperAdmin}
-                    showLeadColumn={false}
-                  />
-                </CardContent>
-              </Card>
-            </>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
+                <div>
+                  <CardTitle>Cotizaciones</CardTitle>
+                  <CardDescription>Propuestas comerciales asociadas a este lead.</CardDescription>
+                </div>
+                <QuoteDialogTrigger
+                  tenantSlug={tenantSlug}
+                  leads={[{ id: lead.id, businessName: lead.businessName, ruc: lead.ruc }]}
+                  defaultLeadId={lead.id}
+                />
+              </CardHeader>
+              <CardContent className="p-0 pb-1">
+                <QuoteList
+                  quotes={quotes}
+                  tenantSlug={tenantSlug}
+                  currentUserId={actor.userId}
+                  currentRole={actor.role}
+                  isSuperAdmin={actor.isSuperAdmin}
+                  showLeadColumn={false}
+                />
+              </CardContent>
+            </Card>
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
               <ScrollText className="size-10 text-muted-foreground/40" />
