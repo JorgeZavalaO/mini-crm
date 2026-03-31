@@ -1,6 +1,10 @@
 import { Prisma, type FeatureKey } from '@prisma/client';
 import { db } from '@/lib/db';
-import { CORE_DEFAULT_FEATURE_KEYS, FEATURE_KEYS } from '@/lib/feature-catalog';
+import {
+  CORE_DEFAULT_FEATURE_KEYS,
+  FEATURE_KEYS,
+  PLAN_FEATURE_BUNDLES,
+} from '@/lib/feature-catalog';
 
 export type TenantFeatureMap = Record<FeatureKey, boolean>;
 
@@ -82,10 +86,20 @@ export async function materializeTenantFeaturesFromPlan(
 }
 
 async function ensureTenantFeatureRows(tenantId: string) {
-  const total = await db.tenantFeature.count({ where: { tenantId } });
-  if (total > 0) return;
+  // Verifica por clave faltante (no por total) — maneja features nuevas en tenants existentes
+  const existing = await db.tenantFeature.findMany({
+    where: { tenantId },
+    select: { featureKey: true },
+  });
+  const existingKeys = new Set(existing.map((r) => r.featureKey));
+  const missingKeys = FEATURE_KEYS.filter((k) => !existingKeys.has(k));
+  if (missingKeys.length === 0) return;
 
-  const tenant = await db.tenant.findUnique({ where: { id: tenantId }, select: { planId: true } });
+  const tenant = await db.tenant.findUnique({
+    where: { id: tenantId },
+    select: { planId: true, plan: { select: { name: true } } },
+  });
+
   const planFeatures = tenant?.planId
     ? await db.planFeature.findMany({
         where: { planId: tenant.planId },
@@ -94,18 +108,30 @@ async function ensureTenantFeatureRows(tenantId: string) {
     : [];
   const planMap = new Map(planFeatures.map((row) => [row.featureKey, row]));
 
+  // Fallback: usa PLAN_FEATURE_BUNDLES en memoria cuando PlanFeature en BD está desactualizado
+  const planNameToKey: Record<string, 'STARTER' | 'GROWTH' | 'SCALE'> = {
+    Starter: 'STARTER',
+    Growth: 'GROWTH',
+    Scale: 'SCALE',
+  };
+  const bundleKey = tenant?.plan?.name ? planNameToKey[tenant.plan.name] : undefined;
+  const bundle = bundleKey ? PLAN_FEATURE_BUNDLES[bundleKey] : undefined;
+
   await db.$transaction(
-    FEATURE_KEYS.map((featureKey) =>
-      db.tenantFeature.upsert({
+    missingKeys.map((featureKey) => {
+      const fromPlan = planMap.get(featureKey);
+      const enabled =
+        fromPlan?.enabled ?? bundle?.[featureKey]?.enabled ?? coreDefaultEnabled(featureKey);
+      return db.tenantFeature.upsert({
         where: { tenantId_featureKey: { tenantId, featureKey } },
         update: {},
         create: {
           tenantId,
           featureKey,
-          enabled: planMap.get(featureKey)?.enabled ?? coreDefaultEnabled(featureKey),
-          config: planMap.get(featureKey)?.config ?? Prisma.JsonNull,
+          enabled,
+          config: fromPlan?.config ?? Prisma.JsonNull,
         },
-      }),
-    ),
+      });
+    }),
   );
 }

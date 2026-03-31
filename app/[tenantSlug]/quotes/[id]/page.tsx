@@ -2,11 +2,14 @@ import Link from 'next/link';
 import { ArrowLeft, CalendarDays, FileText, ScrollText, UserRound } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { requireTenantFeature } from '@/lib/auth-guard';
+import { db } from '@/lib/db';
 import { getQuoteDetailAction } from '@/lib/quote-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { QuoteEditDialog } from '@/components/quotes/quote-edit-dialog';
 import { QuotePdfButton } from '@/components/quotes/quote-pdf-button';
+import { QuoteSendEmailButton } from '@/components/quotes/quote-send-email-button';
 import {
   Table,
   TableBody,
@@ -46,10 +49,20 @@ export default async function QuoteDetailPage({
   params: Promise<{ tenantSlug: string; id: string }>;
 }) {
   const { tenantSlug, id } = await params;
-  await requireTenantFeature(tenantSlug, 'QUOTING_BASIC');
+  const { tenant } = await requireTenantFeature(tenantSlug, 'QUOTING_BASIC');
 
-  const quote = await getQuoteDetailAction(id, tenantSlug).catch(() => null);
+  const [quote, leads] = await Promise.all([
+    getQuoteDetailAction(id, tenantSlug).catch(() => null),
+    db.lead.findMany({
+      where: { tenantId: tenant.id, deletedAt: null },
+      orderBy: { businessName: 'asc' },
+      take: 200,
+      select: { id: true, businessName: true, ruc: true },
+    }),
+  ]);
   if (!quote) notFound();
+
+  const canEdit = quote.status === 'BORRADOR' || quote.status === 'ENVIADA';
 
   return (
     <div className="space-y-6">
@@ -65,9 +78,34 @@ export default async function QuoteDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {canEdit && (
+            <QuoteEditDialog
+              tenantSlug={tenantSlug}
+              leads={leads}
+              initialData={{
+                quoteId: quote.id,
+                quoteNumber: quote.quoteNumber,
+                leadId: quote.lead.id,
+                currency: quote.currency as 'PEN' | 'USD',
+                taxRate: quote.taxRate,
+                validUntil: quote.validUntil,
+                notes: quote.notes,
+                items: quote.items.map((item) => ({
+                  description: item.description,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                })),
+              }}
+            />
+          )}
           <QuotePdfButton
             quoteId={quote.id}
             tenantSlug={tenantSlug}
+            quoteNumber={quote.quoteNumber}
+          />
+          <QuoteSendEmailButton
+            tenantSlug={tenantSlug}
+            quoteId={quote.id}
             quoteNumber={quote.quoteNumber}
           />
           <Button variant="outline" size="sm" asChild>

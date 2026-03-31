@@ -17,6 +17,9 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Campanita de notificaciones en el dashboard de tenant: leads sin asignar, leads nuevos, leads ganados, cotizaciones generadas, aceptadas y rechazadas de los últimos 7 días.
 - Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle.
 - **Módulo de Tareas** operativo: CRUD de tareas con prioridades (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), estados (`PENDING`, `IN_PROGRESS`, `DONE`, `CANCELLED`), asignación a miembros del equipo, fecha límite con indicador de vencimiento y soft-delete.
+- **Catálogo de productos** operativo: CRUD de productos con nombre, descripción, precio unitario (`Decimal 12,4`), moneda (`PEN`/`USD`) y estado activo/inactivo. Solo `ADMIN`/`SUPERVISOR` pueden gestionar el catálogo.
+- **Edición de cotizaciones**: formulario de edición completo con selector de productos del catálogo, prelleno de datos y actualización en servidor.
+- **Envío de cotización por email**: integración con **Resend** para enviar cotizaciones al cliente vía email transaccional con tabla HTML responsiva; transición automática de `BORRADOR` a `ENVIADA`.
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -30,10 +33,6 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Menú de cuenta en avatar para tenant y `SuperAdmin`, con acceso directo a perfil y cierre de sesión.
 - Suite inicial de pruebas unitarias con `Vitest`.
 
-### En progreso
-
-- Envío de cotización por email al cliente.
-
 ### Pendiente
 
 - Notifications y client portal completos.
@@ -41,19 +40,20 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ## Roadmap resumido
 
-| Sprint | Objetivo                                         | Estado        |
-| ------ | ------------------------------------------------ | ------------- |
-| 2.1    | Estabilización de `team`                         | ✅ Completado |
-| 2.2    | Reasignaciones + validaciones del core comercial | ✅ Completado |
-| 2.3    | Configuración Prisma + pruebas base              | ✅ Completado |
-| 3      | Lead detail + dashboard útil para operación      | ✅ Completado |
-| 4      | Import/Dedupe + Documents MVP                    | ✅ Completado |
-| 5      | Invitaciones / onboarding de usuarios            | ✅ Completado |
-| 6      | Hardening para producción                        | ✅ Completado |
-| 7      | Cotizaciones MVP + Documentos completos          | ✅ Completado |
-| 7.1    | Notificaciones en tiempo real                    | ✅ Completado |
-| 7.2    | PDF de cotizaciones descargable                  | ✅ Completado |
-| 8      | Módulo de Tareas (Tasks)                         | ✅ Completado |
+| Sprint | Objetivo                                                         | Estado        |
+| ------ | ---------------------------------------------------------------- | ------------- |
+| 2.1    | Estabilización de `team`                                         | ✅ Completado |
+| 2.2    | Reasignaciones + validaciones del core comercial                 | ✅ Completado |
+| 2.3    | Configuración Prisma + pruebas base                              | ✅ Completado |
+| 3      | Lead detail + dashboard útil para operación                      | ✅ Completado |
+| 4      | Import/Dedupe + Documents MVP                                    | ✅ Completado |
+| 5      | Invitaciones / onboarding de usuarios                            | ✅ Completado |
+| 6      | Hardening para producción                                        | ✅ Completado |
+| 7      | Cotizaciones MVP + Documentos completos                          | ✅ Completado |
+| 7.1    | Notificaciones en tiempo real                                    | ✅ Completado |
+| 7.2    | PDF de cotizaciones descargable                                  | ✅ Completado |
+| 8      | Módulo de Tareas (Tasks)                                         | ✅ Completado |
+| 9      | Catálogo de productos, edición de cotizaciones y envío por email | ✅ Completado |
 
 ## Stack
 
@@ -88,6 +88,7 @@ Variables recomendadas:
 - `AUTH_TRUST_HOST` (si despliegas detrás de reverse proxy fuera de Vercel o quieres dejarlo explícito en producción)
 - `BLOB_READ_WRITE_TOKEN` (requerido para el módulo `DOCUMENTS` en producción)
 - `QUOTING_BASIC` habilitado en plan `SCALE` (activar desde panel SuperAdmin para exponer cotizaciones en el tenant)
+- `RESEND_API_KEY` (requerido para envío de cotizaciones por email)
 - `LOG_LEVEL`
 - `NODE_ENV`
 - `AUTH_RATE_LIMIT_WINDOW_MS`
@@ -172,6 +173,8 @@ pnpm dev
 - `app/[tenantSlug]/documents`
 - `app/[tenantSlug]/quotes`
 - `app/[tenantSlug]/quotes/[id]`
+- `app/[tenantSlug]/tasks`
+- `app/[tenantSlug]/products`
 
 ### Auth / onboarding
 
@@ -310,6 +313,24 @@ pnpm dev
 - Filtro **Ciudad** en lista de leads migrado a `SearchableSelect` con búsqueda incremental.
 - Filtro **Vendedor** (antes "Owner", ahora traducido) migrado a `SearchableSelect` con hint de email y nueva opción **"Sin vendedor asignado"** para localizar leads huérfanos.
 - `leads/page.tsx` soporta el valor especial `__UNASSIGNED__` en el query de Prisma para los leads sin owner.
+
+### Sprint 8 (cierre)
+
+- Módulo de tareas completo: CRUD con prioridades (`LOW`/`MEDIUM`/`HIGH`/`URGENT`), estados (`PENDING`/`IN_PROGRESS`/`DONE`/`CANCELLED`), asignación a miembros y soft-delete.
+- `changeTaskStatusAction` asigna `completedAt` automáticamente al marcar como `DONE` y lo limpia en otros estados.
+- Pestaña **Tareas** en detalle de lead con badge de tareas activas y creación en contexto.
+- Página `/{tenantSlug}/tasks` con 4 tarjetas de estadísticas y listado completo del tenant.
+- Feature `TASKS` movida de `COMING_SOON` a `SUPPORTED_FEATURE_KEYS`, habilitada en bundles `GROWTH` y `SCALE`.
+- 31 tests cubriendo flujos de creación, edición, cambio de estado, eliminación y listado.
+
+### Sprint 9 (cierre)
+
+- Catálogo de productos: CRUD completo con nombre, descripción, precio (`Decimal 12,4`), moneda y estado activo/inactivo. Ruta `/{tenantSlug}/products` protegida por feature `QUOTING_BASIC`.
+- Edición de cotizaciones: `QuoteEditDialog` con formulario prelleno, selector de productos del catálogo (`ProductSelector`) y actualización en servidor.
+- Envío de cotización por email: integración con **Resend** (`lib/email.ts`), botón `QuoteSendEmailButton` en detalle de cotización, transición automática de `BORRADOR` a `ENVIADA`.
+- Entrada **Catálogo** con ícono `Package` en sidebar del tenant cuando `QUOTING_BASIC` está activa.
+- 13 tests de product-actions cubriendo creación, edición, eliminación y listado.
+- `package.json` bumpeado a `v1.0.0`.
 
 ## Calidad y validación
 

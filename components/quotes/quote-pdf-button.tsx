@@ -33,7 +33,6 @@ function fmt(value: number, currency: 'PEN' | 'USD') {
 export function QuotePdfButton({
   quoteId,
   tenantSlug,
-  quoteNumber,
   variant = 'outline',
   size = 'sm',
   className,

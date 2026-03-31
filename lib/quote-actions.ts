@@ -4,6 +4,7 @@ import { Prisma, QuoteStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { assertTenantFeatureById, getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
+import { sendQuoteEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
 import {
   canChangeQuoteStatus,
@@ -16,6 +17,7 @@ import {
   createQuoteSchema,
   deleteQuoteSchema,
   quoteFiltersSchema,
+  sendQuoteEmailSchema,
   updateQuoteSchema,
 } from '@/lib/validators';
 
@@ -522,4 +524,85 @@ export async function getQuoteDetailAction(quoteId: string, tenantSlug: string) 
       lineSubtotal: Number(item.lineSubtotal),
     })),
   };
+}
+
+export async function sendQuoteEmailAction(input: unknown) {
+  const parsed = sendQuoteEmailSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Datos inválidos', 400);
+  }
+
+  const { tenantSlug, quoteId, recipientEmail } = parsed.data;
+  const ctx = await getQuoteContext(tenantSlug);
+
+  if (!canChangeQuoteStatus(ctx)) {
+    throw new AppError('No autorizado para enviar cotizaciones', 403);
+  }
+
+  const quote = await db.quote.findFirst({
+    where: { id: quoteId, tenantId: ctx.tenantId, deletedAt: null },
+    select: {
+      id: true,
+      quoteNumber: true,
+      status: true,
+      currency: true,
+      taxRate: true,
+      subtotal: true,
+      taxAmount: true,
+      totalAmount: true,
+      validUntil: true,
+      notes: true,
+      leadId: true,
+      lead: { select: { businessName: true } },
+      items: {
+        orderBy: { lineNumber: 'asc' },
+        select: {
+          lineNumber: true,
+          description: true,
+          quantity: true,
+          unitPrice: true,
+          lineSubtotal: true,
+        },
+      },
+    },
+  });
+
+  if (!quote) throw new AppError('Cotización no encontrada', 404);
+
+  const sender = await db.user.findUnique({
+    where: { id: ctx.userId },
+    select: { name: true },
+  });
+
+  await sendQuoteEmail({
+    to: recipientEmail,
+    quoteNumber: quote.quoteNumber,
+    clientName: quote.lead.businessName,
+    currency: quote.currency as 'PEN' | 'USD',
+    taxRate: Number(quote.taxRate),
+    subtotal: Number(quote.subtotal),
+    taxAmount: Number(quote.taxAmount),
+    totalAmount: Number(quote.totalAmount),
+    validUntil: quote.validUntil,
+    notes: quote.notes,
+    senderName: sender?.name ?? 'Mini CRM',
+    items: quote.items.map((item) => ({
+      lineNumber: item.lineNumber,
+      description: item.description,
+      quantity: Number(item.quantity),
+      unitPrice: Number(item.unitPrice),
+      lineSubtotal: Number(item.lineSubtotal),
+    })),
+  });
+
+  // Transicionar a ENVIADA si estaba en BORRADOR
+  if (quote.status === QuoteStatus.BORRADOR) {
+    await db.quote.update({
+      where: { id: quoteId },
+      data: { status: QuoteStatus.ENVIADA, issuedAt: new Date() },
+    });
+  }
+
+  revalidateQuoteViews(tenantSlug, quote.leadId);
+  return { success: true };
 }

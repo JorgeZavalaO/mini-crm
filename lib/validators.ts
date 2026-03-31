@@ -259,3 +259,43 @@ export const taskFiltersSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
+
+// ─── Products ──────────────────────────────────────────
+
+export const createProductSchema = z.object({
+  tenantSlug: z.string().min(1),
+  name: z.string().trim().min(1, 'El nombre es requerido').max(200),
+  description: optionalText(500),
+  unitPrice: z.coerce.number().min(0, 'El precio debe ser mayor o igual a 0'),
+  currency: z.nativeEnum(CurrencyCode).default(CurrencyCode.PEN),
+});
+
+export const updateProductSchema = z.object({
+  tenantSlug: z.string().min(1),
+  productId: z.string().min(1),
+  name: z.string().trim().min(1, 'El nombre es requerido').max(200).optional(),
+  description: optionalText(500),
+  unitPrice: z.coerce.number().min(0, 'El precio debe ser mayor o igual a 0').optional(),
+  currency: z.nativeEnum(CurrencyCode).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const deleteProductSchema = z.object({
+  tenantSlug: z.string().min(1),
+  productId: z.string().min(1),
+});
+
+export const productFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  q: optionalText(120),
+  isActive: z.boolean().optional(),
+  currency: z.nativeEnum(CurrencyCode).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export const sendQuoteEmailSchema = z.object({
+  tenantSlug: z.string().min(1),
+  quoteId: z.string().min(1),
+  recipientEmail: z.string().email('El email no es válido'),
+});

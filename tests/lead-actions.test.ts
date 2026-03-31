@@ -79,13 +79,6 @@ function makeSupervisorContext(userId = USER_ID) {
   };
 }
 
-function makeAdminContext(userId = USER_ID) {
-  return {
-    ...makeSupervisorContext(userId),
-    membership: { id: 'mem-1', role: 'ADMIN', isActive: true },
-  };
-}
-
 function makeVendedorContext(userId = USER_ID) {
   return {
     ...makeSupervisorContext(userId),

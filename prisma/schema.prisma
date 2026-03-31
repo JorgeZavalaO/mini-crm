@@ -104,6 +104,7 @@ model Tenant {
   documents                Document[]
   quotes                   Quote[]
   tasks                    Task[]
+  products                 Product[]
   plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -170,6 +171,7 @@ model User {
   importedLeads              Lead[]                    @relation("LeadImporter")
   createdTasks               Task[]                    @relation("TaskCreator")
   assignedTasks              Task[]                    @relation("TaskAssignee")
+  createdProducts            Product[]
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -386,4 +388,26 @@ model Task {
   @@index([tenantId, leadId])
   @@index([tenantId, assignedToId, status])
   @@index([tenantId, status, dueDate])
+}
+
+// ─── Products (Catálogo) ────────────────────────────────
+
+model Product {
+  id          String       @id @default(cuid())
+  tenantId    String
+  name        String       @db.VarChar(200)
+  description String?      @db.VarChar(500)
+  unitPrice   Decimal      @db.Decimal(12, 4)
+  currency    CurrencyCode @default(PEN)
+  isActive    Boolean      @default(true)
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive, deletedAt])
+  @@index([tenantId, deletedAt])
 }

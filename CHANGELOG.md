@@ -2,7 +2,37 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
-## [v0.9.0 · 2026-03-31] Sprint 8 — Módulo de Tareas
+## [v1.0.0 · 2026-03-31] Sprint 9 — Edición de cotizaciones, Catálogo de productos y Envío por email
+
+### Added
+
+- `lib/email.ts`: módulo de envío de emails transaccionales con **Resend**. Genera HTML responsivo con la tabla de ítems, totales y notas. Singleton `getResend()` con validación de `RESEND_API_KEY`.
+- `lib/product-actions.ts`: CRUD completo para el catálogo de productos — `createProductAction`, `updateProductAction`, `deleteProductAction`, `listProductsAction`. Solo ADMIN/SUPERVISOR pueden gestionar el catálogo.
+- `lib/quote-actions.ts` → `sendQuoteEmailAction`: envía la cotización al destinatario vía Resend y transiciona automáticamente de BORRADOR a ENVIADA.
+- `lib/validators.ts`: schemas Zod para `createProductSchema`, `updateProductSchema` (actualización parcial), `deleteProductSchema`, `productFiltersSchema`, `sendQuoteEmailSchema`.
+- `prisma/schema.prisma`: modelo `Product` con campos `name`, `description`, `unitPrice (Decimal 12,4)`, `currency`, `isActive`, `createdById`, `createdAt`, `updatedAt`, `deletedAt`. Relaciones con `Tenant` y `User`.
+- Migración `20260331221058_add_product_catalog` aplicada en base de datos.
+- `components/products/product-form-dialog.tsx`: Dialog reutilizable para crear y editar productos (nombre, descripción, precio, moneda).
+- `components/products/product-list.tsx`: tabla de productos con badge de estado activo/inactivo, dropdown de acciones (editar, activar/desactivar, eliminar con AlertDialog).
+- `app/[tenantSlug]/products/page.tsx`: página del catálogo protegida por feature `QUOTING_BASIC`, con encabezado, botón “Nuevo producto” y listado completo.
+- `components/quotes/product-selector.tsx`: selector de producto del catálogo mediante `SearchableSelect`; al elegir uno autocompletó descripción y precio en la línea de cotización.
+- `components/quotes/quote-edit-form.tsx`: formulario completo de edición de cotización con valores prellenos, selector de lead, moneda, impuesto, ítems, validez y notas.
+- `components/quotes/quote-edit-dialog.tsx`: Dialog envolvente para `QuoteEditForm`.
+- `components/quotes/quote-send-email-button.tsx`: Dialog con campo de email que llama a `sendQuoteEmailAction`; transiciona la cotización a ENVIADA si está en BORRADOR.
+- `tests/product-actions.test.ts`: 13 tests cubriendo creación, edición, eliminación y listado de productos.
+
+### Changed
+
+- `components/quotes/quote-create-form.tsx` y `quote-edit-form.tsx`: nuevo prop opcional `products?: ProductOption[]`; cuando hay productos en el catálogo se muestra el `ProductSelector` junto al botón “Agregar ítem”.
+- `components/quotes/quote-list.tsx`: botón **Editar** (icono `Pencil`) en el DropdownMenu con enlace a la página de detalle.
+- `app/[tenantSlug]/quotes/[id]/page.tsx`: `QuoteEditDialog` en el encabezado cuando la cotización es editable; `QuoteSendEmailButton` junto al PDF.
+- `components/tenant-sidebar.tsx`: entrada **Catálogo** con ícono `Package` visible cuando `QUOTING_BASIC` está activa.
+- `lib/env.ts`: campo `RESEND_API_KEY: string | undefined` en `AppEnv`.
+- `package.json`: versión bumpeada a **1.0.0**.
+
+### Tests
+
+- **320 / 320** tests pasando (13 nuevos tests de product-actions).
 
 ### Added
 

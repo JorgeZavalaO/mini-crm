@@ -7,6 +7,7 @@ import {
   Eye,
   Loader2,
   MoreHorizontal,
+  Pencil,
   SendHorizonal,
   ThumbsDown,
   Trash2,
@@ -106,6 +107,15 @@ export function QuoteList({
   function canModerate() {
     if (isSuperAdmin) return true;
     return currentRole === 'ADMIN' || currentRole === 'SUPERVISOR' || currentRole === 'VENDEDOR';
+  }
+
+  function canEdit(quote: QuoteRow) {
+    if (isSuperAdmin) return true;
+    if (quote.status === 'ACEPTADA' || quote.status === 'RECHAZADA') return false;
+    if (quote.status === 'ENVIADA') return currentRole === 'ADMIN' || currentRole === 'SUPERVISOR';
+    // BORRADOR: propio dueño o SUPERVISOR+
+    if (quote.createdById === currentUserId) return true;
+    return currentRole === 'ADMIN' || currentRole === 'SUPERVISOR';
   }
 
   function canDelete(quote: QuoteRow) {
@@ -255,6 +265,18 @@ export function QuoteList({
                               Ver detalle
                             </Link>
                           </DropdownMenuItem>
+
+                          {canEdit(quote) && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem asChild>
+                                <Link href={`/${tenantSlug}/quotes/${quote.id}`}>
+                                  <Pencil className="mr-2 size-3.5" />
+                                  Editar
+                                </Link>
+                              </DropdownMenuItem>
+                            </>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem asChild>
                             <QuotePdfButton

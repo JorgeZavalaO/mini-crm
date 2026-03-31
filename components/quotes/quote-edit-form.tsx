@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createQuoteAction } from '@/lib/quote-actions';
+import { updateQuoteAction } from '@/lib/quote-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,22 +33,33 @@ type ItemDraft = {
   unitPrice: string;
 };
 
+type InitialData = {
+  quoteId: string;
+  quoteNumber: string;
+  leadId: string;
+  currency: 'PEN' | 'USD';
+  taxRate: number;
+  validUntil: Date | null;
+  notes: string | null;
+  items: { description: string; quantity: number; unitPrice: number }[];
+};
+
 type Props = {
   tenantSlug: string;
   leads: LeadOption[];
   products?: ProductOption[];
-  defaultLeadId?: string;
+  initialData: InitialData;
   onSuccess?: () => void;
 };
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-const EMPTY_ITEM = (): ItemDraft => ({
-  id: uid(),
-  description: '',
-  quantity: '1',
-  unitPrice: '0',
-});
+function taxRateToValue(rate: number): string {
+  if (rate === 0) return '0';
+  if (Math.abs(rate - 0.18) < 0.001) return '0.18';
+  if (Math.abs(rate - 0.1) < 0.001) return '0.10';
+  return String(rate);
+}
 
 function formatMoney(value: number, currency: 'PEN' | 'USD') {
   return new Intl.NumberFormat('es-PE', {
@@ -58,13 +69,24 @@ function formatMoney(value: number, currency: 'PEN' | 'USD') {
   }).format(value);
 }
 
-export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, onSuccess }: Props) {
-  const [leadId, setLeadId] = useState(defaultLeadId ?? leads[0]?.id ?? '');
-  const [currency, setCurrency] = useState<'PEN' | 'USD'>('PEN');
-  const [taxRate, setTaxRate] = useState('0.18');
-  const [validUntil, setValidUntil] = useState('');
-  const [notes, setNotes] = useState('');
-  const [items, setItems] = useState<ItemDraft[]>([EMPTY_ITEM()]);
+export function QuoteEditForm({ tenantSlug, leads, products, initialData, onSuccess }: Props) {
+  const [leadId, setLeadId] = useState(initialData.leadId);
+  const [currency, setCurrency] = useState<'PEN' | 'USD'>(initialData.currency);
+  const [taxRate, setTaxRate] = useState(taxRateToValue(initialData.taxRate));
+  const [validUntil, setValidUntil] = useState(
+    initialData.validUntil ? new Date(initialData.validUntil).toISOString().split('T')[0] : '',
+  );
+  const [notes, setNotes] = useState(initialData.notes ?? '');
+  const [items, setItems] = useState<ItemDraft[]>(
+    initialData.items.length > 0
+      ? initialData.items.map((item) => ({
+          id: uid(),
+          description: item.description,
+          quantity: String(item.quantity),
+          unitPrice: String(item.unitPrice),
+        }))
+      : [{ id: uid(), description: '', quantity: '1', unitPrice: '0' }],
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -87,23 +109,16 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
   }
 
   function addItem() {
-    setItems((prev) => [...prev, EMPTY_ITEM()]);
-  }
-
-  function resetForm() {
-    setItems([EMPTY_ITEM()]);
-    setNotes('');
-    setValidUntil('');
-    setTaxRate('0.18');
-    setError(null);
+    setItems((prev) => [...prev, { id: uid(), description: '', quantity: '1', unitPrice: '0' }]);
   }
 
   function handleSubmit() {
     setError(null);
     startTransition(async () => {
       try {
-        await createQuoteAction({
+        await updateQuoteAction({
           tenantSlug,
+          quoteId: initialData.quoteId,
           leadId,
           currency,
           taxRate: Number(taxRate),
@@ -115,11 +130,10 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
             unitPrice: Number(item.unitPrice),
           })),
         });
-        toast.success('Cotización creada');
-        resetForm();
+        toast.success('Cotización actualizada');
         onSuccess?.();
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'No se pudo crear la cotización';
+        const message = err instanceof Error ? err.message : 'No se pudo actualizar la cotización';
         setError(message);
         toast.error(message);
       }
@@ -134,14 +148,14 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
         </Alert>
       )}
 
-      {/* Fila 1: Lead + Moneda + Impuesto */}
+      {/* Lead + Moneda + Impuesto */}
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="quote-lead">
+          <Label htmlFor="edit-lead">
             Cliente / Lead <span className="text-destructive">*</span>
           </Label>
           <SearchableSelect
-            id="quote-lead"
+            id="edit-lead"
             options={leads.map((lead) => ({
               value: lead.id,
               label: lead.businessName,
@@ -156,9 +170,9 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="quote-currency">Moneda</Label>
+          <Label htmlFor="edit-currency">Moneda</Label>
           <Select value={currency} onValueChange={(value) => setCurrency(value as 'PEN' | 'USD')}>
-            <SelectTrigger id="quote-currency">
+            <SelectTrigger id="edit-currency">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -169,9 +183,9 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="quote-tax">Impuesto</Label>
+          <Label htmlFor="edit-tax">Impuesto</Label>
           <Select value={taxRate} onValueChange={setTaxRate}>
-            <SelectTrigger id="quote-tax">
+            <SelectTrigger id="edit-tax">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -289,18 +303,18 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
       {/* Validez + Notas */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="quote-valid">Válida hasta</Label>
+          <Label htmlFor="edit-valid">Válida hasta</Label>
           <Input
-            id="quote-valid"
+            id="edit-valid"
             type="date"
             value={validUntil}
             onChange={(e) => setValidUntil(e.target.value)}
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="quote-notes">Notas</Label>
+          <Label htmlFor="edit-notes">Notas</Label>
           <Textarea
-            id="quote-notes"
+            id="edit-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Condiciones comerciales, alcance, observaciones…"
@@ -310,22 +324,14 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" variant="outline" onClick={resetForm} disabled={isPending}>
-          Limpiar
-        </Button>
-        <Button
-          type="button"
-          onClick={handleSubmit}
-          disabled={isPending || leads.length === 0}
-          className="min-w-32"
-        >
+        <Button type="button" onClick={handleSubmit} disabled={isPending} className="min-w-36">
           {isPending ? (
             <>
               <Loader2 className="mr-2 size-4 animate-spin" />
-              Creando…
+              Guardando…
             </>
           ) : (
-            'Crear cotización'
+            'Guardar cambios'
           )}
         </Button>
       </div>

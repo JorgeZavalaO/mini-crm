@@ -17,6 +17,7 @@ import {
   Copy,
   FileText,
   LayoutDashboard,
+  Package,
   ScrollText,
   Target,
   Users,
@@ -61,6 +62,9 @@ export function TenantSidebar({
       : []),
     ...(enabledFeatures.QUOTING_BASIC
       ? [{ href: `/${tenantSlug}/quotes`, label: 'Cotizaciones', icon: ScrollText }]
+      : []),
+    ...(enabledFeatures.QUOTING_BASIC
+      ? [{ href: `/${tenantSlug}/products`, label: 'Catálogo', icon: Package }]
       : []),
     ...(enabledFeatures.TASKS
       ? [{ href: `/${tenantSlug}/tasks`, label: 'Tareas', icon: ClipboardList }]
