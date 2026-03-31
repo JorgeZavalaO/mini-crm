@@ -276,6 +276,15 @@ pnpm dev
 - Navegación lateral del tenant con acceso directo a `Cotizaciones` cuando la feature está activa.
 - Cobertura de pruebas en `tests/quote-actions.test.ts`.
 
+### Sprint 7 UX/UI — Mejora de interfaz de Cotizaciones
+
+- Formulario de alta de cotización movido a un `Dialog` contextual — botón "Nueva cotización" siempre visible en el encabezado de la página.
+- `QuoteCreateForm` mejorado: `<Label>` en todos los campos, `<Select>` para impuesto (0 %, 10 %, 18 % IGV), preview de subtotal/impuesto/total en tiempo real.
+- `QuoteList` con `DropdownMenu` de acciones por fila (`MoreHorizontal`): ver detalle, cambiar estado y eliminar con `AlertDialog` de confirmación.
+- Cuatro tarjetas de resumen estadístico (Borrador/Enviada/Aceptada/Rechazada) con borde de color semántico en la página principal de cotizaciones.
+- Trazabilidad automática: al crear una cotización se registra una interacción tipo `NOTE` en el historial del lead con el número y total de la cotización.
+- Empty state estilizado con borde discontinuo cuando no hay cotizaciones.
+
 ## Calidad y validación
 
 Antes de cerrar un hito o sprint:

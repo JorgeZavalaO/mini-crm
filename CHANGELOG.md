@@ -2,6 +2,25 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-31] Sprint 7 UX/UI — Mejora de interfaz de Cotizaciones
+
+### Added
+
+- `components/quotes/quote-dialog-trigger.tsx`: componente client con `Dialog` + `DialogTrigger` que abre el formulario de alta sin salir de la pantalla; se cierra automáticamente al crear una cotización.
+- Cuatro tarjetas de resumen estadístico en `app/[tenantSlug]/quotes/page.tsx` (Borrador, Enviada, Aceptada, Rechazada) con borde de color semántico.
+- Empty state estilizado en `QuoteList` con borde discontinuo cuando no hay cotizaciones.
+
+### Changed
+
+- `components/quotes/quote-create-form.tsx` reescrito con `<Label>` en todos los campos, `<Select>` para impuesto (0 %, 10 %, 18 %), preview de subtotal/impuesto/total en tiempo real (calculado en cliente), prop `onSuccess` para cerrar el Dialog al crear, y botón Limpiar.
+- `components/quotes/quote-list.tsx` reescrito: botones de acción migrados a `DropdownMenu` con ícono `MoreHorizontal`; eliminación protegida por `AlertDialog` de confirmación; spinner por fila durante operaciones; badges de estado con color semántico consistente.
+- `app/[tenantSlug]/quotes/page.tsx` reescrito como Server Component puro: formulario movido al Dialog, tabla envuelta en `Card`, encabezado con ícono, contador de cotizaciones registradas.
+- `createQuoteAction` en `lib/quote-actions.ts` ahora registra automáticamente una interacción tipo `NOTE` en el historial del lead al crear una cotización (trazabilidad end-to-end).
+
+### Fixed
+
+- `tests/quote-actions.test.ts` actualizado para incluir el mock de `db.interaction.create` requerido por la nueva trazabilidad.
+
 ## [2026-03-31] Sprint 7 - Módulo de Cotizaciones completo
 
 ### Added

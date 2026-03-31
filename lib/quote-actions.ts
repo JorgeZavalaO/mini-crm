@@ -174,6 +174,22 @@ export async function createQuoteAction(input: unknown) {
     select: { id: true },
   });
 
+  // Trazabilidad: interacción automática en el historial del lead
+  await db.interaction.create({
+    data: {
+      tenantId: ctx.tenantId,
+      leadId,
+      authorId: ctx.userId,
+      type: 'NOTE',
+      occurredAt: new Date(),
+      notes: `Cotización ${quoteNumber} creada · Total: ${new Intl.NumberFormat('es-PE', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+      }).format(totalAmount)}.`,
+    },
+  });
+
   revalidateQuoteViews(tenantSlug, leadId);
   return { success: true, quoteId: quote.id };
 }

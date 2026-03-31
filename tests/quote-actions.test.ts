@@ -31,6 +31,9 @@ const dbMock = vi.hoisted(() => ({
   lead: {
     findFirst: vi.fn(),
   },
+  interaction: {
+    create: vi.fn(),
+  },
   $transaction: vi.fn(),
 }));
 
@@ -65,6 +68,7 @@ beforeEach(() => {
   dbMock.quote.findFirst.mockResolvedValue(null);
   dbMock.quote.create.mockResolvedValue({ id: 'quote-1' });
   dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
+  dbMock.interaction.create.mockResolvedValue({ id: 'int-1' });
   dbMock.$transaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
     cb({
       quote: { update: vi.fn() },

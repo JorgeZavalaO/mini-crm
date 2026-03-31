@@ -7,6 +7,7 @@ import { createQuoteAction } from '@/lib/quote-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 
 type LeadOption = {
@@ -33,29 +35,45 @@ type Props = {
   tenantSlug: string;
   leads: LeadOption[];
   defaultLeadId?: string;
+  onSuccess?: () => void;
 };
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId }: Props) {
+const EMPTY_ITEM = (): ItemDraft => ({
+  id: uid(),
+  description: '',
+  quantity: '1',
+  unitPrice: '0',
+});
+
+function formatMoney(value: number, currency: 'PEN' | 'USD') {
+  return new Intl.NumberFormat('es-PE', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+  }).format(value);
+}
+
+export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId, onSuccess }: Props) {
   const [leadId, setLeadId] = useState(defaultLeadId ?? leads[0]?.id ?? '');
   const [currency, setCurrency] = useState<'PEN' | 'USD'>('PEN');
   const [taxRate, setTaxRate] = useState('0.18');
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
-  const [items, setItems] = useState<ItemDraft[]>([
-    { id: uid(), description: '', quantity: '1', unitPrice: '0' },
-  ]);
+  const [items, setItems] = useState<ItemDraft[]>([EMPTY_ITEM()]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const subtotalPreview = useMemo(() => {
-    return items.reduce((sum, item) => {
-      const q = Number(item.quantity || 0);
-      const p = Number(item.unitPrice || 0);
+  const { subtotal, taxAmount, total } = useMemo(() => {
+    const sub = items.reduce((sum, item) => {
+      const q = Math.max(0, Number(item.quantity || 0));
+      const p = Math.max(0, Number(item.unitPrice || 0));
       return sum + q * p;
     }, 0);
-  }, [items]);
+    const tax = Number(taxRate || 0);
+    return { subtotal: sub, taxAmount: sub * tax, total: sub + sub * tax };
+  }, [items, taxRate]);
 
   function updateItem(id: string, patch: Partial<ItemDraft>) {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -66,14 +84,15 @@ export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId }: Props) {
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { id: uid(), description: '', quantity: '1', unitPrice: '0' }]);
+    setItems((prev) => [...prev, EMPTY_ITEM()]);
   }
 
   function resetForm() {
-    setTaxRate('0.18');
-    setValidUntil('');
+    setItems([EMPTY_ITEM()]);
     setNotes('');
-    setItems([{ id: uid(), description: '', quantity: '1', unitPrice: '0' }]);
+    setValidUntil('');
+    setTaxRate('0.18');
+    setError(null);
   }
 
   function handleSubmit() {
@@ -95,6 +114,7 @@ export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId }: Props) {
         });
         toast.success('Cotización creada');
         resetForm();
+        onSuccess?.();
       } catch (err) {
         const message = err instanceof Error ? err.message : 'No se pudo crear la cotización';
         setError(message);
@@ -104,24 +124,28 @@ export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {error && (
         <Alert variant="destructive" className="py-2">
           <AlertDescription className="text-sm">{error}</AlertDescription>
         </Alert>
       )}
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="space-y-1.5 md:col-span-2">
-          <p className="text-xs font-medium text-muted-foreground">Lead</p>
+      {/* Fila 1: Lead + Moneda + Impuesto */}
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="quote-lead">
+            Cliente / Lead <span className="text-destructive">*</span>
+          </Label>
           <Select value={leadId} onValueChange={setLeadId}>
-            <SelectTrigger>
+            <SelectTrigger id="quote-lead">
               <SelectValue placeholder="Seleccionar lead" />
             </SelectTrigger>
             <SelectContent>
               {leads.map((lead) => (
                 <SelectItem key={lead.id} value={lead.id}>
-                  {lead.businessName} {lead.ruc ? `(${lead.ruc})` : ''}
+                  {lead.businessName}
+                  {lead.ruc ? ` · ${lead.ruc}` : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -129,35 +153,54 @@ export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Moneda</p>
+          <Label htmlFor="quote-currency">Moneda</Label>
           <Select value={currency} onValueChange={(value) => setCurrency(value as 'PEN' | 'USD')}>
-            <SelectTrigger>
-              <SelectValue placeholder="Moneda" />
+            <SelectTrigger id="quote-currency">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="PEN">PEN</SelectItem>
-              <SelectItem value="USD">USD</SelectItem>
+              <SelectItem value="PEN">PEN – Sol</SelectItem>
+              <SelectItem value="USD">USD – Dólar</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Impuesto</p>
-          <Input value={taxRate} onChange={(e) => setTaxRate(e.target.value)} placeholder="0.18" />
+          <Label htmlFor="quote-tax">Impuesto</Label>
+          <Select value={taxRate} onValueChange={setTaxRate}>
+            <SelectTrigger id="quote-tax">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">Sin imp. (0%)</SelectItem>
+              <SelectItem value="0.18">IGV 18%</SelectItem>
+              <SelectItem value="0.10">10%</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      <div className="space-y-2 rounded-md border p-3">
+      <Separator />
+
+      {/* Ítems */}
+      <div className="space-y-2">
+        <div className="hidden grid-cols-12 gap-2 sm:grid">
+          <p className="col-span-6 text-xs font-medium text-muted-foreground">Descripción</p>
+          <p className="col-span-2 text-xs font-medium text-muted-foreground">Cantidad</p>
+          <p className="col-span-3 text-xs font-medium text-muted-foreground">Precio unit.</p>
+          <p className="col-span-1" />
+        </div>
+
         {items.map((item, index) => (
-          <div key={item.id} className="grid gap-2 md:grid-cols-12">
+          <div key={item.id} className="grid items-center gap-2 sm:grid-cols-12">
             <Input
-              className="md:col-span-6"
-              placeholder={`Descripción del item ${index + 1}`}
+              className="sm:col-span-6"
+              placeholder={`Ítem ${index + 1} — descripción`}
               value={item.description}
               onChange={(e) => updateItem(item.id, { description: e.target.value })}
             />
             <Input
-              className="md:col-span-2"
+              className="sm:col-span-2"
               type="number"
               min="0.001"
               step="0.001"
@@ -166,7 +209,7 @@ export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId }: Props) {
               onChange={(e) => updateItem(item.id, { quantity: e.target.value })}
             />
             <Input
-              className="md:col-span-3"
+              className="sm:col-span-3"
               type="number"
               min="0"
               step="0.01"
@@ -178,51 +221,90 @@ export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId }: Props) {
               type="button"
               variant="ghost"
               size="icon"
-              className="md:col-span-1"
+              className="sm:col-span-1 text-muted-foreground hover:text-destructive"
               onClick={() => removeItem(item.id)}
               disabled={items.length === 1}
+              aria-label="Eliminar ítem"
             >
               <Trash2 className="size-4" />
             </Button>
           </div>
         ))}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <Button type="button" variant="outline" size="sm" onClick={addItem}>
-            <Plus className="mr-1 size-3.5" />
-            Agregar item
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            Subtotal estimado: <span className="font-medium">{subtotalPreview.toFixed(2)}</span>
-          </p>
-        </div>
+        <Button type="button" variant="outline" size="sm" onClick={addItem} className="mt-1">
+          <Plus className="mr-1.5 size-3.5" />
+          Agregar ítem
+        </Button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <Separator />
+
+      {/* Preview totales */}
+      <div className="flex justify-end">
+        <dl className="w-full max-w-xs space-y-1 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Subtotal</dt>
+            <dd>{formatMoney(subtotal, currency)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">
+              Impuesto ({(Number(taxRate) * 100).toFixed(0)}%)
+            </dt>
+            <dd>{formatMoney(taxAmount, currency)}</dd>
+          </div>
+          <Separator className="my-1" />
+          <div className="flex justify-between font-semibold">
+            <dt>Total</dt>
+            <dd className="text-primary">{formatMoney(total, currency)}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <Separator />
+
+      {/* Validez + Notas */}
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Válida hasta</p>
-          <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+          <Label htmlFor="quote-valid">Válida hasta</Label>
+          <Input
+            id="quote-valid"
+            type="date"
+            value={validUntil}
+            onChange={(e) => setValidUntil(e.target.value)}
+          />
         </div>
         <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Notas</p>
+          <Label htmlFor="quote-notes">Notas</Label>
           <Textarea
+            id="quote-notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Condiciones comerciales, alcance, observaciones"
+            placeholder="Condiciones comerciales, alcance, observaciones…"
+            rows={3}
           />
         </div>
       </div>
 
-      <Button type="button" onClick={handleSubmit} disabled={isPending || leads.length === 0}>
-        {isPending ? (
-          <>
-            <Loader2 className="mr-2 size-4 animate-spin" />
-            Creando...
-          </>
-        ) : (
-          'Crear cotización'
-        )}
-      </Button>
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="outline" onClick={resetForm} disabled={isPending}>
+          Limpiar
+        </Button>
+        <Button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isPending || leads.length === 0}
+          className="min-w-32"
+        >
+          {isPending ? (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Creando…
+            </>
+          ) : (
+            'Crear cotización'
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
