@@ -152,6 +152,7 @@ model User {
   interactions               Interaction[]             @relation("InteractionAuthor")
   uploadedDocuments          Document[]                @relation("DocumentUploader")
   createdQuotes              Quote[]                   @relation("QuoteCreator")
+  importedLeads              Lead[]                    @relation("LeadImporter")
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -211,6 +212,9 @@ model Lead {
   tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   ownerId              String?
   owner                User?                     @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  importedById         String?
+  importedAt           DateTime?
+  importedBy           User?                     @relation("LeadImporter", fields: [importedById], references: [id], onDelete: SetNull)
   deletedAt            DateTime?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt

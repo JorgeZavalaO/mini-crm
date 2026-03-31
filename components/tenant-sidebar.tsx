@@ -18,7 +18,6 @@ import {
   LayoutDashboard,
   ScrollText,
   Target,
-  Upload,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -52,9 +51,6 @@ export function TenantSidebar({
       : []),
     ...(enabledFeatures.CRM_LEADS
       ? [{ href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target }]
-      : []),
-    ...(enabledFeatures.IMPORT
-      ? [{ href: `/${tenantSlug}/leads/import`, label: 'Importación', icon: Upload }]
       : []),
     ...(enabledFeatures.DEDUPE
       ? [{ href: `/${tenantSlug}/leads/dedupe`, label: 'Duplicados', icon: Copy }]

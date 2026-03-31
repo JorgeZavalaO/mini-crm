@@ -194,6 +194,7 @@ function buildImportCreateData(
   row: ImportLeadRow,
   normalized: NormalizedImportRow,
   ownerId: string | null,
+  importedById: string,
 ): Prisma.LeadUncheckedCreateInput {
   return {
     businessName: (row.businessName?.trim() || row.ruc).trim(),
@@ -210,6 +211,8 @@ function buildImportCreateData(
     status: row.status,
     ownerId,
     tenantId,
+    importedById,
+    importedAt: new Date(),
   };
 }
 
@@ -348,7 +351,7 @@ async function buildImportExecutionPlan(
       ruc: row.ruc,
       outcome: 'READY',
       message: ownerId ? 'Listo para importar con owner asignado' : 'Listo para importar',
-      createData: buildImportCreateData(ctx.tenant.id, row, normalized, ownerId),
+      createData: buildImportCreateData(ctx.tenant.id, row, normalized, ownerId, actor.userId),
     });
   }
 
