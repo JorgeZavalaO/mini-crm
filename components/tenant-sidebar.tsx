@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sidebar';
 import {
   Building2,
+  ClipboardList,
   Copy,
   FileText,
   LayoutDashboard,
@@ -60,6 +61,9 @@ export function TenantSidebar({
       : []),
     ...(enabledFeatures.QUOTING_BASIC
       ? [{ href: `/${tenantSlug}/quotes`, label: 'Cotizaciones', icon: ScrollText }]
+      : []),
+    ...(enabledFeatures.TASKS
+      ? [{ href: `/${tenantSlug}/tasks`, label: 'Tareas', icon: ClipboardList }]
       : []),
     ...(showTeam ? [{ href: `/${tenantSlug}/team`, label: 'Equipo', icon: Users }] : []),
   ];

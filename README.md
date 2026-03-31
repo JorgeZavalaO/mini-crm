@@ -16,6 +16,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Módulo de cotizaciones operativo: CRUD de cotizaciones con ítems, cálculo de subtotal/impuesto/total, estados (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y soporte de moneda (`PEN`/`USD`).
 - Campanita de notificaciones en el dashboard de tenant: leads sin asignar, leads nuevos, leads ganados, cotizaciones generadas, aceptadas y rechazadas de los últimos 7 días.
 - Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle.
+- **Módulo de Tareas** operativo: CRUD de tareas con prioridades (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), estados (`PENDING`, `IN_PROGRESS`, `DONE`, `CANCELLED`), asignación a miembros del equipo, fecha límite con indicador de vencimiento y soft-delete.
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -35,7 +36,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### Pendiente
 
-- Tasks, interactions, notifications y client portal.
+- Notifications y client portal completos.
 - Hardening productivo adicional: auditoría avanzada, observabilidad profunda y más tests end-to-end.
 
 ## Roadmap resumido
@@ -52,6 +53,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 7      | Cotizaciones MVP + Documentos completos          | ✅ Completado |
 | 7.1    | Notificaciones en tiempo real                    | ✅ Completado |
 | 7.2    | PDF de cotizaciones descargable                  | ✅ Completado |
+| 8      | Módulo de Tareas (Tasks)                         | ✅ Completado |
 
 ## Stack
 

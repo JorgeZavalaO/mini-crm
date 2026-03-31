@@ -94,3 +94,38 @@ export function canChangeQuoteStatus(ctx: LeadPermissionContext): boolean {
   if (!ctx.isActiveMember) return false;
   return hasRole(ctx.role, 'VENDEDOR');
 }
+
+// ─── Task permissions ────────────────────────────────────
+
+export function canCreateTask(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  return ctx.isActiveMember;
+}
+
+export function canEditTask(
+  ctx: LeadPermissionContext,
+  ownership: { createdById: string; assignedToId: string | null },
+): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  if (ctx.userId === ownership.createdById) return true;
+  if (ctx.userId === ownership.assignedToId) return true;
+  return hasRole(ctx.role, 'SUPERVISOR');
+}
+
+export function canDeleteTask(
+  ctx: LeadPermissionContext,
+  ownership: { createdById: string; assignedToId: string | null },
+): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  if (ctx.userId === ownership.createdById) return true;
+  return hasRole(ctx.role, 'SUPERVISOR');
+}
+
+export function canCompleteTask(
+  ctx: LeadPermissionContext,
+  ownership: { createdById: string; assignedToId: string | null },
+): boolean {
+  return canEditTask(ctx, ownership);
+}

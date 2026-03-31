@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import {
   ArrowLeft,
   Building2,
+  ClipboardList,
   Clock,
   FileText,
   Hash,
@@ -33,6 +34,7 @@ import {
 } from '@/lib/lead-status';
 import { listLeadDocumentsAction } from '@/lib/document-actions';
 import { listLeadQuotesAction } from '@/lib/quote-actions';
+import { listLeadTasksAction } from '@/lib/task-actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,6 +45,8 @@ import { DocumentList } from '@/components/documents/document-list';
 import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
 import { QuoteDialogTrigger } from '@/components/quotes/quote-dialog-trigger';
 import { QuoteList } from '@/components/quotes/quote-list';
+import { TaskFormDialog } from '@/components/tasks/task-form-dialog';
+import { TaskList } from '@/components/tasks/task-list';
 import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
 import { ResolveReassignmentDialog } from '../components/resolve-reassignment-dialog';
@@ -81,12 +85,13 @@ export default async function LeadDetailPage({
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
   };
 
-  const [assignmentsEnabled, interactionsEnabled, documentsEnabled, quotingEnabled] =
+  const [assignmentsEnabled, interactionsEnabled, documentsEnabled, quotingEnabled, tasksEnabled] =
     await Promise.all([
       isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
       isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
       isTenantFeatureEnabled(tenant.id, 'DOCUMENTS'),
       isTenantFeatureEnabled(tenant.id, 'QUOTING_BASIC'),
+      isTenantFeatureEnabled(tenant.id, 'TASKS'),
     ]);
 
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
@@ -127,7 +132,11 @@ export default async function LeadDetailPage({
     ? listLeadQuotesAction(id, tenantSlug).catch(() => [])
     : Promise.resolve([]);
 
-  const [lead, activeOwners, interactions, documents, quotes] = await Promise.all([
+  const tasksPromise = tasksEnabled
+    ? listLeadTasksAction(id, tenantSlug).catch(() => [])
+    : Promise.resolve([]);
+
+  const [lead, activeOwners, interactions, documents, quotes, tasks] = await Promise.all([
     db.lead.findFirst({
       where: { id, tenantId: tenant.id, deletedAt: null },
       select: {
@@ -167,6 +176,7 @@ export default async function LeadDetailPage({
     interactionsPromise,
     documentsPromise,
     quotesPromise,
+    tasksPromise,
   ]);
 
   if (!lead) {
@@ -178,6 +188,12 @@ export default async function LeadDetailPage({
   const canResolve = assignmentsEnabled && canResolveReassignment(actor);
   const canEdit = canEditLead(actor, { ownerId: lead.ownerId });
   const canCreateInteractionForLead = interactionsEnabled && canCreateInteraction(actor);
+
+  const taskMembers = activeOwners.map((m) => ({
+    id: m.user.id,
+    name: m.user.name,
+    email: m.user.email,
+  }));
 
   const ownerLabel = lead.owner?.name || lead.owner?.email;
   const locationParts = [lead.city, lead.country].filter(Boolean);
@@ -332,6 +348,19 @@ export default async function LeadDetailPage({
                 className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
               >
                 {quotes.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="tareas" disabled={!tasksEnabled} className="gap-1.5">
+            <ClipboardList className="size-3.5" />
+            Tareas
+            {tasks.length > 0 && (
+              <Badge
+                variant="secondary"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
+              >
+                {tasks.filter((t) => t.status !== 'DONE' && t.status !== 'CANCELLED').length ||
+                  tasks.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -635,6 +664,38 @@ export default async function LeadDetailPage({
               <ScrollText className="size-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
                 El módulo de cotizaciones no está activo para este tenant.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Tareas ── */}
+        <TabsContent value="tareas" className="mt-6">
+          {tasksEnabled ? (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4 pb-3">
+                <div>
+                  <CardTitle>Tareas</CardTitle>
+                  <CardDescription>Acciones pendientes y seguimiento de este lead.</CardDescription>
+                </div>
+                <TaskFormDialog tenantSlug={tenantSlug} leadId={lead.id} members={taskMembers} />
+              </CardHeader>
+              <CardContent className="px-0 pb-2">
+                <TaskList
+                  tasks={tasks}
+                  tenantSlug={tenantSlug}
+                  currentUserId={actor.userId}
+                  currentRole={actor.role}
+                  isSuperAdmin={actor.isSuperAdmin}
+                  members={taskMembers}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+              <ClipboardList className="size-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                El módulo de tareas no está activo para este tenant.
               </p>
             </div>
           )}

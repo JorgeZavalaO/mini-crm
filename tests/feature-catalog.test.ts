@@ -24,16 +24,22 @@ describe('feature catalog - sprint 4 bundles', () => {
   });
 
   it('no marca como soportadas las features futuras aun no implementadas', () => {
-    expect(SUPPORTED_FEATURE_KEYS).not.toContain('TASKS');
     expect(SUPPORTED_FEATURE_KEYS).not.toContain('NOTIFICATIONS');
     expect(SUPPORTED_FEATURE_KEYS).not.toContain('CLIENT_PORTAL');
     expect(SUPPORTED_FEATURE_KEYS).toContain('QUOTING_BASIC');
+    expect(SUPPORTED_FEATURE_KEYS).toContain('TASKS');
   });
 
   it('habilita QUOTING_BASIC solo en Scale', () => {
     expect(PLAN_FEATURE_BUNDLES.STARTER.QUOTING_BASIC?.enabled ?? false).toBe(false);
     expect(PLAN_FEATURE_BUNDLES.GROWTH.QUOTING_BASIC?.enabled ?? false).toBe(false);
     expect(PLAN_FEATURE_BUNDLES.SCALE.QUOTING_BASIC?.enabled).toBe(true);
+  });
+
+  it('habilita TASKS en Growth y Scale, pero no en Starter', () => {
+    expect(PLAN_FEATURE_BUNDLES.STARTER.TASKS?.enabled ?? false).toBe(false);
+    expect(PLAN_FEATURE_BUNDLES.GROWTH.TASKS?.enabled).toBe(true);
+    expect(PLAN_FEATURE_BUNDLES.SCALE.TASKS?.enabled).toBe(true);
   });
 
   it('marca INTERACTIONS como feature soportada disponible en GROWTH y SCALE', () => {

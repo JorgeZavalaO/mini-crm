@@ -2,6 +2,28 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v0.9.0 · 2026-03-31] Sprint 8 — Módulo de Tareas
+
+### Added
+
+- `prisma/schema.prisma`: enums `TaskStatus` (PENDING, IN_PROGRESS, DONE, CANCELLED) y `TaskPriority` (LOW, MEDIUM, HIGH, URGENT); modelo `Task` con relaciones a `Tenant`, `Lead` (opcional), `User` (creador + asignado).
+- Migración `20260331214059_add_tasks_module` aplicada en base de datos.
+- `lib/task-actions.ts`: server actions completas — `createTaskAction`, `updateTaskAction`, `changeTaskStatusAction`, `deleteTaskAction`, `listLeadTasksAction`, `listTenantTasksAction`. La acción `changeTaskStatusAction` asigna `completedAt` automáticamente al marcar como `DONE` y lo limpia en otros estados.
+- `lib/validators.ts`: schemas Zod para `createTaskSchema`, `updateTaskSchema`, `changeTaskStatusSchema`, `deleteTaskSchema`, `taskFiltersSchema`.
+- `lib/lead-permissions.ts`: funciones `canCreateTask`, `canEditTask`, `canDeleteTask`, `canCompleteTask`.
+- `components/tasks/task-form-dialog.tsx`: Dialog reutilizable para crear y editar tareas con selección de prioridad, asignado, fecha límite y descripción opcional.
+- `components/tasks/task-list.tsx`: lista de tareas con secciones activa/completada colapsable, cambio de estado rápido, indicador de vencimiento, dropdown de acciones con AlertDialog de confirmación.
+- `app/[tenantSlug]/tasks/page.tsx`: página principal del módulo con 4 tarjetas de estadísticas (Pendientes/En progreso/Completadas/Canceladas) y lista completa del tenant.
+- Pestaña **Tareas** en `app/[tenantSlug]/leads/[id]/page.tsx`: badge con tareas activas, `TaskFormDialog` para crear en contexto, `TaskList` filtrada por lead.
+- `tests/task-actions.test.ts`: 26 tests que cubren flujos de creación, edición, cambio de estado, eliminación y listado con mocks de Prisma.
+
+### Changed
+
+- `lib/feature-catalog.ts`: `TASKS` movida de `COMING_SOON_FEATURE_KEYS` a `SUPPORTED_FEATURE_KEYS`; habilitada en bundles `GROWTH` y `SCALE`.
+- `components/tenant-sidebar.tsx`: entrada **Tareas** con ícono `ClipboardList` añadida al sidebar cuando `TASKS` está activa.
+- `tests/feature-catalog.test.ts`: tests actualizados para reflejar que `TASKS` es ahora una feature soportada.
+- `tests/superadmin-actions.test.ts`: test de feature no soportada migrado a `CLIENT_PORTAL`.
+
 ## [v0.8.0 · 2026-03-31] Sprint 7.2 — PDF de cotizaciones
 
 ### Added

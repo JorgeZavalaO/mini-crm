@@ -67,6 +67,20 @@ enum CurrencyCode {
   USD
 }
 
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 // ─── Multi-tenant ───────────────────────────────────────
 
 model Tenant {
@@ -89,6 +103,7 @@ model Tenant {
   features                 TenantFeature[]
   documents                Document[]
   quotes                   Quote[]
+  tasks                    Task[]
   plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -153,6 +168,8 @@ model User {
   uploadedDocuments          Document[]                @relation("DocumentUploader")
   createdQuotes              Quote[]                   @relation("QuoteCreator")
   importedLeads              Lead[]                    @relation("LeadImporter")
+  createdTasks               Task[]                    @relation("TaskCreator")
+  assignedTasks              Task[]                    @relation("TaskAssignee")
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -222,6 +239,7 @@ model Lead {
   interactions         Interaction[]
   documents            Document[]
   quotes               Quote[]
+  tasks                Task[]
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
@@ -339,4 +357,33 @@ model Document {
   @@index([tenantId, deletedAt])
   @@index([tenantId, leadId])
   @@index([uploadedById])
+}
+
+// ─── Tasks ──────────────────────────────────────────────
+
+model Task {
+  id           String       @id @default(cuid())
+  tenantId     String
+  leadId       String?
+  createdById  String
+  assignedToId String?
+  title        String
+  description  String?
+  status       TaskStatus   @default(PENDING)
+  priority     TaskPriority @default(MEDIUM)
+  dueDate      DateTime?
+  completedAt  DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead       Lead?  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdBy  User   @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  assignedTo User?  @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, leadId])
+  @@index([tenantId, assignedToId, status])
+  @@index([tenantId, status, dueDate])
 }

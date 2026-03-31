@@ -4,6 +4,8 @@ import {
   LeadStatus,
   QuoteStatus,
   ReassignmentStatus,
+  TaskPriority,
+  TaskStatus,
 } from '@prisma/client';
 import { z } from 'zod';
 import { ROLES } from '@/lib/rbac';
@@ -219,4 +221,41 @@ export const quoteFiltersSchema = z.object({
   q: optionalText(120),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+// ─── Tasks ──────────────────────────────────────────────
+
+export const createTaskSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: optionalId,
+  assignedToId: optionalId,
+  title: z.string().trim().min(1, 'El título es requerido').max(300),
+  description: optionalText(5000),
+  priority: z.nativeEnum(TaskPriority).default(TaskPriority.MEDIUM),
+  dueDate: z.coerce.date().optional(),
+});
+
+export const updateTaskSchema = createTaskSchema.extend({
+  taskId: z.string().min(1),
+});
+
+export const changeTaskStatusSchema = z.object({
+  tenantSlug: z.string().min(1),
+  taskId: z.string().min(1),
+  status: z.nativeEnum(TaskStatus),
+});
+
+export const deleteTaskSchema = z.object({
+  tenantSlug: z.string().min(1),
+  taskId: z.string().min(1),
+});
+
+export const taskFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: optionalId,
+  assignedToId: optionalId,
+  status: z.nativeEnum(TaskStatus).optional(),
+  priority: z.nativeEnum(TaskPriority).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
