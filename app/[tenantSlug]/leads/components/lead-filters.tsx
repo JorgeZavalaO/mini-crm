@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const ALL = '__ALL__';
 
@@ -116,20 +117,23 @@ export function LeadFilters({ initial, owners, sources, cities }: LeadFiltersPro
         </div>
 
         <div className="space-y-2">
-          <Label>Owner</Label>
-          <Select value={ownerId} onValueChange={setOwnerId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Todos" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Todos</SelectItem>
-              {owners.map((owner) => (
-                <SelectItem key={owner.id} value={owner.id}>
-                  {owner.name || owner.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label>Vendedor</Label>
+          <SearchableSelect
+            options={[
+              { value: ALL, label: 'Todos' },
+              { value: '__UNASSIGNED__', label: 'Sin vendedor asignado' },
+              ...owners.map((owner) => ({
+                value: owner.id,
+                label: owner.name || owner.email,
+                hint: owner.name ? owner.email : undefined,
+              })),
+            ]}
+            value={ownerId}
+            onValueChange={setOwnerId}
+            placeholder="Todos"
+            searchPlaceholder="Buscar vendedor…"
+            emptyText="Sin vendedores encontrados."
+          />
         </div>
 
         <div className="space-y-2">
@@ -151,19 +155,17 @@ export function LeadFilters({ initial, owners, sources, cities }: LeadFiltersPro
 
         <div className="space-y-2">
           <Label>Ciudad</Label>
-          <Select value={city} onValueChange={setCity}>
-            <SelectTrigger>
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Todas</SelectItem>
-              {cities.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            options={[
+              { value: ALL, label: 'Todas' },
+              ...cities.map((c) => ({ value: c, label: c })),
+            ]}
+            value={city}
+            onValueChange={setCity}
+            placeholder="Todas"
+            searchPlaceholder="Buscar ciudad…"
+            emptyText="Sin ciudades encontradas."
+          />
         </div>
       </div>
 

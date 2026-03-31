@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 type LeadOption = {
   id: string;
@@ -137,19 +138,19 @@ export function QuoteCreateForm({ tenantSlug, leads, defaultLeadId, onSuccess }:
           <Label htmlFor="quote-lead">
             Cliente / Lead <span className="text-destructive">*</span>
           </Label>
-          <Select value={leadId} onValueChange={setLeadId}>
-            <SelectTrigger id="quote-lead">
-              <SelectValue placeholder="Seleccionar lead" />
-            </SelectTrigger>
-            <SelectContent>
-              {leads.map((lead) => (
-                <SelectItem key={lead.id} value={lead.id}>
-                  {lead.businessName}
-                  {lead.ruc ? ` · ${lead.ruc}` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            id="quote-lead"
+            options={leads.map((lead) => ({
+              value: lead.id,
+              label: lead.businessName,
+              hint: lead.ruc ?? undefined,
+            }))}
+            value={leadId}
+            onValueChange={setLeadId}
+            placeholder="Seleccionar lead…"
+            searchPlaceholder="Buscar por nombre o RUC…"
+            emptyText="Sin leads encontrados."
+          />
         </div>
 
         <div className="space-y-1.5">

@@ -2,6 +2,22 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-31] Sprint 7 UX/UI — Buscadores en Cotizaciones y Filtros de Leads
+
+### Added
+
+- `components/ui/command.tsx`: nuevo componente `Command` / `CommandInput` / `CommandList` / `CommandItem` basado en `cmdk` para búsqueda en tiempo real dentro de popovers.
+- `components/ui/searchable-select.tsx`: combobox reutilizable (botón trigger + `Popover` + `Command`) con input de búsqueda, hint secundario por opción y check de selección activa. Accesible con `role="combobox"` y `aria-expanded`.
+- Opción **"Sin vendedor asignado"** (`__UNASSIGNED__`) en el filtro de Vendedor de la lista de leads — permite filtrar leads sin owner.
+
+### Changed
+
+- `components/quotes/quote-create-form.tsx`: selector de lead reemplazado por `SearchableSelect`; búsqueda en tiempo real por nombre de empresa o RUC; valor hint muestra el RUC junto a cada opción.
+- `app/[tenantSlug]/leads/components/lead-filters.tsx`:
+  - Filtro **Ciudad** migrado a `SearchableSelect` con búsqueda en tiempo real.
+  - Filtro **Owner** migrado a `SearchableSelect`, label traducido a "Vendedor", hint muestra email del miembro, incluye opción "Sin vendedor asignado".
+- `app/[tenantSlug]/leads/page.tsx`: soporte del valor especial `__UNASSIGNED__` en la query de Prisma (traduce a `{ ownerId: null }`).
+
 ## [2026-03-31] Sprint 7 UX/UI — Mejora de interfaz de Cotizaciones
 
 ### Added

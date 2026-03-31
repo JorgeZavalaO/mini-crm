@@ -92,7 +92,11 @@ export default async function LeadsPage({
     tenantId: tenant.id,
     deletedAt: null,
     ...(filters.status ? { status: filters.status } : {}),
-    ...(filters.ownerId ? { ownerId: filters.ownerId } : {}),
+    ...(filters.ownerId === '__UNASSIGNED__'
+      ? { ownerId: null }
+      : filters.ownerId
+        ? { ownerId: filters.ownerId }
+        : {}),
     ...(filters.source ? { source: filters.source } : {}),
     ...(filters.city ? { city: filters.city } : {}),
   };

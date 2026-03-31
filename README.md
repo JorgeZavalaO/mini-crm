@@ -285,6 +285,14 @@ pnpm dev
 - Trazabilidad automática: al crear una cotización se registra una interacción tipo `NOTE` en el historial del lead con el número y total de la cotización.
 - Empty state estilizado con borde discontinuo cuando no hay cotizaciones.
 
+### Sprint 7 UX/UI — Buscadores en Cotizaciones y Filtros de Leads
+
+- Nuevo componente `SearchableSelect` (`components/ui/searchable-select.tsx`): combobox accesible con `Popover` + `Command` de `cmdk`, búsqueda en tiempo real, hint secundario por opción y check de selección activa.
+- Selector de lead en el formulario de cotización reemplazado por `SearchableSelect` — permite buscar por nombre de empresa o RUC directamente desde el Dialog.
+- Filtro **Ciudad** en lista de leads migrado a `SearchableSelect` con búsqueda incremental.
+- Filtro **Vendedor** (antes "Owner", ahora traducido) migrado a `SearchableSelect` con hint de email y nueva opción **"Sin vendedor asignado"** para localizar leads huérfanos.
+- `leads/page.tsx` soporta el valor especial `__UNASSIGNED__` en el query de Prisma para los leads sin owner.
+
 ## Calidad y validación
 
 Antes de cerrar un hito o sprint:
