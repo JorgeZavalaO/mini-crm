@@ -24,14 +24,10 @@ export const SUPPORTED_FEATURE_KEYS: FeatureKey[] = [
   'DEDUPE',
   'DASHBOARD',
   'INTERACTIONS',
+  'QUOTING_BASIC',
 ];
 
-export const COMING_SOON_FEATURE_KEYS: FeatureKey[] = [
-  'TASKS',
-  'QUOTING_BASIC',
-  'CLIENT_PORTAL',
-  'NOTIFICATIONS',
-];
+export const COMING_SOON_FEATURE_KEYS: FeatureKey[] = ['TASKS', 'CLIENT_PORTAL', 'NOTIFICATIONS'];
 
 export const CORE_DEFAULT_FEATURE_KEYS: FeatureKey[] = ['DASHBOARD', 'CRM_LEADS', 'ASSIGNMENTS'];
 
@@ -94,6 +90,7 @@ export const PLAN_FEATURE_BUNDLES: Record<
     DEDUPE: { enabled: true },
     DASHBOARD: { enabled: true },
     INTERACTIONS: { enabled: true },
+    QUOTING_BASIC: { enabled: true },
   },
 };
 

@@ -1,4 +1,10 @@
-import { InteractionType, LeadStatus, ReassignmentStatus } from '@prisma/client';
+import {
+  CurrencyCode,
+  InteractionType,
+  LeadStatus,
+  QuoteStatus,
+  ReassignmentStatus,
+} from '@prisma/client';
 import { z } from 'zod';
 import { ROLES } from '@/lib/rbac';
 
@@ -170,4 +176,47 @@ export const uploadDocumentSchema = z.object({
 export const deleteDocumentSchema = z.object({
   tenantSlug: z.string().min(1),
   documentId: z.string().min(1),
+});
+
+const quoteItemSchema = z.object({
+  description: z.string().trim().min(1, 'La descripción del item es requerida').max(500),
+  quantity: z.coerce.number().positive('La cantidad debe ser mayor a 0').max(999999),
+  unitPrice: z.coerce
+    .number()
+    .nonnegative('El precio unitario no puede ser negativo')
+    .max(999999999),
+});
+
+export const createQuoteSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: z.string().min(1),
+  currency: z.nativeEnum(CurrencyCode).default(CurrencyCode.PEN),
+  taxRate: z.coerce.number().min(0).max(1).default(0.18),
+  validUntil: z.coerce.date().optional(),
+  notes: optionalText(5000),
+  items: z.array(quoteItemSchema).min(1, 'Debe incluir al menos un item').max(100),
+});
+
+export const updateQuoteSchema = createQuoteSchema.extend({
+  quoteId: z.string().min(1),
+});
+
+export const changeQuoteStatusSchema = z.object({
+  tenantSlug: z.string().min(1),
+  quoteId: z.string().min(1),
+  status: z.enum([QuoteStatus.ENVIADA, QuoteStatus.ACEPTADA, QuoteStatus.RECHAZADA]),
+});
+
+export const deleteQuoteSchema = z.object({
+  tenantSlug: z.string().min(1),
+  quoteId: z.string().min(1),
+});
+
+export const quoteFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: optionalId,
+  status: z.nativeEnum(QuoteStatus).optional(),
+  q: optionalText(120),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });

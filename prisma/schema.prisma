@@ -55,6 +55,18 @@ enum InteractionType {
   WHATSAPP
 }
 
+enum QuoteStatus {
+  BORRADOR
+  ENVIADA
+  ACEPTADA
+  RECHAZADA
+}
+
+enum CurrencyCode {
+  PEN
+  USD
+}
+
 // ─── Multi-tenant ───────────────────────────────────────
 
 model Tenant {
@@ -76,6 +88,7 @@ model Tenant {
   interactions             Interaction[]
   features                 TenantFeature[]
   documents                Document[]
+  quotes                   Quote[]
   plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -138,6 +151,7 @@ model User {
   targetLeadReassignments    LeadReassignmentRequest[] @relation("LeadReassignmentTargetOwner")
   interactions               Interaction[]             @relation("InteractionAuthor")
   uploadedDocuments          Document[]                @relation("DocumentUploader")
+  createdQuotes              Quote[]                   @relation("QuoteCreator")
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -203,12 +217,58 @@ model Lead {
   reassignmentRequests LeadReassignmentRequest[]
   interactions         Interaction[]
   documents            Document[]
+  quotes               Quote[]
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
   @@index([tenantId, ownerId])
   @@index([tenantId, source])
   @@index([tenantId, city])
+}
+
+model Quote {
+  id          String       @id @default(cuid())
+  tenantId    String
+  leadId      String
+  quoteNumber String
+  status      QuoteStatus  @default(BORRADOR)
+  currency    CurrencyCode @default(PEN)
+  taxRate     Decimal      @db.Decimal(5, 4)
+  subtotal    Decimal      @db.Decimal(14, 2)
+  taxAmount   Decimal      @db.Decimal(14, 2)
+  totalAmount Decimal      @db.Decimal(14, 2)
+  issuedAt    DateTime?
+  validUntil  DateTime?
+  notes       String?
+  createdById String
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead        Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdBy   User         @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  items       QuoteItem[]
+
+  @@unique([tenantId, quoteNumber])
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, leadId])
+  @@index([tenantId, status])
+}
+
+model QuoteItem {
+  id           String   @id @default(cuid())
+  quoteId      String
+  lineNumber   Int
+  description  String
+  quantity     Decimal  @db.Decimal(12, 3)
+  unitPrice    Decimal  @db.Decimal(14, 2)
+  lineSubtotal Decimal  @db.Decimal(14, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, lineNumber])
+  @@index([quoteId])
 }
 
 model LeadReassignmentRequest {

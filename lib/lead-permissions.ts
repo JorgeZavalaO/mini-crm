@@ -1,4 +1,5 @@
 import { hasRole } from '@/lib/rbac';
+import type { QuoteStatus } from '@prisma/client';
 
 type LeadPermissionContext = {
   userId: string;
@@ -63,4 +64,33 @@ export function canDeleteDocument(ctx: LeadPermissionContext, uploadedById: stri
   if (!ctx.isActiveMember) return false;
   if (ctx.userId === uploadedById) return true;
   return hasRole(ctx.role, 'SUPERVISOR');
+}
+
+export function canCreateQuote(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  return ctx.isActiveMember;
+}
+
+export function canEditQuote(
+  ctx: LeadPermissionContext,
+  ownership: { createdById: string; status: QuoteStatus },
+): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  if (ownership.status !== 'BORRADOR') return hasRole(ctx.role, 'SUPERVISOR');
+  if (ctx.userId === ownership.createdById) return true;
+  return hasRole(ctx.role, 'SUPERVISOR');
+}
+
+export function canDeleteQuote(
+  ctx: LeadPermissionContext,
+  ownership: { createdById: string; status: QuoteStatus },
+): boolean {
+  return canEditQuote(ctx, ownership);
+}
+
+export function canChangeQuoteStatus(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  return hasRole(ctx.role, 'VENDEDOR');
 }

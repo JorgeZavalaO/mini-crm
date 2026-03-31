@@ -13,6 +13,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Importación masiva de leads por archivo Excel (`.xlsx/.xls`) o CSV, con análisis previo y confirmación en 2 pasos.
 - Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
 - Módulo de documentos operativo: carga, listado y eliminación con almacenamiento en Vercel Blob.
+- Módulo de cotizaciones operativo: CRUD de cotizaciones con ítems, cálculo de subtotal/impuesto/total, estados (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y soporte de moneda (`PEN`/`USD`).
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -28,7 +29,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### En progreso
 
-- Preparación de backlog post-Sprint 6: auditoría avanzada, observabilidad y más tests de integración.
+- Preparación de backlog post-Sprint 7: edición de cotizaciones en UI, generación de PDF y envío por email.
 
 ### Pendiente
 
@@ -46,6 +47,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 4      | Import/Dedupe + Documents MVP                    | ✅ Completado |
 | 5      | Invitaciones / onboarding de usuarios            | ✅ Completado |
 | 6      | Hardening para producción                        | ✅ Completado |
+| 7      | Cotizaciones MVP + Documentos completos          | ✅ Completado |
 
 ## Stack
 
@@ -79,6 +81,7 @@ Variables recomendadas:
 
 - `AUTH_TRUST_HOST` (si despliegas detrás de reverse proxy fuera de Vercel o quieres dejarlo explícito en producción)
 - `BLOB_READ_WRITE_TOKEN` (requerido para el módulo `DOCUMENTS` en producción)
+- `QUOTING_BASIC` habilitado en plan `SCALE` (activar desde panel SuperAdmin para exponer cotizaciones en el tenant)
 - `LOG_LEVEL`
 - `NODE_ENV`
 - `AUTH_RATE_LIMIT_WINDOW_MS`
@@ -161,6 +164,8 @@ pnpm dev
 - `app/[tenantSlug]/team`
 - `app/[tenantSlug]/profile`
 - `app/[tenantSlug]/documents`
+- `app/[tenantSlug]/quotes`
+- `app/[tenantSlug]/quotes/[id]`
 
 ### Auth / onboarding
 
@@ -240,16 +245,17 @@ pnpm dev
 
 - Mensajes de login neutralizados para evitar enumeración de tenants, usuarios y accesos.
 - Rate limiting inicial para intentos de autenticación, aplicado tanto en la acción de login como en el proveedor de credenciales.
-- Features futuras (`INTERACTIONS`, `TASKS`, `NOTIFICATIONS`, `CLIENT_PORTAL`, `QUOTING_BASIC`) retiradas del catálogo comercial activo hasta contar con implementación real.
+- Features futuras (`INTERACTIONS`, `TASKS`, `NOTIFICATIONS`, `CLIENT_PORTAL`) retiradas del catálogo comercial activo hasta contar con implementación real.
+- `QUOTING_BASIC` pasó de futura a soportada en Sprint 7 (habilitada en plan `SCALE`).
 
-### UX/UI SuperAdmin (iteración actual)
+### UX/UI SuperAdmin
 
 - `superadmin/plans` ahora presenta un catálogo tabular con acciones por fila para ver detalle, editar y activar/desactivar sin salir de la pantalla.
 - La creación de planes se trasladó a un diálogo contextual para mantener el flujo administrativo compacto.
 - El avatar del sidebar ahora abre un menú de cuenta con acceso a perfil y cierre de sesión, tanto en tenant como en `SuperAdmin`.
 - Nuevo módulo `superadmin/profile` para consultar la identidad del administrador y sus memberships vinculadas.
 
-### Iteración actual: Importación + Documentos (mar-2026)
+### Importación Excel + Módulo Documentos (mar-2026)
 
 - `leads/import` migró de pegado manual a carga de archivo (`.xlsx/.xls/.csv`) con UX drag-and-drop.
 - Se añadió descarga de plantilla Excel con cabeceras oficiales y filas de ejemplo para carga masiva.
@@ -257,6 +263,18 @@ pnpm dev
 - `businessName` pasa a opcional durante importación (si falta, se usa el valor de `ruc` como fallback).
 - Nuevo módulo `documents` completo: subida (máx. 5 MB), listado, descarga y eliminación con control de permisos.
 - Se habilitó pestaña `Documentos` en el detalle de lead y repositorio general en `/{tenantSlug}/documents`.
+
+### Sprint 7 (cierre)
+
+- Módulo de cotizaciones implementado end-to-end: CRUD de cotizaciones con ítems, sub-total, impuesto y total calculados en servidor.
+- Soporte de moneda `PEN`/`USD` por cotización.
+- Estados de cotización con transiciones validadas: `BORRADOR` → `ENVIADA` → `ACEPTADA` / `RECHAZADA`.
+- Reglas de edición por estado (solo `BORRADOR` es editable) y override por `SUPERVISOR+`.
+- Nueva pestaña `Cotizaciones` en el detalle de lead para creación y consulta en contexto.
+- Nueva ruta general `/{tenantSlug}/quotes` con listado paginado y filtros por estado/lead.
+- Feature flag `QUOTING_BASIC` habilitada en plan `SCALE` y expuesta en catálogo de features.
+- Navegación lateral del tenant con acceso directo a `Cotizaciones` cuando la feature está activa.
+- Cobertura de pruebas en `tests/quote-actions.test.ts`.
 
 ## Calidad y validación
 

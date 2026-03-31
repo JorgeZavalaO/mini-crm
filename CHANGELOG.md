@@ -2,6 +2,36 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [2026-03-31] Sprint 7 - Módulo de Cotizaciones completo
+
+### Added
+
+- Nuevo módulo de cotizaciones implementado end-to-end:
+  - `lib/quote-actions.ts` con acciones `createQuoteAction`, `updateQuoteAction`, `changeQuoteStatusAction`, `deleteQuoteAction` (soft delete), `listLeadQuotesAction`, `listTenantQuotesAction` y `getQuoteDetailAction`.
+  - `components/quotes/quote-create-form.tsx` con formulario de alta de cotización e ítems dinámicos.
+  - `components/quotes/quote-list.tsx` con tabla de cotizaciones, badges de estado y acciones por fila.
+  - `app/[tenantSlug]/quotes/page.tsx` con listado general y creación rápida de cotizaciones del tenant.
+  - `app/[tenantSlug]/quotes/[id]/page.tsx` con detalle y transición de estado.
+- Nueva pestaña `Cotizaciones` en `app/[tenantSlug]/leads/[id]/page.tsx` para alta y consulta contextual por lead.
+- Feature flag `QUOTING_BASIC` marcada como soportada en `lib/feature-catalog.ts` y habilitada en el bundle `SCALE`.
+- Reglas de permisos `canCreateQuote`, `canEditQuote`, `canDeleteQuote` y `canChangeQuoteStatus` en `lib/lead-permissions.ts`.
+- Cobertura de pruebas en `tests/quote-actions.test.ts` (permisos, transiciones de estado, aislamiento multi-tenant).
+- Enums `QuoteStatus` (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y `CurrencyCode` (`PEN`, `USD`) en el schema de Prisma.
+- Migración `20260331163105_add_quotes_module` aplicada.
+
+### Changed
+
+- `prisma/schema.prisma` incorpora los modelos `Quote` y `QuoteItem` con relaciones a `Tenant`, `Lead` y `User`.
+- `lib/validators.ts` añade `createQuoteSchema`, `updateQuoteSchema`, `changeQuoteStatusSchema`, `deleteQuoteSchema` y `quoteFiltersSchema`.
+- `components/tenant-sidebar.tsx` expone la entrada `Cotizaciones` en la navegación lateral cuando `QUOTING_BASIC` está activa.
+- `tests/feature-catalog.test.ts` actualizado para reflejar `QUOTING_BASIC` como feature soportada.
+- El cálculo de `subtotal`, `tax` y `total` ocurre íntegramente en el servidor (`quote-actions.ts`) para garantizar consistencia.
+
+### Fixed
+
+- Transiciones de estado validadas en servidor para evitar saltos inválidos (p. ej. `ACEPTADA` → `BORRADOR`).
+- Solo cotizaciones en estado `BORRADOR` son editables; `SUPERVISOR+` puede forzar cambios sobre cualquier estado.
+
 ## [2026-03-31] Importación por Excel + Documentos completos
 
 ### Added

@@ -11,7 +11,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { Building2, Copy, FileText, LayoutDashboard, Target, Upload, Users } from 'lucide-react';
+import {
+  Building2,
+  Copy,
+  FileText,
+  LayoutDashboard,
+  ScrollText,
+  Target,
+  Upload,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SidebarUserMenu } from '@/components/sidebar-user-menu';
@@ -52,6 +61,9 @@ export function TenantSidebar({
       : []),
     ...(enabledFeatures.DOCUMENTS
       ? [{ href: `/${tenantSlug}/documents`, label: 'Documentos', icon: FileText }]
+      : []),
+    ...(enabledFeatures.QUOTING_BASIC
+      ? [{ href: `/${tenantSlug}/quotes`, label: 'Cotizaciones', icon: ScrollText }]
       : []),
     ...(showTeam ? [{ href: `/${tenantSlug}/team`, label: 'Equipo', icon: Users }] : []),
   ];

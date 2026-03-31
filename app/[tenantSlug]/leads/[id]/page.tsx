@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Phone,
   RefreshCw,
+  ScrollText,
   User as UserIcon,
 } from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
@@ -31,6 +32,7 @@ import {
   REASSIGNMENT_STATUS_LABEL,
 } from '@/lib/lead-status';
 import { listLeadDocumentsAction } from '@/lib/document-actions';
+import { listLeadQuotesAction } from '@/lib/quote-actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,6 +41,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InteractionTimeline } from '@/components/leads/interaction-timeline';
 import { DocumentList } from '@/components/documents/document-list';
 import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
+import { QuoteCreateForm } from '@/components/quotes/quote-create-form';
+import { QuoteList } from '@/components/quotes/quote-list';
 import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
 import { ResolveReassignmentDialog } from '../components/resolve-reassignment-dialog';
@@ -77,11 +81,13 @@ export default async function LeadDetailPage({
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
   };
 
-  const [assignmentsEnabled, interactionsEnabled, documentsEnabled] = await Promise.all([
-    isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
-    isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
-    isTenantFeatureEnabled(tenant.id, 'DOCUMENTS'),
-  ]);
+  const [assignmentsEnabled, interactionsEnabled, documentsEnabled, quotingEnabled] =
+    await Promise.all([
+      isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
+      isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
+      isTenantFeatureEnabled(tenant.id, 'DOCUMENTS'),
+      isTenantFeatureEnabled(tenant.id, 'QUOTING_BASIC'),
+    ]);
 
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
     ? db.membership.findMany({
@@ -117,7 +123,11 @@ export default async function LeadDetailPage({
     ? listLeadDocumentsAction(id, tenantSlug).catch(() => [])
     : Promise.resolve([]);
 
-  const [lead, activeOwners, interactions, documents] = await Promise.all([
+  const quotesPromise = quotingEnabled
+    ? listLeadQuotesAction(id, tenantSlug).catch(() => [])
+    : Promise.resolve([]);
+
+  const [lead, activeOwners, interactions, documents, quotes] = await Promise.all([
     db.lead.findFirst({
       where: { id, tenantId: tenant.id, deletedAt: null },
       select: {
@@ -156,6 +166,7 @@ export default async function LeadDetailPage({
     activeOwnersPromise,
     interactionsPromise,
     documentsPromise,
+    quotesPromise,
   ]);
 
   if (!lead) {
@@ -309,6 +320,18 @@ export default async function LeadDetailPage({
                 className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
               >
                 {documents.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="cotizaciones" disabled={!quotingEnabled} className="gap-1.5">
+            <ScrollText className="size-3.5" />
+            Cotizaciones
+            {quotes.length > 0 && (
+              <Badge
+                variant="secondary"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px] leading-none"
+              >
+                {quotes.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -577,6 +600,54 @@ export default async function LeadDetailPage({
               <FileText className="size-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
                 El módulo de documentos no está activo para este tenant.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="cotizaciones" className="mt-6 space-y-4">
+          {quotingEnabled ? (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Nueva cotización para este lead</CardTitle>
+                  <CardDescription>
+                    Registra items, moneda e impuesto para generar la propuesta comercial.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <QuoteCreateForm
+                    tenantSlug={tenantSlug}
+                    defaultLeadId={lead.id}
+                    leads={[{ id: lead.id, businessName: lead.businessName, ruc: lead.ruc }]}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Historial de cotizaciones</CardTitle>
+                  <CardDescription>
+                    Seguimiento de propuestas comerciales asociadas a este lead.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <QuoteList
+                    quotes={quotes}
+                    tenantSlug={tenantSlug}
+                    currentUserId={actor.userId}
+                    currentRole={actor.role}
+                    isSuperAdmin={actor.isSuperAdmin}
+                    showLeadColumn={false}
+                  />
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+              <ScrollText className="size-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                El módulo de cotizaciones no está activo para este tenant.
               </p>
             </div>
           )}
