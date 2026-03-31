@@ -3,13 +3,25 @@
 import { useRef, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { UploadCloud, FileSpreadsheet, X } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Download,
+  FileSpreadsheet,
+  Info,
+  Loader2,
+  UploadCloud,
+  X,
+} from 'lucide-react';
 import { importLeadsAction, previewImportLeadsAction } from '@/lib/import-actions';
 import { IMPORT_TEMPLATE_HEADERS } from '@/lib/import-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
@@ -42,6 +54,10 @@ type ImportSummary = {
   results: ImportResult[];
 };
 
+// ─── Outcome helpers ────────────────────────────────────────────────────────
+
+type Step = 'upload' | 'analyze' | 'confirm' | 'done';
+
 function outcomeLabel(outcome: ImportOutcome) {
   if (outcome === 'READY') return 'Listo';
   if (outcome === 'CREATED') return 'Creado';
@@ -49,30 +65,115 @@ function outcomeLabel(outcome: ImportOutcome) {
   return 'Error';
 }
 
-function outcomeVariant(
-  outcome: ImportOutcome,
-): 'default' | 'secondary' | 'outline' | 'destructive' {
-  if (outcome === 'READY' || outcome === 'CREATED') return 'default';
-  if (outcome === 'SKIPPED') return 'outline';
-  return 'destructive';
+function outcomeBadgeClass(outcome: ImportOutcome) {
+  if (outcome === 'READY' || outcome === 'CREATED')
+    return 'border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400';
+  if (outcome === 'SKIPPED')
+    return 'border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
+  return 'border-red-200 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400';
 }
 
-function SummaryCards({ items }: { items: Array<{ label: string; value: number }> }) {
+function outcomeRowClass(outcome: ImportOutcome) {
+  if (outcome === 'READY' || outcome === 'CREATED') return 'bg-green-50/50 dark:bg-green-950/10';
+  if (outcome === 'SKIPPED') return 'bg-amber-50/50 dark:bg-amber-950/10';
+  return 'bg-red-50/50 dark:bg-red-950/10';
+}
+
+// ─── StepIndicator ───────────────────────────────────────────────────────────
+
+const STEPS: { id: Step; label: string }[] = [
+  { id: 'upload', label: 'Subir' },
+  { id: 'analyze', label: 'Analizar' },
+  { id: 'confirm', label: 'Confirmar' },
+  { id: 'done', label: 'Listo' },
+];
+const STEP_ORDER: Step[] = ['upload', 'analyze', 'confirm', 'done'];
+
+function StepIndicator({ current }: { current: Step }) {
+  const currentIndex = STEP_ORDER.indexOf(current);
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="flex items-center gap-1 text-xs">
+      {STEPS.map((step, i) => {
+        const stepIndex = STEP_ORDER.indexOf(step.id);
+        const isDone = stepIndex < currentIndex;
+        const isActive = step.id === current;
+        return (
+          <div key={step.id} className="flex items-center gap-1">
+            <div
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                isDone
+                  ? 'bg-primary text-primary-foreground'
+                  : isActive
+                    ? 'border-2 border-primary text-primary'
+                    : 'border border-muted-foreground/30 text-muted-foreground/40'
+              }`}
+            >
+              {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+            </div>
+            <span
+              className={`hidden sm:inline ${
+                isActive
+                  ? 'font-semibold text-foreground'
+                  : isDone
+                    ? 'text-muted-foreground'
+                    : 'text-muted-foreground/40'
+              }`}
+            >
+              {step.label}
+            </span>
+            {i < STEPS.length - 1 && (
+              <ArrowRight className="mx-0.5 h-3 w-3 shrink-0 text-muted-foreground/30" />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── SummaryCards ────────────────────────────────────────────────────────────
+
+type SummaryItem = {
+  label: string;
+  value: number;
+  color: 'green' | 'amber' | 'red';
+  icon: React.ReactNode;
+};
+
+const COLOR_CARD: Record<SummaryItem['color'], string> = {
+  green: 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20',
+  amber: 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20',
+  red: 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20',
+};
+
+const COLOR_TEXT: Record<SummaryItem['color'], string> = {
+  green: 'text-green-700 dark:text-green-400',
+  amber: 'text-amber-700 dark:text-amber-400',
+  red: 'text-red-700 dark:text-red-400',
+};
+
+function SummaryCards({ items }: { items: SummaryItem[] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
       {items.map((item) => (
-        <Card key={item.label}>
-          <CardHeader>
-            <CardTitle className="text-sm text-muted-foreground">{item.label}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{item.value}</p>
-          </CardContent>
-        </Card>
+        <div
+          key={item.label}
+          className={`flex items-center gap-4 rounded-lg border p-4 ${COLOR_CARD[item.color]}`}
+        >
+          <div className={`shrink-0 ${COLOR_TEXT[item.color]}`}>{item.icon}</div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+            <p className={`mt-1 text-3xl font-bold leading-none ${COLOR_TEXT[item.color]}`}>
+              {item.value}
+            </p>
+          </div>
+        </div>
       ))}
     </div>
   );
 }
+
+// ─── ResultsTable ────────────────────────────────────────────────────────────
 
 function ResultsTable({
   title,
@@ -85,35 +186,42 @@ function ResultsTable({
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <p className="mb-3 text-sm text-muted-foreground">{description}</p>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fila</TableHead>
-              <TableHead>Lead</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Detalle</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {results.map((result) => (
-              <TableRow key={`${title}-${result.rowNumber}-${result.businessName}`}>
-                <TableCell>{result.rowNumber}</TableCell>
-                <TableCell className="font-medium">{result.businessName}</TableCell>
-                <TableCell>
-                  <Badge variant={outcomeVariant(result.outcome)}>
-                    {outcomeLabel(result.outcome)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{result.message}</TableCell>
+      <CardContent className="p-0">
+        <div className="max-h-96 overflow-y-auto rounded-b-lg">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-background">
+              <TableRow>
+                <TableHead className="w-12 pl-4">Fila</TableHead>
+                <TableHead>Lead</TableHead>
+                <TableHead className="w-24">Estado</TableHead>
+                <TableHead className="pr-4">Detalle</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {results.map((result) => (
+                <TableRow
+                  key={`${title}-${result.rowNumber}-${result.businessName}`}
+                  className={outcomeRowClass(result.outcome)}
+                >
+                  <TableCell className="pl-4 text-muted-foreground">{result.rowNumber}</TableCell>
+                  <TableCell className="font-medium">{result.businessName}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={outcomeBadgeClass(result.outcome)}>
+                      {outcomeLabel(result.outcome)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="pr-4 text-xs text-muted-foreground">
+                    {result.message}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );
@@ -142,27 +250,41 @@ async function downloadTemplate(): Promise<void> {
       'Lima',
       'Logistica',
       'Web',
-      'Cliente demo',
+      'Cliente potencial — seguimiento Q1',
       '+51 999 111 222',
       'ventas@acme.com',
       'NEW',
-      'admin@acme.com',
+      '',
     ],
     [
-      'Importadora Norte',
-      '',
+      'Importadora Norte SRL',
+      '20987654321',
       'Peru',
       'Piura',
       'Comercio exterior',
       'Referido',
-      'Requiere seguimiento',
+      'Requiere cotización urgente',
       '+51 955 123 456',
       'comercial@norte.com',
       'CONTACTED',
       '',
     ],
+    [
+      'Distribuidora Sur EIRL',
+      '',
+      'Peru',
+      'Arequipa',
+      'Retail',
+      'Llamada fría',
+      '',
+      '+51 922 000 111',
+      '',
+      'QUALIFIED',
+      '',
+    ],
   ];
   const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+  worksheet['!cols'] = ([...IMPORT_TEMPLATE_HEADERS] as string[]).map(() => ({ wch: 24 }));
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
   XLSX.writeFile(workbook, 'plantilla-leads.xlsx');
@@ -178,8 +300,18 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [previewSnapshot, setPreviewSnapshot] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
 
   const hasCsv = csvText.trim().length > 0;
+  const isPreviewCurrent = preview !== null && previewSnapshot === csvText;
+
+  const currentStep: Step = summary
+    ? 'done'
+    : isPreviewCurrent && preview.readyCount > 0
+      ? 'confirm'
+      : hasCsv
+        ? 'analyze'
+        : 'upload';
 
   async function handleFileChange(file: File) {
     try {
@@ -204,7 +336,6 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
     setPreviewSnapshot('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
-  const isPreviewCurrent = preview !== null && previewSnapshot === csvText;
 
   const totalPreviewed = useMemo(() => {
     if (!preview) return 0;
@@ -223,7 +354,7 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
   function handleAnalyze() {
     startPreviewTransition(async () => {
       try {
-        const result = await previewImportLeadsAction({ tenantSlug, csvText: csvText });
+        const result = await previewImportLeadsAction({ tenantSlug, csvText });
         setPreview({
           readyCount: result.readyCount,
           skippedCount: result.skippedCount,
@@ -233,10 +364,10 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
         setPreviewSnapshot(csvText);
         setSummary(null);
         toast.success(
-          `Análisis listo: ${result.readyCount} fila(s) preparadas, ${result.skippedCount} omitidas y ${result.errorCount} con error`,
+          `Análisis listo: ${result.readyCount} lista(s), ${result.skippedCount} omitida(s), ${result.errorCount} con error`,
         );
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo analizar el CSV';
+        const message = error instanceof Error ? error.message : 'No se pudo analizar el archivo';
         toast.error(message);
       }
     });
@@ -255,31 +386,66 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
         setPreview(null);
         setPreviewSnapshot('');
         toast.success(
-          `Importación lista: ${result.createdCount} creados, ${result.skippedCount} omitidos, ${result.errorCount} con error`,
+          `Importación completa: ${result.createdCount} creado(s), ${result.skippedCount} omitido(s), ${result.errorCount} con error`,
         );
         router.refresh();
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo importar el CSV';
+        const message = error instanceof Error ? error.message : 'No se pudo importar el archivo';
         toast.error(message);
       }
     });
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* ── Upload card ─────────────────────────────────────────────── */}
       <Card>
-        <CardHeader>
-          <CardTitle>Carga tu archivo de leads</CardTitle>
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle>Carga tu archivo</CardTitle>
+              <CardDescription className="mt-1">
+                Excel (.xlsx/.xls) o CSV — solo se lee la primera hoja
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void downloadTemplate()}
+              disabled={isPreviewPending || isImportPending}
+              className="shrink-0 gap-1.5"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Descargar plantilla
+            </Button>
+          </div>
+          <Separator className="mt-3" />
+          <div className="pt-1">
+            <StepIndicator current={currentStep} />
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Zona de carga */}
+
+        <CardContent className="space-y-4 pt-2">
+          {/* Drop zone */}
           <div
-            className="relative flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/30 px-6 py-10 text-center transition-colors hover:border-muted-foreground/50"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              const file = event.dataTransfer.files[0];
-              if (file) handleFileChange(file);
+            className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-all duration-200 ${
+              isDragging
+                ? 'scale-[1.01] border-primary bg-primary/5'
+                : selectedFile
+                  ? 'border-green-400 bg-green-50/60 dark:border-green-700 dark:bg-green-950/20'
+                  : 'border-muted-foreground/25 bg-muted/20 hover:border-muted-foreground/45 hover:bg-muted/40'
+            }`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              const file = e.dataTransfer.files[0];
+              if (file) void handleFileChange(file);
             }}
           >
             <input
@@ -288,116 +454,212 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
               accept=".xlsx,.xls,.csv"
               className="absolute inset-0 cursor-pointer opacity-0"
               disabled={isPreviewPending || isImportPending}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) handleFileChange(file);
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleFileChange(file);
               }}
             />
-            {selectedFile ? (
+
+            {isDragging ? (
               <>
-                <FileSpreadsheet className="h-10 w-10 text-primary" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{selectedFile.name}</p>
+                <UploadCloud className="h-12 w-12 animate-bounce text-primary" />
+                <p className="text-sm font-semibold text-primary">Suelta el archivo aquí</p>
+              </>
+            ) : selectedFile ? (
+              <>
+                <div className="rounded-full bg-green-100 p-3 dark:bg-green-900/30">
+                  <FileSpreadsheet className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-semibold">{selectedFile.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {(selectedFile.size / 1024).toFixed(1)} KB — listo para analizar
+                    {(selectedFile.size / 1024).toFixed(1)} KB
+                    {' · '}
+                    <span className="font-medium text-green-600 dark:text-green-400">
+                      Listo para analizar
+                    </span>
                   </p>
                 </div>
               </>
             ) : (
               <>
-                <UploadCloud className="h-10 w-10 text-muted-foreground/60" />
-                <div className="space-y-1">
+                <div className="rounded-full bg-muted p-3">
+                  <UploadCloud className="h-8 w-8 text-muted-foreground/50" />
+                </div>
+                <div className="space-y-0.5">
                   <p className="text-sm font-medium">
-                    Arrastra tu archivo aquí o haz clic para seleccionarlo
+                    Arrastra tu archivo aquí o{' '}
+                    <span className="cursor-pointer text-primary underline underline-offset-2">
+                      haz clic para seleccionar
+                    </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Excel (.xlsx, .xls) o CSV — primera hoja
+                    Formatos admitidos: .xlsx · .xls · .csv
                   </p>
                 </div>
               </>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          {/* Action buttons */}
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               onClick={handleAnalyze}
               disabled={isPreviewPending || isImportPending || !hasCsv}
+              className="gap-1.5"
             >
-              {isPreviewPending ? 'Analizando...' : 'Analizar archivo'}
+              {isPreviewPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analizando…
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Analizar archivo
+                </>
+              )}
             </Button>
-            <Button type="button" variant="outline" onClick={onSubmit} disabled={!canImport}>
-              {isImportPending ? 'Importando...' : 'Confirmar importación'}
-            </Button>
+
             <Button
               type="button"
-              variant="outline"
-              onClick={() => void downloadTemplate()}
-              disabled={isPreviewPending || isImportPending}
+              onClick={onSubmit}
+              disabled={!canImport}
+              className={`gap-1.5 transition-colors ${
+                canImport
+                  ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600'
+                  : ''
+              }`}
+              variant={canImport ? 'default' : 'outline'}
             >
-              Descargar plantilla
+              {isImportPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Importando…
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Confirmar importación
+                </>
+              )}
             </Button>
+
             {selectedFile && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleClear}
-                disabled={isPreviewPending || isImportPending}
-              >
-                <X className="mr-1 h-4 w-4" />
-                Limpiar
-              </Button>
+              <>
+                <Separator orientation="vertical" className="h-6" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClear}
+                  disabled={isPreviewPending || isImportPending}
+                  className="gap-1 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Limpiar
+                </Button>
+              </>
             )}
           </div>
 
-          <Alert>
-            <AlertTitle>Flujo recomendado</AlertTitle>
-            <AlertDescription>
-              Primero analiza el archivo para detectar duplicados, owners inválidos y errores de
-              formato. Cuando todo esté listo, confirma la importación.
-            </AlertDescription>
-          </Alert>
+          {/* Contextual alerts */}
+          {!hasCsv && (
+            <Alert className="border-blue-200 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-950/20">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertTitle className="text-blue-800 dark:text-blue-300">Flujo de 2 pasos</AlertTitle>
+              <AlertDescription className="text-blue-700 dark:text-blue-400">
+                Primero <strong>analiza</strong> el archivo — detecta duplicados, owners inválidos y
+                errores de formato. Luego <strong>confirma</strong> para crear solo las filas
+                listas.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {preview && !isPreviewCurrent && (
-            <Alert>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
               <AlertTitle>Archivo modificado</AlertTitle>
               <AlertDescription>
-                El archivo cambió después del último análisis. Vuelve a ejecutar el preflight antes
-                de confirmar.
+                El archivo cambió después del último análisis. Vuelve a analizar antes de confirmar.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isPreviewCurrent && preview.errorCount > 0 && (
+            <Alert className="border-amber-200 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/20">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-800 dark:text-amber-300">
+                Hay filas con errores
+              </AlertTitle>
+              <AlertDescription className="text-amber-700 dark:text-amber-400">
+                Solo se importarán las <strong>{preview.readyCount}</strong> fila(s) listas. Las{' '}
+                <strong>{preview.errorCount}</strong> con error serán omitidas automáticamente.
               </AlertDescription>
             </Alert>
           )}
         </CardContent>
       </Card>
 
+      {/* ── Preview results ──────────────────────────────────────────── */}
       {preview && (
         <div className="space-y-4">
           <SummaryCards
             items={[
-              { label: 'Listos', value: preview.readyCount },
-              { label: 'Omitidos', value: preview.skippedCount },
-              { label: 'Errores', value: preview.errorCount },
+              {
+                label: 'Listos para importar',
+                value: preview.readyCount,
+                color: 'green',
+                icon: <CheckCircle2 className="h-7 w-7" />,
+              },
+              {
+                label: 'Duplicados omitidos',
+                value: preview.skippedCount,
+                color: 'amber',
+                icon: <AlertTriangle className="h-7 w-7" />,
+              },
+              {
+                label: 'Con errores',
+                value: preview.errorCount,
+                color: 'red',
+                icon: <AlertCircle className="h-7 w-7" />,
+              },
             ]}
           />
-
           <ResultsTable
-            title="Preflight de importación"
+            title="Análisis previo (preflight)"
             description={`${totalPreviewed} fila(s) analizadas. La confirmación volverá a validar contra el estado actual del tenant.`}
             results={preview.results}
           />
         </div>
       )}
 
+      {/* ── Final results ────────────────────────────────────────────── */}
       {summary && (
         <div className="space-y-4">
           <SummaryCards
             items={[
-              { label: 'Creados', value: summary.createdCount },
-              { label: 'Omitidos', value: summary.skippedCount },
-              { label: 'Errores', value: summary.errorCount },
+              {
+                label: 'Leads creados',
+                value: summary.createdCount,
+                color: 'green',
+                icon: <CheckCircle2 className="h-7 w-7" />,
+              },
+              {
+                label: 'Duplicados omitidos',
+                value: summary.skippedCount,
+                color: 'amber',
+                icon: <AlertTriangle className="h-7 w-7" />,
+              },
+              {
+                label: 'Con errores',
+                value: summary.errorCount,
+                color: 'red',
+                icon: <AlertCircle className="h-7 w-7" />,
+              },
             ]}
           />
-
           <ResultsTable
             title="Resultado de la importación"
             description={`${totalProcessed} fila(s) procesadas en esta ejecución.`}
