@@ -426,9 +426,9 @@ describe('setTenantFeatureAction', () => {
   });
 
   it('lanza error cuando la feature no está soportada en esta versión', async () => {
-    await expect(setTenantFeatureAction('tenant-1', 'CLIENT_PORTAL', true)).rejects.toThrow(
-      /no esta disponible/i,
-    );
+    await expect(
+      setTenantFeatureAction('tenant-1', 'UNKNOWN_FEATURE' as never, true),
+    ).rejects.toThrow(/no esta disponible/i);
   });
 
   it('lanza error cuando el config JSON es inválido', async () => {

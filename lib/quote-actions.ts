@@ -6,6 +6,7 @@ import { assertTenantFeatureById, getTenantActionContextBySlug } from '@/lib/aut
 import { db } from '@/lib/db';
 import { sendQuoteEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
+import { createNotificationsForEvent, getTenantMemberIds } from '@/lib/notifications-actions';
 import {
   canChangeQuoteStatus,
   canCreateQuote,
@@ -193,6 +194,19 @@ export async function createQuoteAction(input: unknown) {
   });
 
   revalidateQuoteViews(tenantSlug, leadId);
+
+  // Notificación QUOTE_CREATED a todos los miembros
+  const memberIds = await getTenantMemberIds(ctx.tenantId);
+  await createNotificationsForEvent({
+    tenantId: ctx.tenantId,
+    tenantSlug,
+    type: 'QUOTE_CREATED',
+    title: 'Cotización generada',
+    description: `${quoteNumber} · Total: ${new Intl.NumberFormat('es-PE', { style: 'currency', currency, minimumFractionDigits: 2 }).format(totalAmount)}`,
+    href: `/${tenantSlug}/quotes/${quote.id}`,
+    recipientUserIds: memberIds.filter((id) => id !== ctx.userId),
+  });
+
   return { success: true, quoteId: quote.id };
 }
 
@@ -276,7 +290,7 @@ export async function changeQuoteStatusAction(input: unknown) {
 
   const existing = await db.quote.findFirst({
     where: { id: quoteId, tenantId: ctx.tenantId, deletedAt: null },
-    select: { id: true, leadId: true, status: true },
+    select: { id: true, leadId: true, status: true, quoteNumber: true },
   });
   if (!existing) {
     throw new AppError('Cotización no encontrada', 404);
@@ -291,6 +305,21 @@ export async function changeQuoteStatusAction(input: unknown) {
       issuedAt: status === QuoteStatus.ENVIADA ? new Date() : undefined,
     },
   });
+
+  // Notificar cambios de estado relevantes
+  if (status === QuoteStatus.ACEPTADA || status === QuoteStatus.RECHAZADA) {
+    const memberIds = await getTenantMemberIds(ctx.tenantId);
+    const label = status === QuoteStatus.ACEPTADA ? 'aceptada' : 'rechazada';
+    await createNotificationsForEvent({
+      tenantId: ctx.tenantId,
+      tenantSlug,
+      type: status === QuoteStatus.ACEPTADA ? 'QUOTE_ACCEPTED' : 'QUOTE_REJECTED',
+      title: `Cotización ${label}`,
+      description: `${existing.quoteNumber} fue ${label}`,
+      href: `/${tenantSlug}/quotes/${quoteId}`,
+      recipientUserIds: memberIds.filter((id) => id !== ctx.userId),
+    });
+  }
 
   revalidateQuoteViews(tenantSlug, existing.leadId);
   return { success: true };

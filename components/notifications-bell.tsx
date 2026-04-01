@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import {
   Bell,
+  CheckCheck,
   CheckCircle2,
   FileText,
   Inbox,
@@ -14,7 +15,13 @@ import {
   TrendingUp,
   XCircle,
 } from 'lucide-react';
-import { getTenantNotificationsAction, type NotificationItem } from '@/lib/notifications-actions';
+import {
+  getTenantNotificationsAction,
+  getUnreadCountAction,
+  markNotificationReadAction,
+  markAllNotificationsReadAction,
+  type NotificationItem,
+} from '@/lib/notifications-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -80,14 +87,27 @@ type Props = {
 export function NotificationsBell({ tenantSlug }: Props) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const load = useCallback(() => {
+  const loadCount = useCallback(() => {
+    startTransition(async () => {
+      try {
+        const count = await getUnreadCountAction(tenantSlug);
+        setUnreadCount(count);
+      } catch {
+        /* ignore */
+      }
+    });
+  }, [tenantSlug]);
+
+  const loadItems = useCallback(() => {
     startTransition(async () => {
       try {
         const result = await getTenantNotificationsAction(tenantSlug);
         setItems(result);
+        setUnreadCount(result.filter((n) => !n.isRead).length);
         setLoaded(true);
       } catch {
         setLoaded(true);
@@ -95,21 +115,50 @@ export function NotificationsBell({ tenantSlug }: Props) {
     });
   }, [tenantSlug]);
 
-  // Carga inicial al montar
+  // Carga inicial: solo el conteo
   useEffect(() => {
-    load();
-  }, [load]);
+    loadCount();
+  }, [loadCount]);
 
-  // Recarga al abrir el popover
+  // Recarga items al abrir el popover
   useEffect(() => {
-    if (open) load();
-  }, [open, load]);
+    if (open) loadItems();
+  }, [open, loadItems]);
+
+  const handleMarkRead = useCallback(
+    (notificationId: string) => {
+      startTransition(async () => {
+        try {
+          await markNotificationReadAction({ tenantSlug, notificationId });
+          setItems((prev) =>
+            prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
+          );
+          setUnreadCount((c) => Math.max(0, c - 1));
+        } catch {
+          /* ignore */
+        }
+      });
+    },
+    [tenantSlug],
+  );
+
+  const handleMarkAllRead = useCallback(() => {
+    startTransition(async () => {
+      try {
+        await markAllNotificationsReadAction(tenantSlug);
+        setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      } catch {
+        /* ignore */
+      }
+    });
+  }, [tenantSlug]);
 
   const urgentCount = items.filter(
-    (n) => n.type === 'UNASSIGNED_LEAD' || n.type === 'PENDING_REASSIGNMENT',
+    (n) => !n.isRead && (n.type === 'UNASSIGNED_LEAD' || n.type === 'PENDING_REASSIGNMENT'),
   ).length;
 
-  const badgeCount = items.length;
+  const badgeCount = unreadCount;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -145,16 +194,31 @@ export function NotificationsBell({ tenantSlug }: Props) {
               </Badge>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            onClick={load}
-            disabled={isPending}
-            aria-label="Actualizar notificaciones"
-          >
-            <RefreshCw className={`size-3.5 ${isPending ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                onClick={handleMarkAllRead}
+                disabled={isPending}
+                aria-label="Marcar todas como leídas"
+                title="Marcar todas como leídas"
+              >
+                <CheckCheck className="size-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={loadItems}
+              disabled={isPending}
+              aria-label="Actualizar notificaciones"
+            >
+              <RefreshCw className={`size-3.5 ${isPending ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         <Separator />
@@ -170,7 +234,7 @@ export function NotificationsBell({ tenantSlug }: Props) {
             <p className="text-sm text-muted-foreground">Sin notificaciones pendientes</p>
           </div>
         ) : (
-          <ScrollArea className="h-[420px]">
+          <ScrollArea className="h-105">
             <ul className="divide-y">
               {items.map((item) => {
                 const cfg = TYPE_CONFIG[item.type];
@@ -179,9 +243,19 @@ export function NotificationsBell({ tenantSlug }: Props) {
                   <li key={item.id}>
                     <Link
                       href={item.href}
-                      onClick={() => setOpen(false)}
-                      className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                      onClick={() => {
+                        if (!item.isRead) handleMarkRead(item.id);
+                        setOpen(false);
+                      }}
+                      className={`flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/50 ${
+                        !item.isRead ? 'bg-muted/30' : ''
+                      }`}
                     >
+                      {/* Indicador no leída */}
+                      <span className="mt-3 flex size-2 shrink-0">
+                        {!item.isRead && <span className="size-2 rounded-full bg-primary" />}
+                      </span>
+
                       {/* Icono */}
                       <span
                         className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${cfg.bg}`}
@@ -191,7 +265,11 @@ export function NotificationsBell({ tenantSlug }: Props) {
 
                       {/* Texto */}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium leading-tight">{item.title}</p>
+                        <p
+                          className={`truncate text-sm leading-tight ${!item.isRead ? 'font-semibold' : 'font-medium text-muted-foreground'}`}
+                        >
+                          {item.title}
+                        </p>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">
                           {item.description}
                         </p>
@@ -216,6 +294,22 @@ export function NotificationsBell({ tenantSlug }: Props) {
                 ⚠ {urgentCount} elemento{urgentCount > 1 ? 's' : ''} requiere
                 {urgentCount > 1 ? 'n' : ''} atención inmediata
               </p>
+            </div>
+          </>
+        )}
+
+        {/* Ver todas */}
+        {items.length > 0 && (
+          <>
+            <Separator />
+            <div className="px-4 py-2.5 text-center">
+              <Link
+                href={`/${tenantSlug}/notifications`}
+                onClick={() => setOpen(false)}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                Ver todas las notificaciones →
+              </Link>
             </div>
           </>
         )}

@@ -299,3 +299,34 @@ export const sendQuoteEmailSchema = z.object({
   quoteId: z.string().min(1),
   recipientEmail: z.string().email('El email no es válido'),
 });
+
+// ─── Notifications ─────────────────────────────────────
+
+export const markNotificationReadSchema = z.object({
+  tenantSlug: z.string().min(1),
+  notificationId: z.string().min(1),
+});
+
+export const deleteNotificationSchema = z.object({
+  tenantSlug: z.string().min(1),
+  notificationId: z.string().min(1),
+});
+
+export const notificationFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  isRead: z.boolean().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+// ─── Portal ────────────────────────────────────────────
+
+export const createPortalTokenSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: z.string().min(1),
+});
+
+export const revokePortalTokenSchema = z.object({
+  tenantSlug: z.string().min(1),
+  tokenId: z.string().min(1),
+});

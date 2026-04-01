@@ -24,10 +24,11 @@ describe('feature catalog - sprint 4 bundles', () => {
   });
 
   it('no marca como soportadas las features futuras aun no implementadas', () => {
-    expect(SUPPORTED_FEATURE_KEYS).not.toContain('NOTIFICATIONS');
-    expect(SUPPORTED_FEATURE_KEYS).not.toContain('CLIENT_PORTAL');
     expect(SUPPORTED_FEATURE_KEYS).toContain('QUOTING_BASIC');
     expect(SUPPORTED_FEATURE_KEYS).toContain('TASKS');
+    expect(SUPPORTED_FEATURE_KEYS).toContain('NOTIFICATIONS');
+    expect(SUPPORTED_FEATURE_KEYS).toContain('CLIENT_PORTAL');
+    expect(COMING_SOON_FEATURE_KEYS).toEqual([]);
   });
 
   it('habilita QUOTING_BASIC solo en Scale', () => {
@@ -55,5 +56,17 @@ describe('feature catalog - sprint 4 bundles', () => {
       expect(PLAN_FEATURE_BUNDLES.GROWTH[featureKey]?.enabled ?? false).toBe(false);
       expect(PLAN_FEATURE_BUNDLES.SCALE[featureKey]?.enabled ?? false).toBe(false);
     }
+  });
+
+  it('habilita NOTIFICATIONS en Growth y Scale, pero no en Starter', () => {
+    expect(PLAN_FEATURE_BUNDLES.STARTER.NOTIFICATIONS?.enabled ?? false).toBe(false);
+    expect(PLAN_FEATURE_BUNDLES.GROWTH.NOTIFICATIONS?.enabled).toBe(true);
+    expect(PLAN_FEATURE_BUNDLES.SCALE.NOTIFICATIONS?.enabled).toBe(true);
+  });
+
+  it('habilita CLIENT_PORTAL solo en Scale', () => {
+    expect(PLAN_FEATURE_BUNDLES.STARTER.CLIENT_PORTAL?.enabled ?? false).toBe(false);
+    expect(PLAN_FEATURE_BUNDLES.GROWTH.CLIENT_PORTAL?.enabled ?? false).toBe(false);
+    expect(PLAN_FEATURE_BUNDLES.SCALE.CLIENT_PORTAL?.enabled).toBe(true);
   });
 });

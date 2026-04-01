@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import {
+  Bell,
   Building2,
   ClipboardList,
   Copy,
@@ -68,6 +69,9 @@ export function TenantSidebar({
       : []),
     ...(enabledFeatures.TASKS
       ? [{ href: `/${tenantSlug}/tasks`, label: 'Tareas', icon: ClipboardList }]
+      : []),
+    ...(enabledFeatures.NOTIFICATIONS
+      ? [{ href: `/${tenantSlug}/notifications`, label: 'Notificaciones', icon: Bell }]
       : []),
     ...(showTeam ? [{ href: `/${tenantSlug}/team`, label: 'Equipo', icon: Users }] : []),
   ];

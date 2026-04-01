@@ -81,6 +81,16 @@ enum TaskPriority {
   URGENT
 }
 
+enum NotificationType {
+  UNASSIGNED_LEAD
+  LEAD_NEW
+  LEAD_WON
+  QUOTE_CREATED
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  PENDING_REASSIGNMENT
+}
+
 // ─── Multi-tenant ───────────────────────────────────────
 
 model Tenant {
@@ -105,6 +115,8 @@ model Tenant {
   quotes                   Quote[]
   tasks                    Task[]
   products                 Product[]
+  notifications            Notification[]
+  portalTokens             PortalToken[]
   plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -172,6 +184,8 @@ model User {
   createdTasks               Task[]                    @relation("TaskCreator")
   assignedTasks              Task[]                    @relation("TaskAssignee")
   createdProducts            Product[]
+  notifications              Notification[]
+  createdPortalTokens        PortalToken[]
 }
 
 // ─── Membership (user ↔ tenant + role) ──────────────────
@@ -242,6 +256,7 @@ model Lead {
   documents            Document[]
   quotes               Quote[]
   tasks                Task[]
+  portalTokens         PortalToken[]
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
@@ -410,4 +425,47 @@ model Product {
 
   @@index([tenantId, isActive, deletedAt])
   @@index([tenantId, deletedAt])
+}
+
+// ─── Notifications ──────────────────────────────────────
+
+model Notification {
+  id          String           @id @default(cuid())
+  tenantId    String
+  userId      String
+  type        NotificationType
+  title       String
+  description String
+  href        String
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, isRead, deletedAt])
+  @@index([tenantId, userId, createdAt])
+}
+
+// ─── Client Portal ──────────────────────────────────────
+
+model PortalToken {
+  id             String    @id @default(cuid())
+  tenantId       String
+  leadId         String
+  token          String    @unique
+  isActive       Boolean   @default(true)
+  expiresAt      DateTime?
+  lastAccessedAt DateTime?
+  createdById    String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead      Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  createdBy User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, leadId])
 }

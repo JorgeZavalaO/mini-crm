@@ -129,3 +129,22 @@ export function canCompleteTask(
 ): boolean {
   return canEditTask(ctx, ownership);
 }
+
+// ─── Notification permissions ────────────────────────────
+
+export function canDeleteNotification(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  return ctx.isActiveMember;
+}
+
+// ─── Portal permissions ─────────────────────────────────
+
+export function canCreatePortalToken(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  return hasRole(ctx.role, 'SUPERVISOR');
+}
+
+export function canRevokePortalToken(ctx: LeadPermissionContext): boolean {
+  return canCreatePortalToken(ctx);
+}

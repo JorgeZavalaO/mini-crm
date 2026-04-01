@@ -25,6 +25,7 @@ const dbMock = vi.hoisted(() => ({
   },
   membership: {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
   },
   leadReassignmentRequest: {
     findFirst: vi.fn(),
@@ -110,6 +111,7 @@ describe('createLeadAction', () => {
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.lead.findFirst.mockResolvedValue(null); // sin RUC duplicado
     dbMock.lead.create.mockResolvedValue({ id: LEAD_ID });
+    dbMock.membership.findMany.mockResolvedValue([]); // para notificaciones
   });
 
   it('lanza AppError cuando los datos de entrada no superan la validación del schema', async () => {

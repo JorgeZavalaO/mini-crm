@@ -47,7 +47,10 @@ export const proxy = auth(async (req) => {
     }
 
     const isPublicRoute =
-      pathname === '/' || pathname === '/login' || pathname.startsWith('/api/auth');
+      pathname === '/' ||
+      pathname === '/login' ||
+      pathname.startsWith('/api/auth') ||
+      pathname.startsWith('/portal');
 
     if (isLoggedIn && pathname === '/login') {
       const dest = user?.tenantSlug

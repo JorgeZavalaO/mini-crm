@@ -15,11 +15,13 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Módulo de documentos operativo: carga, listado y eliminación con almacenamiento en Vercel Blob.
 - Módulo de cotizaciones operativo: CRUD de cotizaciones con ítems, cálculo de subtotal/impuesto/total, estados (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y soporte de moneda (`PEN`/`USD`).
 - Campanita de notificaciones en el dashboard de tenant: leads sin asignar, leads nuevos, leads ganados, cotizaciones generadas, aceptadas y rechazadas de los últimos 7 días.
+- **Notificaciones persistentes**: modelo `Notification` en DB con tipos (`UNASSIGNED_LEAD`, `LEAD_NEW`, `LEAD_WON`, `QUOTE_CREATED`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `PENDING_REASSIGNMENT`). Badge de no leídas, marcar leída individual/masiva, eliminación, página completa con tabs (Todas/No leídas/Leídas). Hooks automáticos al crear leads y cambiar estado de cotizaciones.
 - Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle.
 - **Módulo de Tareas** operativo: CRUD de tareas con prioridades (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), estados (`PENDING`, `IN_PROGRESS`, `DONE`, `CANCELLED`), asignación a miembros del equipo, fecha límite con indicador de vencimiento y soft-delete.
 - **Catálogo de productos** operativo: CRUD de productos con nombre, descripción, precio unitario (`Decimal 12,4`), moneda (`PEN`/`USD`) y estado activo/inactivo. Solo `ADMIN`/`SUPERVISOR` pueden gestionar el catálogo.
 - **Edición de cotizaciones**: formulario de edición completo con selector de productos del catálogo, prelleno de datos y actualización en servidor.
 - **Envío de cotización por email**: integración con **Resend** para enviar cotizaciones al cliente vía email transaccional con tabla HTML responsiva; transición automática de `BORRADOR` a `ENVIADA`.
+- **Client Portal MVP**: portal público para que clientes consulten sus cotizaciones sin autenticación. Token criptográfico de 32 bytes con expiración a 30 días, generación y revocación desde la pestaña Portal del lead detail (SUPERVISOR+), layout minimalista con listado y detalle de cotizaciones (solo ENVIADA/ACEPTADA/RECHAZADA).
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -35,7 +37,6 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### Pendiente
 
-- Notifications y client portal completos.
 - Hardening productivo adicional: auditoría avanzada, observabilidad profunda y más tests end-to-end.
 
 ## Roadmap resumido
@@ -54,6 +55,8 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 7.2    | PDF de cotizaciones descargable                                  | ✅ Completado |
 | 8      | Módulo de Tareas (Tasks)                                         | ✅ Completado |
 | 9      | Catálogo de productos, edición de cotizaciones y envío por email | ✅ Completado |
+| 10     | Notificaciones persistentes                                      | ✅ Completado |
+| 11     | Client Portal MVP                                                | ✅ Completado |
 
 ## Stack
 

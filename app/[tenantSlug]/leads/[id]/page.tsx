@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Clock,
   FileText,
+  Globe,
   Hash,
   Layers,
   Mail,
@@ -35,6 +36,7 @@ import {
 import { listLeadDocumentsAction } from '@/lib/document-actions';
 import { listLeadQuotesAction } from '@/lib/quote-actions';
 import { listLeadTasksAction } from '@/lib/task-actions';
+import { listLeadPortalTokensAction } from '@/lib/portal-actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,6 +52,7 @@ import { TaskList } from '@/components/tasks/task-list';
 import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
 import { ResolveReassignmentDialog } from '../components/resolve-reassignment-dialog';
+import { PortalTokensCard } from '@/components/leads/portal-tokens-card';
 
 function formatDate(value: Date) {
   return value.toLocaleString('es-PE', {
@@ -85,14 +88,21 @@ export default async function LeadDetailPage({
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
   };
 
-  const [assignmentsEnabled, interactionsEnabled, documentsEnabled, quotingEnabled, tasksEnabled] =
-    await Promise.all([
-      isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
-      isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
-      isTenantFeatureEnabled(tenant.id, 'DOCUMENTS'),
-      isTenantFeatureEnabled(tenant.id, 'QUOTING_BASIC'),
-      isTenantFeatureEnabled(tenant.id, 'TASKS'),
-    ]);
+  const [
+    assignmentsEnabled,
+    interactionsEnabled,
+    documentsEnabled,
+    quotingEnabled,
+    tasksEnabled,
+    portalEnabled,
+  ] = await Promise.all([
+    isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
+    isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
+    isTenantFeatureEnabled(tenant.id, 'DOCUMENTS'),
+    isTenantFeatureEnabled(tenant.id, 'QUOTING_BASIC'),
+    isTenantFeatureEnabled(tenant.id, 'TASKS'),
+    isTenantFeatureEnabled(tenant.id, 'CLIENT_PORTAL'),
+  ]);
 
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
     ? db.membership.findMany({
@@ -136,48 +146,54 @@ export default async function LeadDetailPage({
     ? listLeadTasksAction(id, tenantSlug).catch(() => [])
     : Promise.resolve([]);
 
-  const [lead, activeOwners, interactions, documents, quotes, tasks] = await Promise.all([
-    db.lead.findFirst({
-      where: { id, tenantId: tenant.id, deletedAt: null },
-      select: {
-        id: true,
-        businessName: true,
-        ruc: true,
-        status: true,
-        country: true,
-        city: true,
-        industry: true,
-        source: true,
-        notes: true,
-        phones: true,
-        emails: true,
-        ownerId: true,
-        createdAt: true,
-        updatedAt: true,
-        owner: { select: { id: true, name: true, email: true } },
-        reassignmentRequests: {
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            status: true,
-            reason: true,
-            resolutionNote: true,
-            createdAt: true,
-            resolvedAt: true,
-            requestedOwnerId: true,
-            requestedBy: { select: { name: true, email: true } },
-            requestedOwner: { select: { name: true, email: true } },
-            resolvedBy: { select: { name: true, email: true } },
+  const portalTokensPromise = portalEnabled
+    ? listLeadPortalTokensAction({ tenantSlug, leadId: id }).catch(() => [])
+    : Promise.resolve([]);
+
+  const [lead, activeOwners, interactions, documents, quotes, tasks, portalTokens] =
+    await Promise.all([
+      db.lead.findFirst({
+        where: { id, tenantId: tenant.id, deletedAt: null },
+        select: {
+          id: true,
+          businessName: true,
+          ruc: true,
+          status: true,
+          country: true,
+          city: true,
+          industry: true,
+          source: true,
+          notes: true,
+          phones: true,
+          emails: true,
+          ownerId: true,
+          createdAt: true,
+          updatedAt: true,
+          owner: { select: { id: true, name: true, email: true } },
+          reassignmentRequests: {
+            orderBy: { createdAt: 'desc' },
+            select: {
+              id: true,
+              status: true,
+              reason: true,
+              resolutionNote: true,
+              createdAt: true,
+              resolvedAt: true,
+              requestedOwnerId: true,
+              requestedBy: { select: { name: true, email: true } },
+              requestedOwner: { select: { name: true, email: true } },
+              resolvedBy: { select: { name: true, email: true } },
+            },
           },
         },
-      },
-    }),
-    activeOwnersPromise,
-    interactionsPromise,
-    documentsPromise,
-    quotesPromise,
-    tasksPromise,
-  ]);
+      }),
+      activeOwnersPromise,
+      interactionsPromise,
+      documentsPromise,
+      quotesPromise,
+      tasksPromise,
+      portalTokensPromise,
+    ]);
 
   if (!lead) {
     notFound();
@@ -363,6 +379,10 @@ export default async function LeadDetailPage({
                   tasks.length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="portal" disabled={!portalEnabled} className="gap-1.5">
+            <Globe className="size-3.5" />
+            Portal
           </TabsTrigger>
         </TabsList>
 
@@ -696,6 +716,20 @@ export default async function LeadDetailPage({
               <ClipboardList className="size-10 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
                 El módulo de tareas no está activo para este tenant.
+              </p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ── Tab: Portal ── */}
+        <TabsContent value="portal" className="mt-6">
+          {portalEnabled ? (
+            <PortalTokensCard tenantSlug={tenantSlug} leadId={lead.id} tokens={portalTokens} />
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+              <Globe className="size-10 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                El portal de cliente no está activo para este tenant.
               </p>
             </div>
           )}

@@ -6,6 +6,7 @@ import { getTenantActionContextBySlug, assertTenantFeatureById } from '@/lib/aut
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { canOwnLeads } from '@/lib/lead-owner';
+import { createNotificationsForEvent, getTenantMemberIds } from '@/lib/notifications-actions';
 import {
   normalizeEmails,
   normalizeLeadName,
@@ -158,6 +159,19 @@ export async function createLeadAction(input: unknown) {
   try {
     const lead = await db.lead.create({ data, select: { id: true } });
     revalidateTenantLeadViews(ctx.tenantSlug);
+
+    // Notificación LEAD_NEW a todos los miembros
+    const memberIds = await getTenantMemberIds(ctx.tenantId);
+    await createNotificationsForEvent({
+      tenantId: ctx.tenantId,
+      tenantSlug: ctx.tenantSlug,
+      type: 'LEAD_NEW',
+      title: 'Nuevo lead registrado',
+      description: data.businessName + (data.ruc ? ` · ${data.ruc}` : ''),
+      href: `/${ctx.tenantSlug}/leads/${lead.id}`,
+      recipientUserIds: memberIds.filter((id) => id !== ctx.userId),
+    });
+
     return { success: true, leadId: lead.id };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

@@ -2,187 +2,185 @@
 
 import { db } from '@/lib/db';
 import { requireTenantAccess } from '@/lib/auth-guard';
-import { hasRole } from '@/lib/rbac';
+import { hasRole, type Role } from '@/lib/rbac';
+import { AppError } from '@/lib/errors';
+import { markNotificationReadSchema, deleteNotificationSchema } from '@/lib/validators';
+import type { NotificationType } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
 
 export type NotificationItem = {
   id: string;
-  type:
-    | 'UNASSIGNED_LEAD'
-    | 'QUOTE_CREATED'
-    | 'LEAD_WON'
-    | 'LEAD_NEW'
-    | 'QUOTE_ACCEPTED'
-    | 'QUOTE_REJECTED'
-    | 'PENDING_REASSIGNMENT';
+  type: NotificationType;
   title: string;
   description: string;
   href: string;
+  isRead: boolean;
   createdAt: Date;
 };
 
+// ─── Listado de notificaciones (persistidas) ─────────────
+
 export async function getTenantNotificationsAction(
   tenantSlug: string,
+  filters?: { isRead?: boolean },
 ): Promise<NotificationItem[]> {
-  const { session, tenant, membership } = await requireTenantAccess(tenantSlug);
-  const role = membership?.role ?? (session.user.isSuperAdmin ? 'SUPERADMIN' : null);
-  const isSuperAdmin = session.user.isSuperAdmin;
-  const isSupervisorPlus = isSuperAdmin || hasRole(role, 'SUPERVISOR');
+  const { session, tenant } = await requireTenantAccess(tenantSlug);
+  const userId = session.user.id;
 
-  const now = new Date();
-  const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // últimos 7 días
+  const where: Record<string, unknown> = {
+    tenantId: tenant.id,
+    userId,
+    deletedAt: null,
+  };
 
-  const notifications: NotificationItem[] = [];
-
-  // ── 1. Leads sin asignar (cualquier miembro activo lo ve, prioritario) ──
-  const unassignedLeads = await db.lead.findMany({
-    where: { tenantId: tenant.id, deletedAt: null, ownerId: null },
-    orderBy: { createdAt: 'desc' },
-    take: 5,
-    select: { id: true, businessName: true, ruc: true, createdAt: true },
-  });
-
-  for (const lead of unassignedLeads) {
-    notifications.push({
-      id: `unassigned-${lead.id}`,
-      type: 'UNASSIGNED_LEAD',
-      title: 'Lead sin asignar',
-      description: lead.businessName + (lead.ruc ? ` · ${lead.ruc}` : ''),
-      href: `/${tenantSlug}/leads/${lead.id}`,
-      createdAt: lead.createdAt,
-    });
+  if (filters?.isRead !== undefined) {
+    where.isRead = filters.isRead;
   }
 
-  // ── 2. Cotizaciones creadas en los últimos 7 días ──
-  const recentQuotes = await db.quote.findMany({
-    where: { tenantId: tenant.id, deletedAt: null, createdAt: { gte: since } },
+  const rows = await db.notification.findMany({
+    where,
     orderBy: { createdAt: 'desc' },
-    take: 5,
+    take: 50,
     select: {
       id: true,
-      quoteNumber: true,
-      status: true,
-      totalAmount: true,
-      currency: true,
-      createdAt: true,
-      createdBy: { select: { name: true, email: true } },
-      lead: { select: { businessName: true } },
-    },
-  });
-
-  for (const quote of recentQuotes) {
-    const total = new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: quote.currency,
-      minimumFractionDigits: 2,
-    }).format(Number(quote.totalAmount));
-
-    if (quote.status === 'ACEPTADA') {
-      notifications.push({
-        id: `quote-accepted-${quote.id}`,
-        type: 'QUOTE_ACCEPTED',
-        title: 'Cotización aceptada',
-        description: `${quote.quoteNumber} · ${quote.lead.businessName} · ${total}`,
-        href: `/${tenantSlug}/quotes/${quote.id}`,
-        createdAt: quote.createdAt,
-      });
-    } else if (quote.status === 'RECHAZADA') {
-      notifications.push({
-        id: `quote-rejected-${quote.id}`,
-        type: 'QUOTE_REJECTED',
-        title: 'Cotización rechazada',
-        description: `${quote.quoteNumber} · ${quote.lead.businessName}`,
-        href: `/${tenantSlug}/quotes/${quote.id}`,
-        createdAt: quote.createdAt,
-      });
-    } else {
-      notifications.push({
-        id: `quote-created-${quote.id}`,
-        type: 'QUOTE_CREATED',
-        title: 'Cotización generada',
-        description: `${quote.quoteNumber} por ${quote.createdBy.name ?? quote.createdBy.email} · ${total}`,
-        href: `/${tenantSlug}/quotes/${quote.id}`,
-        createdAt: quote.createdAt,
-      });
-    }
-  }
-
-  // ── 3. Leads ganados en los últimos 7 días ──
-  const wonLeads = await db.lead.findMany({
-    where: { tenantId: tenant.id, deletedAt: null, status: 'WON', updatedAt: { gte: since } },
-    orderBy: { updatedAt: 'desc' },
-    take: 5,
-    select: {
-      id: true,
-      businessName: true,
-      updatedAt: true,
-      owner: { select: { name: true, email: true } },
-    },
-  });
-
-  for (const lead of wonLeads) {
-    notifications.push({
-      id: `won-${lead.id}`,
-      type: 'LEAD_WON',
-      title: 'Lead ganado 🎉',
-      description:
-        lead.businessName +
-        (lead.owner ? ` · ${lead.owner.name ?? lead.owner.email}` : ' · sin propietario'),
-      href: `/${tenantSlug}/leads/${lead.id}`,
-      createdAt: lead.updatedAt,
-    });
-  }
-
-  // ── 4. Nuevos leads en los últimos 7 días ──
-  const newLeads = await db.lead.findMany({
-    where: { tenantId: tenant.id, deletedAt: null, createdAt: { gte: since } },
-    orderBy: { createdAt: 'desc' },
-    take: 5,
-    select: {
-      id: true,
-      businessName: true,
-      ruc: true,
+      type: true,
+      title: true,
+      description: true,
+      href: true,
+      isRead: true,
       createdAt: true,
     },
   });
 
-  for (const lead of newLeads) {
-    notifications.push({
-      id: `new-lead-${lead.id}`,
-      type: 'LEAD_NEW',
-      title: 'Nuevo lead registrado',
-      description: lead.businessName + (lead.ruc ? ` · ${lead.ruc}` : ''),
-      href: `/${tenantSlug}/leads/${lead.id}`,
-      createdAt: lead.createdAt,
-    });
-  }
+  return rows;
+}
 
-  // ── 5. Solicitudes de reasignación pendientes (solo SUPERVISOR+) ──
-  if (isSupervisorPlus) {
-    const pendingReassignments = await db.leadReassignmentRequest.findMany({
-      where: { tenantId: tenant.id, status: 'PENDING' },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: {
-        id: true,
-        createdAt: true,
-        lead: { select: { businessName: true } },
-        requestedBy: { select: { name: true, email: true } },
-      },
-    });
+// ─── Conteo de no leídas ────────────────────────────────
 
-    for (const req of pendingReassignments) {
-      notifications.push({
-        id: `reassign-${req.id}`,
-        type: 'PENDING_REASSIGNMENT',
-        title: 'Solicitud de reasignación',
-        description: `${req.lead.businessName} · ${req.requestedBy.name ?? req.requestedBy.email}`,
-        href: `/${tenantSlug}/leads/${req.id}`,
-        createdAt: req.createdAt,
-      });
-    }
-  }
+export async function getUnreadCountAction(tenantSlug: string): Promise<number> {
+  const { session, tenant } = await requireTenantAccess(tenantSlug);
 
-  // ── Ordenar por fecha descendente, limitar a 20 ──
-  notifications.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  return notifications.slice(0, 20);
+  return db.notification.count({
+    where: {
+      tenantId: tenant.id,
+      userId: session.user.id,
+      isRead: false,
+      deletedAt: null,
+    },
+  });
+}
+
+// ─── Marcar como leída ──────────────────────────────────
+
+export async function markNotificationReadAction(input: unknown) {
+  const parsed = markNotificationReadSchema.safeParse(input);
+  if (!parsed.success) throw new AppError('Datos inválidos', 400);
+
+  const { session, tenant } = await requireTenantAccess(parsed.data.tenantSlug);
+
+  const notification = await db.notification.findFirst({
+    where: {
+      id: parsed.data.notificationId,
+      tenantId: tenant.id,
+      userId: session.user.id,
+      deletedAt: null,
+    },
+  });
+
+  if (!notification) throw new AppError('Notificación no encontrada', 404);
+
+  await db.notification.update({
+    where: { id: notification.id },
+    data: { isRead: true, readAt: new Date() },
+  });
+
+  revalidatePath(`/${parsed.data.tenantSlug}/notifications`);
+  return { success: true };
+}
+
+// ─── Marcar todas como leídas ───────────────────────────
+
+export async function markAllNotificationsReadAction(tenantSlug: string) {
+  const { session, tenant } = await requireTenantAccess(tenantSlug);
+
+  await db.notification.updateMany({
+    where: {
+      tenantId: tenant.id,
+      userId: session.user.id,
+      isRead: false,
+      deletedAt: null,
+    },
+    data: { isRead: true, readAt: new Date() },
+  });
+
+  revalidatePath(`/${tenantSlug}/notifications`);
+  return { success: true };
+}
+
+// ─── Eliminar notificación (soft delete) ────────────────
+
+export async function deleteNotificationAction(input: unknown) {
+  const parsed = deleteNotificationSchema.safeParse(input);
+  if (!parsed.success) throw new AppError('Datos inválidos', 400);
+
+  const { session, tenant } = await requireTenantAccess(parsed.data.tenantSlug);
+
+  const notification = await db.notification.findFirst({
+    where: {
+      id: parsed.data.notificationId,
+      tenantId: tenant.id,
+      userId: session.user.id,
+      deletedAt: null,
+    },
+  });
+
+  if (!notification) throw new AppError('Notificación no encontrada', 404);
+
+  await db.notification.update({
+    where: { id: notification.id },
+    data: { deletedAt: new Date() },
+  });
+
+  revalidatePath(`/${parsed.data.tenantSlug}/notifications`);
+  return { success: true };
+}
+
+// ─── Crear notificaciones internas (helper) ─────────────
+
+type CreateNotificationParams = {
+  tenantId: string;
+  tenantSlug: string;
+  type: NotificationType;
+  title: string;
+  description: string;
+  href: string;
+  recipientUserIds: string[];
+};
+
+export async function createNotificationsForEvent(params: CreateNotificationParams) {
+  if (params.recipientUserIds.length === 0) return;
+
+  const data = params.recipientUserIds.map((userId) => ({
+    tenantId: params.tenantId,
+    userId,
+    type: params.type,
+    title: params.title,
+    description: params.description,
+    href: params.href,
+  }));
+
+  await db.notification.createMany({ data });
+}
+
+// ─── Helpers para obtener destinatarios del tenant ──────
+
+export async function getTenantMemberIds(tenantId: string, minRole?: Role): Promise<string[]> {
+  const memberships = await db.membership.findMany({
+    where: { tenantId, isActive: true },
+    select: { userId: true, role: true },
+  });
+
+  if (!minRole) return memberships.map((m) => m.userId);
+
+  return memberships.filter((m) => hasRole(m.role, minRole)).map((m) => m.userId);
 }

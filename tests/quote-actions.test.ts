@@ -34,6 +34,12 @@ const dbMock = vi.hoisted(() => ({
   interaction: {
     create: vi.fn(),
   },
+  membership: {
+    findMany: vi.fn(),
+  },
+  notification: {
+    createMany: vi.fn(),
+  },
   $transaction: vi.fn(),
 }));
 
@@ -69,6 +75,8 @@ beforeEach(() => {
   dbMock.quote.create.mockResolvedValue({ id: 'quote-1' });
   dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
   dbMock.interaction.create.mockResolvedValue({ id: 'int-1' });
+  dbMock.membership.findMany.mockResolvedValue([]);
+  dbMock.notification.createMany.mockResolvedValue({ count: 0 });
   dbMock.$transaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
     cb({
       quote: { update: vi.fn() },
@@ -128,6 +136,7 @@ describe('changeQuoteStatusAction', () => {
       id: 'q1',
       leadId: LEAD_ID,
       status: 'BORRADOR',
+      quoteNumber: 'COT-001',
     });
 
     await expect(
@@ -142,6 +151,7 @@ describe('changeQuoteStatusAction', () => {
       id: 'q1',
       leadId: LEAD_ID,
       status: 'BORRADOR',
+      quoteNumber: 'COT-001',
     });
 
     await expect(

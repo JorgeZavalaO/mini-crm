@@ -2,6 +2,67 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.2.0 · 2026-03-31] Sprint 11 — Client Portal MVP
+
+### Added
+
+- `lib/portal-actions.ts`: server actions completas para el portal de clientes:
+  - `createPortalTokenAction`: genera un token criptográfico de 32 bytes con expiración a 30 días. Solo SUPERVISOR+.
+  - `revokePortalTokenAction`: desactiva un token activo.
+  - `listLeadPortalTokensAction`: lista tokens asociados a un lead.
+  - `getPortalDataByToken`: función pública (sin auth) que valida token activo/no expirado/lead no eliminado, actualiza `lastAccessedAt` y retorna datos del tenant, lead y cotizaciones con estado ENVIADA/ACEPTADA/RECHAZADA.
+- `app/portal/[token]/layout.tsx`: layout público minimalista con header del portal.
+- `app/portal/[token]/page.tsx`: listado de cotizaciones del lead con badges de estado semánticos y formateo de moneda.
+- `app/portal/[token]/quotes/[id]/page.tsx`: detalle de cotización con tabla de ítems, totales y fechas.
+- `components/leads/portal-tokens-card.tsx`: card client para crear/revocar tokens y copiar URLs del portal desde el detalle de lead.
+- Pestaña "Portal" con ícono Globe en `app/[tenantSlug]/leads/[id]/page.tsx`, gated por feature `CLIENT_PORTAL`.
+- `lib/lead-permissions.ts`: funciones `canCreatePortalToken` y `canRevokePortalToken` (requieren SUPERVISOR+).
+- `lib/validators.ts`: schemas `createPortalTokenSchema` y `revokePortalTokenSchema`.
+- `prisma/schema.prisma`: modelo `PortalToken` con campos `token (unique)`, `isActive`, `expiresAt`, `lastAccessedAt`, `createdById`. Índice compuesto `[tenantId, leadId]`.
+- `proxy.ts`: ruta `/portal` añadida como ruta pública.
+- `tests/portal-actions.test.ts`: 13 tests cubriendo creación, revocación, listado y acceso público por token.
+
+### Changed
+
+- `lib/feature-catalog.ts`: `CLIENT_PORTAL` movida de `COMING_SOON_FEATURE_KEYS` a `SUPPORTED_FEATURE_KEYS`; habilitada en bundle `SCALE`.
+- `COMING_SOON_FEATURE_KEYS` ahora es `[]` (vacío — todas las features tienen implementación real).
+- `tests/feature-catalog.test.ts`: assertions actualizadas para `CLIENT_PORTAL` soportada y `COMING_SOON` vacío.
+- `tests/superadmin-actions.test.ts`: test de feature no soportada migrado a `'UNKNOWN_FEATURE' as never`.
+
+## [v1.1.0 · 2026-03-31] Sprint 10 — Notificaciones persistentes
+
+### Added
+
+- `lib/notifications-actions.ts`: reescritura completa — notificaciones ahora son entidades persistentes en DB:
+  - `getTenantNotificationsAction`: lista con filtros (isRead, limit, offset).
+  - `getUnreadCountAction`: contador de no leídas para badge.
+  - `markNotificationReadAction`: marca individual como leída.
+  - `markAllNotificationsReadAction`: marca todas como leídas.
+  - `deleteNotificationAction`: soft delete.
+  - `createNotificationsForEvent`: helper interno que genera notificaciones para miembros del tenant.
+  - `getTenantMemberIds`: helper para obtener destinatarios filtrados por rol mínimo.
+- `prisma/schema.prisma`: enum `NotificationType` (UNASSIGNED_LEAD, LEAD_NEW, LEAD_WON, QUOTE_CREATED, QUOTE_ACCEPTED, QUOTE_REJECTED, PENDING_REASSIGNMENT); modelo `Notification` con campos `type`, `title`, `description`, `href`, `isRead`, `readAt`, `deletedAt`. Índices compuestos para consultas eficientes.
+- Migración `20260331234518_add_notifications_and_portal` aplicada.
+- `app/[tenantSlug]/notifications/page.tsx`: página completa de notificaciones protegida por feature `NOTIFICATIONS`.
+- `components/notifications/notifications-full-list.tsx`: componente client con tabs (Todas/No leídas/Leídas), acciones mark-read y delete por fila, mark all read.
+- `lib/lead-permissions.ts`: función `canDeleteNotification`.
+- `lib/validators.ts`: schemas `markNotificationReadSchema`, `deleteNotificationSchema`, `notificationFiltersSchema`.
+- `tests/notifications-actions.test.ts`: 13 tests cubriendo lectura, conteo, marcado, eliminación y creación de eventos.
+
+### Changed
+
+- `components/notifications-bell.tsx`: refactorizado para usar DB persistente — badge con `getUnreadCountAction`, carga de items al abrir popover, indicador de no leída (punto azul + texto bold), botón "Marcar todas leídas" (CheckCheck), enlace "Ver todas las notificaciones →".
+- `components/tenant-sidebar.tsx`: entrada "Notificaciones" con ícono Bell, gated por `enabledFeatures.NOTIFICATIONS`.
+- `lib/feature-catalog.ts`: `NOTIFICATIONS` movida de `COMING_SOON_FEATURE_KEYS` a `SUPPORTED_FEATURE_KEYS`; habilitada en bundles `GROWTH` y `SCALE`.
+- `lib/lead-actions.ts`: hook de notificación `LEAD_NEW` al crear un lead.
+- `lib/quote-actions.ts`: hooks de notificación `QUOTE_CREATED`, `QUOTE_ACCEPTED` y `QUOTE_REJECTED` en acciones de creación y cambio de estado.
+- `tests/lead-actions.test.ts`: mock de `db.membership.findMany` para el hook de notificaciones.
+- `tests/quote-actions.test.ts`: mocks de `membership` y `notification` para hooks de notificaciones.
+
+### Tests
+
+- **348 / 348** tests pasando (28 nuevos tests: 13 notifications + 13 portal + 2 feature-catalog).
+
 ## [v1.0.0 · 2026-03-31] Sprint 9 — Edición de cotizaciones, Catálogo de productos y Envío por email
 
 ### Added
