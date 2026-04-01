@@ -454,6 +454,47 @@ describe('listLeadTasksAction', () => {
       }),
     );
   });
+
+  it('agrega filtro OR para VENDEDOR (solo tareas propias)', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
+
+    await listLeadTasksAction(LEAD_ID, TENANT_SLUG);
+
+    expect(dbMock.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ createdById: USER_ID }, { assignedToId: USER_ID }],
+        }),
+      }),
+    );
+  });
+
+  it('NO agrega filtro OR para SUPERVISOR (ve todas las tareas)', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+
+    await listLeadTasksAction(LEAD_ID, TENANT_SLUG);
+
+    const call = dbMock.task.findMany.mock.calls[0][0];
+    expect(call.where).not.toHaveProperty('OR');
+  });
+
+  it('NO agrega filtro OR para ADMIN (ve todas las tareas)', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeAdminContext());
+
+    await listLeadTasksAction(LEAD_ID, TENANT_SLUG);
+
+    const call = dbMock.task.findMany.mock.calls[0][0];
+    expect(call.where).not.toHaveProperty('OR');
+  });
+
+  it('NO agrega filtro OR para superAdmin (ve todas las tareas)', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSuperAdminContext());
+
+    await listLeadTasksAction(LEAD_ID, TENANT_SLUG);
+
+    const call = dbMock.task.findMany.mock.calls[0][0];
+    expect(call.where).not.toHaveProperty('OR');
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -504,6 +545,71 @@ describe('listTenantTasksAction', () => {
     expect(dbMock.task.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ status: 'PENDING' }),
+      }),
+    );
+  });
+
+  it('agrega filtro OR para VENDEDOR (solo tareas propias)', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
+
+    await listTenantTasksAction({ tenantSlug: TENANT_SLUG });
+
+    expect(dbMock.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ createdById: USER_ID }, { assignedToId: USER_ID }],
+        }),
+      }),
+    );
+    expect(dbMock.task.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ createdById: USER_ID }, { assignedToId: USER_ID }],
+        }),
+      }),
+    );
+  });
+
+  it('NO agrega filtro OR para SUPERVISOR', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+
+    await listTenantTasksAction({ tenantSlug: TENANT_SLUG });
+
+    const call = dbMock.task.findMany.mock.calls[0][0];
+    expect(call.where).not.toHaveProperty('OR');
+  });
+
+  it('NO agrega filtro OR para ADMIN', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeAdminContext());
+
+    await listTenantTasksAction({ tenantSlug: TENANT_SLUG });
+
+    const call = dbMock.task.findMany.mock.calls[0][0];
+    expect(call.where).not.toHaveProperty('OR');
+  });
+
+  it('NO agrega filtro OR para superAdmin', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSuperAdminContext());
+
+    await listTenantTasksAction({ tenantSlug: TENANT_SLUG });
+
+    const call = dbMock.task.findMany.mock.calls[0][0];
+    expect(call.where).not.toHaveProperty('OR');
+  });
+
+  it('agrega filtro OR para PASANTE (solo tareas propias)', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue({
+      ...makeAdminContext(),
+      membership: { id: 'mem-1', role: 'PASANTE', isActive: true },
+    });
+
+    await listTenantTasksAction({ tenantSlug: TENANT_SLUG });
+
+    expect(dbMock.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ createdById: USER_ID }, { assignedToId: USER_ID }],
+        }),
       }),
     );
   });

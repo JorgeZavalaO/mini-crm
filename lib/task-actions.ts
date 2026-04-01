@@ -5,7 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { assertTenantFeatureById, getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
-import { canCompleteTask, canCreateTask, canDeleteTask, canEditTask } from '@/lib/lead-permissions';
+import {
+  canCompleteTask,
+  canCreateTask,
+  canDeleteTask,
+  canEditTask,
+  canViewAllTasks,
+} from '@/lib/lead-permissions';
 import {
   changeTaskStatusSchema,
   createTaskSchema,
@@ -221,8 +227,21 @@ export async function listLeadTasksAction(leadId: string, tenantSlug: string): P
   const ctx = await getTenantActionContextBySlug(tenantSlug);
   await assertTenantFeatureById(ctx.tenant.id, 'TASKS');
 
+  const actor = toActorContext(ctx);
+
+  const where: Record<string, unknown> = {
+    leadId,
+    tenantId: ctx.tenant.id,
+    deletedAt: null,
+  };
+
+  // Non-supervisors can only see their own tasks
+  if (!canViewAllTasks(actor)) {
+    where.OR = [{ createdById: actor.userId }, { assignedToId: actor.userId }];
+  }
+
   const tasks = await db.task.findMany({
-    where: { leadId, tenantId: ctx.tenant.id, deletedAt: null },
+    where,
     orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
     select: {
       id: true,
@@ -273,7 +292,9 @@ export async function listTenantTasksAction(input: unknown): Promise<{
   const ctx = await getTenantActionContextBySlug(tenantSlug);
   await assertTenantFeatureById(ctx.tenant.id, 'TASKS');
 
-  const where = {
+  const actor = toActorContext(ctx);
+
+  const where: Record<string, unknown> = {
     tenantId: ctx.tenant.id,
     deletedAt: null,
     ...(leadId ? { leadId } : {}),
@@ -281,6 +302,11 @@ export async function listTenantTasksAction(input: unknown): Promise<{
     ...(status ? { status } : {}),
     ...(priority ? { priority } : {}),
   };
+
+  // Non-supervisors can only see tasks they created or are assigned to
+  if (!canViewAllTasks(actor)) {
+    where.OR = [{ createdById: actor.userId }, { assignedToId: actor.userId }];
+  }
 
   const [tasks, total] = await Promise.all([
     db.task.findMany({

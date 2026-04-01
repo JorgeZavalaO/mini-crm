@@ -130,6 +130,20 @@ export function canCompleteTask(
   return canEditTask(ctx, ownership);
 }
 
+/** SUPERVISOR+ (or superAdmin) can assign tasks to other members. */
+export function canAssignTaskToOthers(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  return hasRole(ctx.role, 'SUPERVISOR');
+}
+
+/** SUPERVISOR+ (or superAdmin) can see all tenant tasks. Lower roles only see their own. */
+export function canViewAllTasks(ctx: LeadPermissionContext): boolean {
+  if (ctx.isSuperAdmin) return true;
+  if (!ctx.isActiveMember) return false;
+  return hasRole(ctx.role, 'SUPERVISOR');
+}
+
 // ─── Notification permissions ────────────────────────────
 
 export function canDeleteNotification(ctx: LeadPermissionContext): boolean {

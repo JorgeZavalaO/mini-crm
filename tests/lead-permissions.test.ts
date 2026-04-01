@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   canAssignLeads,
+  canAssignTaskToOthers,
   canEditLead,
   canImportLeads,
   canManageDuplicateLeads,
   canResolveReassignment,
+  canViewAllTasks,
 } from '@/lib/lead-permissions';
 
 describe('lead permissions', () => {
@@ -39,5 +41,28 @@ describe('lead permissions', () => {
 
   it('permite editar un lead propio aunque el rol no pueda asignar', () => {
     expect(canEditLead(freelance, { ownerId: 'freelance-1' })).toBe(true);
+  });
+
+  // ─── Task permissions ─────────────────────────────────
+
+  it('permite a supervisor+ asignar tareas a otros y ver todas las tareas', () => {
+    expect(canAssignTaskToOthers(supervisor)).toBe(true);
+    expect(canViewAllTasks(supervisor)).toBe(true);
+  });
+
+  it('no permite a roles < supervisor asignar tareas a otros ni ver todas', () => {
+    expect(canAssignTaskToOthers(freelance)).toBe(false);
+    expect(canViewAllTasks(freelance)).toBe(false);
+  });
+
+  it('permite a superAdmin asignar tareas a otros y ver todas las tareas', () => {
+    const superAdmin = {
+      userId: 'sa-1',
+      role: null as string | null,
+      isSuperAdmin: true,
+      isActiveMember: true,
+    };
+    expect(canAssignTaskToOthers(superAdmin)).toBe(true);
+    expect(canViewAllTasks(superAdmin)).toBe(true);
   });
 });

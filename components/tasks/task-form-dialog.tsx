@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { hasRole } from '@/lib/rbac';
 
 type MemberOption = { id: string; name: string | null; email: string };
 
@@ -31,6 +32,8 @@ type Props = {
   tenantSlug: string;
   leadId?: string;
   members: MemberOption[];
+  currentUserId?: string;
+  currentRole?: string | null;
   editTask?: TaskRow;
   onSuccess?: () => void;
   trigger?: React.ReactNode;
@@ -47,18 +50,24 @@ export function TaskFormDialog({
   tenantSlug,
   leadId,
   members,
+  currentUserId,
+  currentRole,
   editTask,
   onSuccess,
   trigger,
 }: Props) {
   const isEdit = Boolean(editTask);
+  const canAssignOthers = hasRole(currentRole, 'SUPERVISOR');
+  const visibleMembers = canAssignOthers ? members : members.filter((m) => m.id === currentUserId);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(editTask?.title ?? '');
   const [description, setDescription] = useState(editTask?.description ?? '');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>(
     editTask?.priority ?? 'MEDIUM',
   );
-  const [assignedToId, setAssignedToId] = useState(editTask?.assignedToId ?? '');
+  const defaultAssigned =
+    editTask?.assignedToId ?? (!canAssignOthers && currentUserId ? currentUserId : '');
+  const [assignedToId, setAssignedToId] = useState(defaultAssigned);
   const [dueDate, setDueDate] = useState(
     editTask?.dueDate ? new Date(editTask.dueDate).toISOString().split('T')[0] : '',
   );
@@ -70,7 +79,7 @@ export function TaskFormDialog({
       setTitle('');
       setDescription('');
       setPriority('MEDIUM');
-      setAssignedToId('');
+      setAssignedToId(!canAssignOthers && currentUserId ? currentUserId : '');
       setDueDate('');
     }
     setError(null);
@@ -194,13 +203,17 @@ export function TaskFormDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="task-assignee">Asignar a</Label>
-            <Select value={assignedToId} onValueChange={setAssignedToId}>
+            <Select
+              value={assignedToId || '__NONE__'}
+              onValueChange={(v) => setAssignedToId(v === '__NONE__' ? '' : v)}
+              disabled={!canAssignOthers && visibleMembers.length <= 1}
+            >
               <SelectTrigger id="task-assignee">
                 <SelectValue placeholder="Sin asignar" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Sin asignar</SelectItem>
-                {members.map((m) => (
+                {canAssignOthers && <SelectItem value="__NONE__">Sin asignar</SelectItem>}
+                {visibleMembers.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     {m.name ?? m.email}
                   </SelectItem>

@@ -698,7 +698,13 @@ export default async function LeadDetailPage({
                   <CardTitle>Tareas</CardTitle>
                   <CardDescription>Acciones pendientes y seguimiento de este lead.</CardDescription>
                 </div>
-                <TaskFormDialog tenantSlug={tenantSlug} leadId={lead.id} members={taskMembers} />
+                <TaskFormDialog
+                  tenantSlug={tenantSlug}
+                  leadId={lead.id}
+                  members={taskMembers}
+                  currentUserId={actor.userId}
+                  currentRole={actor.role}
+                />
               </CardHeader>
               <CardContent className="px-0 pb-2">
                 <TaskList

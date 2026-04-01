@@ -15,6 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { hasRole } from '@/lib/rbac';
 import { changeTaskStatusAction, deleteTaskAction, type TaskRow } from '@/lib/task-actions';
 import {
   AlertDialog,
@@ -132,16 +133,12 @@ function TaskItem({
 
   const canModify =
     isSuperAdmin ||
-    currentRole === 'ADMIN' ||
-    currentRole === 'SUPERVISOR' ||
+    hasRole(currentRole, 'SUPERVISOR') ||
     task.createdById === currentUserId ||
     task.assignedToId === currentUserId;
 
   const canDel =
-    isSuperAdmin ||
-    currentRole === 'ADMIN' ||
-    currentRole === 'SUPERVISOR' ||
-    task.createdById === currentUserId;
+    isSuperAdmin || hasRole(currentRole, 'SUPERVISOR') || task.createdById === currentUserId;
 
   function handleStatusChange(status: TaskRow['status']) {
     setBusyStatus(true);
@@ -284,6 +281,8 @@ function TaskItem({
                   tenantSlug={tenantSlug}
                   leadId={task.leadId ?? undefined}
                   members={members}
+                  currentUserId={currentUserId}
+                  currentRole={currentRole}
                   editTask={task}
                   trigger={
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>

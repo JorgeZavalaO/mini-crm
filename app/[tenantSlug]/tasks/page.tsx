@@ -1,10 +1,10 @@
-import { CheckCircle2, Circle, ClipboardList, Clock, XCircle } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
+import { hasRole } from '@/lib/rbac';
 import { listTenantTasksAction } from '@/lib/task-actions';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TaskFormDialog } from '@/components/tasks/task-form-dialog';
-import { TaskList } from '@/components/tasks/task-list';
+import { TaskTabs } from '@/components/tasks/task-tabs';
 
 export default async function TasksPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
   const { tenantSlug } = await params;
@@ -38,12 +38,7 @@ export default async function TasksPage({ params }: { params: Promise<{ tenantSl
     email: m.user.email,
   }));
 
-  const stats = {
-    pending: tasks.filter((t) => t.status === 'PENDING').length,
-    inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    done: tasks.filter((t) => t.status === 'DONE').length,
-    cancelled: tasks.filter((t) => t.status === 'CANCELLED').length,
-  };
+  const canViewAll = actor.isSuperAdmin || hasRole(actor.role, 'SUPERVISOR');
 
   return (
     <div className="space-y-6">
@@ -60,74 +55,24 @@ export default async function TasksPage({ params }: { params: Promise<{ tenantSl
             </p>
           </div>
         </div>
-        <TaskFormDialog tenantSlug={tenantSlug} members={memberOptions} />
+        <TaskFormDialog
+          tenantSlug={tenantSlug}
+          members={memberOptions}
+          currentUserId={actor.userId}
+          currentRole={actor.role}
+        />
       </div>
 
-      {/* Tarjetas de resumen */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Pendientes
-            </CardTitle>
-            <Circle className="size-4 text-amber-500" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold">{stats.pending}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              En progreso
-            </CardTitle>
-            <Clock className="size-4 text-blue-500" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold">{stats.inProgress}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Completadas
-            </CardTitle>
-            <CheckCircle2 className="size-4 text-green-500" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold">{stats.done}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-muted-foreground/30">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Canceladas
-            </CardTitle>
-            <XCircle className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold">{stats.cancelled}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Lista de tareas */}
-      <Card>
-        <CardContent className="px-0 py-2">
-          <TaskList
-            tasks={tasks}
-            tenantSlug={tenantSlug}
-            currentUserId={actor.userId}
-            currentRole={actor.role}
-            isSuperAdmin={actor.isSuperAdmin}
-            members={memberOptions}
-            showLeadName
-          />
-        </CardContent>
-      </Card>
+      {/* Tabs + Stats + Lista */}
+      <TaskTabs
+        tasks={tasks}
+        tenantSlug={tenantSlug}
+        currentUserId={actor.userId}
+        currentRole={actor.role}
+        isSuperAdmin={actor.isSuperAdmin}
+        members={memberOptions}
+        canViewAll={canViewAll}
+      />
     </div>
   );
 }
