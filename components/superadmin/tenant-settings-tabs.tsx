@@ -37,12 +37,14 @@ import {
   updateTenantBasicsAction,
   updateTenantPlanAndLimitsAction,
 } from '@/lib/superadmin-actions';
+import { buildSearchHref } from '@/lib/pagination';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ListPagination } from '@/components/ui/list-pagination';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -126,6 +128,18 @@ interface TenantSettingsTabsProps {
     createdAt: Date;
     user: { id: string; name: string | null; email: string };
   }>;
+  membershipCounts: {
+    total: number;
+    active: number;
+    inactive: number;
+  };
+  membershipPagination: {
+    currentPage: number;
+    totalPages: number;
+    totalItems: number;
+    startItem: number;
+    endItem: number;
+  };
 }
 
 export function TenantSettingsTabs({
@@ -133,6 +147,8 @@ export function TenantSettingsTabs({
   plans,
   features,
   memberships,
+  membershipCounts,
+  membershipPagination,
 }: TenantSettingsTabsProps) {
   const router = useRouter();
   const [basicState, basicAction, basicPending] = useActionState(
@@ -175,6 +191,8 @@ export function TenantSettingsTabs({
   const [expandedConfigKey, setExpandedConfigKey] = useState<string | null>(null);
   const [planId, setPlanId] = useState(tenant.planId ?? plans[0]?.id ?? '');
 
+  const membershipPageHref = (page: number) => buildSearchHref({}, { membershipPage: page });
+
   async function saveFeature(index: number, enabled: boolean, configText: string) {
     const row = featureRows[index];
     if (!row) return;
@@ -204,7 +222,7 @@ export function TenantSettingsTabs({
         <TabsTrigger value="miembros">
           Miembros
           <Badge variant="secondary" className="ml-1.5 text-[10px]">
-            {memberships.filter((m) => m.isActive).length}
+            {membershipCounts.active}
           </Badge>
         </TabsTrigger>
       </TabsList>
@@ -585,13 +603,9 @@ export function TenantSettingsTabs({
               </div>
             </div>
             <div className="flex gap-2">
-              <Badge variant="secondary">
-                {memberships.filter((m) => m.isActive).length} activos
-              </Badge>
-              {memberships.filter((m) => !m.isActive).length > 0 && (
-                <Badge variant="outline">
-                  {memberships.filter((m) => !m.isActive).length} inactivos
-                </Badge>
+              <Badge variant="secondary">{membershipCounts.active} activos</Badge>
+              {membershipCounts.inactive > 0 && (
+                <Badge variant="outline">{membershipCounts.inactive} inactivos</Badge>
               )}
             </div>
           </div>
@@ -644,6 +658,17 @@ export function TenantSettingsTabs({
               })}
             </ul>
           )}
+
+          <div className="px-5 py-4">
+            <ListPagination
+              currentPage={membershipPagination.currentPage}
+              totalPages={membershipPagination.totalPages}
+              totalItems={membershipCounts.total}
+              startItem={membershipPagination.startItem}
+              endItem={membershipPagination.endItem}
+              hrefForPage={membershipPageHref}
+            />
+          </div>
         </div>
       </TabsContent>
     </Tabs>

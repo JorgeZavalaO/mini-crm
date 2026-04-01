@@ -2,16 +2,36 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import { requireSuperAdmin } from '@/lib/auth-guard';
+import { firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ToggleTenantButton } from '../../toggle-tenant-button';
 import { TenantLifecycleButton } from '@/components/superadmin/tenant-lifecycle-button';
 import { TenantSettingsTabs } from '@/components/superadmin/tenant-settings-tabs';
 
-export default async function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const [{ id }] = await Promise.all([params, requireSuperAdmin()]);
+function parsePage(value: string | string[] | undefined) {
+  const raw = firstSearchParam(value);
+  const numeric = Number(raw ?? '1');
 
-  const [tenant, plans] = await Promise.all([
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    return 1;
+  }
+
+  return Math.floor(numeric);
+}
+
+export default async function TenantDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ id }, rawSearchParams] = await Promise.all([params, searchParams, requireSuperAdmin()]);
+  const membershipPage = parsePage(rawSearchParams.membershipPage);
+  const membershipPageSize = 10;
+
+  const [tenant, plans, membershipTotal, activeMembershipCount] = await Promise.all([
     db.tenant.findUnique({
       where: { id },
       include: {
@@ -19,12 +39,6 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         features: {
           select: { featureKey: true, enabled: true, config: true },
           orderBy: { featureKey: 'asc' },
-        },
-        memberships: {
-          include: {
-            user: { select: { id: true, name: true, email: true } },
-          },
-          orderBy: { createdAt: 'asc' },
         },
         _count: { select: { leads: { where: { deletedAt: null } } } },
       },
@@ -40,9 +54,27 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         isActive: true,
       },
     }),
+    db.membership.count({ where: { tenantId: id } }),
+    db.membership.count({ where: { tenantId: id, isActive: true } }),
   ]);
 
   if (!tenant) notFound();
+
+  const membershipPagination = getPaginationState({
+    totalItems: membershipTotal,
+    page: membershipPage,
+    pageSize: membershipPageSize,
+  });
+
+  const memberships = await db.membership.findMany({
+    where: { tenantId: id },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+    skip: membershipPagination.skip,
+    take: membershipPageSize,
+  });
 
   const stateLabel = tenant.deletedAt ? 'Baja' : tenant.isActive ? 'Activo' : 'Inactivo';
   const stateVariant = tenant.deletedAt ? 'destructive' : tenant.isActive ? 'default' : 'outline';
@@ -85,13 +117,25 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
         }}
         plans={plans}
         features={tenant.features}
-        memberships={tenant.memberships.map((m) => ({
+        memberships={memberships.map((m) => ({
           id: m.id,
           role: m.role,
           isActive: m.isActive,
           createdAt: m.createdAt,
           user: m.user,
         }))}
+        membershipCounts={{
+          total: membershipTotal,
+          active: activeMembershipCount,
+          inactive: membershipTotal - activeMembershipCount,
+        }}
+        membershipPagination={{
+          currentPage: membershipPagination.currentPage,
+          totalPages: membershipPagination.totalPages,
+          totalItems: membershipTotal,
+          startItem: membershipPagination.startItem,
+          endItem: membershipPagination.endItem,
+        }}
       />
     </div>
   );

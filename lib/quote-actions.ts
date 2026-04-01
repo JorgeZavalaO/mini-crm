@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { sendQuoteEmail } from '@/lib/email';
 import { AppError } from '@/lib/errors';
 import { createNotificationsForEvent, getTenantMemberIds } from '@/lib/notifications-actions';
+import { getPaginationState } from '@/lib/pagination';
 import {
   canChangeQuoteStatus,
   canCreateQuote,
@@ -421,6 +422,83 @@ export async function listLeadQuotesAction(
   }));
 }
 
+export async function listLeadQuotesPageAction(input: unknown): Promise<{
+  quotes: QuoteRow[];
+  total: number;
+}> {
+  const parsed = quoteFiltersSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+  }
+
+  const { tenantSlug, leadId, page, pageSize, q, status } = parsed.data;
+  if (!leadId) {
+    throw new AppError('Lead requerido para listar cotizaciones', 400);
+  }
+
+  const ctx = await getQuoteContext(tenantSlug);
+  const where: Prisma.QuoteWhereInput = {
+    tenantId: ctx.tenantId,
+    leadId,
+    deletedAt: null,
+    status: status ?? undefined,
+    OR: q
+      ? [
+          { quoteNumber: { contains: q, mode: 'insensitive' } },
+          { lead: { businessName: { contains: q, mode: 'insensitive' } } },
+        ]
+      : undefined,
+  };
+
+  const total = await db.quote.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const quotes = await db.quote.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      quoteNumber: true,
+      status: true,
+      currency: true,
+      taxRate: true,
+      subtotal: true,
+      taxAmount: true,
+      totalAmount: true,
+      leadId: true,
+      createdById: true,
+      createdBy: { select: { name: true, email: true } },
+      createdAt: true,
+      updatedAt: true,
+      validUntil: true,
+      lead: { select: { businessName: true } },
+    },
+  });
+
+  return {
+    quotes: quotes.map((quote) => ({
+      id: quote.id,
+      quoteNumber: quote.quoteNumber,
+      status: quote.status,
+      currency: quote.currency,
+      taxRate: Number(quote.taxRate),
+      subtotal: Number(quote.subtotal),
+      taxAmount: Number(quote.taxAmount),
+      totalAmount: Number(quote.totalAmount),
+      leadId: quote.leadId,
+      leadName: quote.lead.businessName,
+      createdById: quote.createdById,
+      createdBy: quote.createdBy,
+      createdAt: quote.createdAt,
+      updatedAt: quote.updatedAt,
+      validUntil: quote.validUntil,
+    })),
+    total,
+  };
+}
+
 export async function listTenantQuotesAction(
   input: unknown,
 ): Promise<{ quotes: QuoteRow[]; total: number }> {
@@ -445,32 +523,32 @@ export async function listTenantQuotesAction(
       : undefined,
   };
 
-  const [quotes, total] = await Promise.all([
-    db.quote.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true,
-        quoteNumber: true,
-        status: true,
-        currency: true,
-        taxRate: true,
-        subtotal: true,
-        taxAmount: true,
-        totalAmount: true,
-        leadId: true,
-        createdById: true,
-        createdBy: { select: { name: true, email: true } },
-        createdAt: true,
-        updatedAt: true,
-        validUntil: true,
-        lead: { select: { businessName: true } },
-      },
-    }),
-    db.quote.count({ where }),
-  ]);
+  const total = await db.quote.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const quotes = await db.quote.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      quoteNumber: true,
+      status: true,
+      currency: true,
+      taxRate: true,
+      subtotal: true,
+      taxAmount: true,
+      totalAmount: true,
+      leadId: true,
+      createdById: true,
+      createdBy: { select: { name: true, email: true } },
+      createdAt: true,
+      updatedAt: true,
+      validUntil: true,
+      lead: { select: { businessName: true } },
+    },
+  });
 
   return {
     quotes: quotes.map((quote) => ({

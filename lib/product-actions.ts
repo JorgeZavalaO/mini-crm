@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { getPaginationState } from '@/lib/pagination';
 import {
   createProductSchema,
   deleteProductSchema,
@@ -157,26 +158,26 @@ export async function listProductsAction(
     name: q ? { contains: q, mode: 'insensitive' } : undefined,
   };
 
-  const [products, total] = await Promise.all([
-    db.product.findMany({
-      where,
-      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        unitPrice: true,
-        currency: true,
-        isActive: true,
-        createdById: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    }),
-    db.product.count({ where }),
-  ]);
+  const total = await db.product.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const products = await db.product.findMany({
+    where,
+    orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      unitPrice: true,
+      currency: true,
+      isActive: true,
+      createdById: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 
   return {
     products: products.map((p) => ({

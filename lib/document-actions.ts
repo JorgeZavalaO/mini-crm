@@ -5,8 +5,13 @@ import { revalidatePath } from 'next/cache';
 import { getTenantActionContextBySlug, assertTenantFeatureById } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { getPaginationState } from '@/lib/pagination';
 import { canDeleteDocument, canUploadDocument } from '@/lib/lead-permissions';
-import { deleteDocumentSchema, uploadDocumentSchema } from '@/lib/validators';
+import {
+  deleteDocumentSchema,
+  documentFiltersSchema,
+  uploadDocumentSchema,
+} from '@/lib/validators';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -209,6 +214,54 @@ export async function listLeadDocumentsAction(
   return docs.map((d) => ({ ...d, leadName: null }));
 }
 
+export async function listLeadDocumentsPageAction(input: unknown): Promise<{
+  docs: DocumentRow[];
+  total: number;
+}> {
+  const parsed = documentFiltersSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+  }
+
+  const { tenantSlug, leadId, page, pageSize } = parsed.data;
+  if (!leadId) {
+    throw new AppError('Lead requerido para listar documentos', 400);
+  }
+
+  const ctx = await getDocumentContext(tenantSlug);
+  const where = {
+    leadId,
+    tenantId: ctx.tenantId,
+    deletedAt: null as Date | null,
+  };
+
+  const total = await db.document.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const docs = await db.document.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      name: true,
+      blobUrl: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+      leadId: true,
+      uploadedById: true,
+      uploadedBy: { select: { name: true, email: true } },
+    },
+  });
+
+  return {
+    docs: docs.map((d) => ({ ...d, leadName: null })),
+    total,
+  };
+}
+
 // ── List: tenant ──────────────────────────────────────────────────────────────
 
 export async function listTenantDocumentsAction(
@@ -220,27 +273,27 @@ export async function listTenantDocumentsAction(
 
   const where = { tenantId: ctx.tenantId, deletedAt: null as Date | null };
 
-  const [docs, total] = await Promise.all([
-    db.document.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true,
-        name: true,
-        blobUrl: true,
-        mimeType: true,
-        sizeBytes: true,
-        createdAt: true,
-        leadId: true,
-        uploadedById: true,
-        uploadedBy: { select: { name: true, email: true } },
-        lead: { select: { businessName: true } },
-      },
-    }),
-    db.document.count({ where }),
-  ]);
+  const total = await db.document.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const docs = await db.document.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      name: true,
+      blobUrl: true,
+      mimeType: true,
+      sizeBytes: true,
+      createdAt: true,
+      leadId: true,
+      uploadedById: true,
+      uploadedBy: { select: { name: true, email: true } },
+      lead: { select: { businessName: true } },
+    },
+  });
 
   return {
     docs: docs.map((d) => ({

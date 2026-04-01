@@ -32,6 +32,7 @@ interface TenantSidebarProps {
   tenantName: string;
   role: string | null;
   showTeam: boolean;
+  canManageDedupe: boolean;
   userName: string | null;
   userEmail: string;
   enabledFeatures: Record<string, boolean>;
@@ -42,6 +43,7 @@ export function TenantSidebar({
   tenantName,
   role,
   showTeam,
+  canManageDedupe,
   userName,
   userEmail,
   enabledFeatures,
@@ -55,7 +57,7 @@ export function TenantSidebar({
     ...(enabledFeatures.CRM_LEADS
       ? [{ href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target }]
       : []),
-    ...(enabledFeatures.DEDUPE
+    ...(enabledFeatures.DEDUPE && canManageDedupe
       ? [{ href: `/${tenantSlug}/leads/dedupe`, label: 'Duplicados', icon: Copy }]
       : []),
     ...(enabledFeatures.DOCUMENTS

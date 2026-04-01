@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import {
   Bell,
@@ -15,14 +16,15 @@ import {
   XCircle,
 } from 'lucide-react';
 import {
-  getTenantNotificationsAction,
-  markNotificationReadAction,
-  markAllNotificationsReadAction,
   deleteNotificationAction,
+  markAllNotificationsReadAction,
+  markNotificationReadAction,
   type NotificationItem,
 } from '@/lib/notifications-actions';
+import { buildSearchHref } from '@/lib/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ListPagination } from '@/components/ui/list-pagination';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function timeAgo(date: Date): string {
@@ -79,28 +81,53 @@ const TYPE_CONFIG: Record<
 
 type Filter = 'all' | 'unread' | 'read';
 
-export function NotificationsFullList({ tenantSlug }: { tenantSlug: string }) {
-  const [items, setItems] = useState<NotificationItem[]>([]);
-  const [filter, setFilter] = useState<Filter>('all');
-  const [loaded, setLoaded] = useState(false);
+type PaginationMeta = {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  startItem: number;
+  endItem: number;
+};
+
+type Props = {
+  tenantSlug: string;
+  initialItems: NotificationItem[];
+  initialFilter: Filter;
+  initialUnreadCount: number;
+  pagination: PaginationMeta;
+  pageSize: number;
+};
+
+export function NotificationsFullList({
+  tenantSlug,
+  initialItems,
+  initialFilter,
+  initialUnreadCount,
+  pagination,
+  pageSize,
+}: Props) {
+  const router = useRouter();
+  const [items, setItems] = useState<NotificationItem[]>(initialItems);
+  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [isPending, startTransition] = useTransition();
 
-  const load = useCallback(() => {
-    startTransition(async () => {
-      try {
-        const isRead = filter === 'unread' ? false : filter === 'read' ? true : undefined;
-        const result = await getTenantNotificationsAction(tenantSlug, { isRead });
-        setItems(result);
-        setLoaded(true);
-      } catch {
-        setLoaded(true);
-      }
-    });
-  }, [tenantSlug, filter]);
+  const pageHref = useCallback(
+    (page: number) => buildSearchHref({ filter: initialFilter, pageSize }, { page }),
+    [initialFilter, pageSize],
+  );
+
+  const filterHref = useCallback(
+    (filter: Filter) => buildSearchHref({ pageSize }, { filter, page: 1 }),
+    [pageSize],
+  );
 
   useEffect(() => {
-    load();
-  }, [load]);
+    setItems(initialItems);
+  }, [initialItems]);
+
+  useEffect(() => {
+    setUnreadCount(initialUnreadCount);
+  }, [initialUnreadCount]);
 
   const handleMarkRead = useCallback(
     (notificationId: string) => {
@@ -110,12 +137,14 @@ export function NotificationsFullList({ tenantSlug }: { tenantSlug: string }) {
           setItems((prev) =>
             prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
           );
+          setUnreadCount((prev) => Math.max(0, prev - 1));
+          router.refresh();
         } catch {
           /* ignore */
         }
       });
     },
-    [tenantSlug],
+    [router, tenantSlug],
   );
 
   const handleMarkAllRead = useCallback(() => {
@@ -123,33 +152,41 @@ export function NotificationsFullList({ tenantSlug }: { tenantSlug: string }) {
       try {
         await markAllNotificationsReadAction(tenantSlug);
         setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+        router.refresh();
       } catch {
         /* ignore */
       }
     });
-  }, [tenantSlug]);
+  }, [router, tenantSlug]);
 
   const handleDelete = useCallback(
     (notificationId: string) => {
       startTransition(async () => {
         try {
           await deleteNotificationAction({ tenantSlug, notificationId });
-          setItems((prev) => prev.filter((n) => n.id !== notificationId));
+          setItems((prev) => {
+            const target = prev.find((item) => item.id === notificationId);
+            if (target && !target.isRead) {
+              setUnreadCount((count) => Math.max(0, count - 1));
+            }
+
+            return prev.filter((n) => n.id !== notificationId);
+          });
+          router.refresh();
         } catch {
           /* ignore */
         }
       });
     },
-    [tenantSlug],
+    [router, tenantSlug],
   );
-
-  const unreadCount = items.filter((n) => !n.isRead).length;
 
   return (
     <div className="space-y-4">
       {/* Controles */}
       <div className="flex items-center justify-between gap-4">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+        <Tabs value={initialFilter} onValueChange={(v) => router.push(filterHref(v as Filter))}>
           <TabsList>
             <TabsTrigger value="all">Todas</TabsTrigger>
             <TabsTrigger value="unread">
@@ -173,7 +210,7 @@ export function NotificationsFullList({ tenantSlug }: { tenantSlug: string }) {
       </div>
 
       {/* Lista */}
-      {!loaded || isPending ? (
+      {isPending && items.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="size-5 animate-spin text-muted-foreground" />
         </div>
@@ -181,9 +218,9 @@ export function NotificationsFullList({ tenantSlug }: { tenantSlug: string }) {
         <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
           <Bell className="size-8 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
-            {filter === 'unread'
+            {initialFilter === 'unread'
               ? 'No hay notificaciones sin leer'
-              : filter === 'read'
+              : initialFilter === 'read'
                 ? 'No hay notificaciones leídas'
                 : 'Sin notificaciones'}
           </p>
@@ -261,6 +298,15 @@ export function NotificationsFullList({ tenantSlug }: { tenantSlug: string }) {
           })}
         </ul>
       )}
+
+      <ListPagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        startItem={pagination.startItem}
+        endItem={pagination.endItem}
+        hrefForPage={pageHref}
+      />
     </div>
   );
 }

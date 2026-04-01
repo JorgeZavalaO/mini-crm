@@ -20,6 +20,7 @@ export default async function TenantLayout({
 
   const role = membership?.role ?? (session.user.isSuperAdmin ? 'SUPERADMIN' : null);
   const showTeam = session.user.isSuperAdmin || hasRole(role, 'SUPERVISOR');
+  const canManageDedupe = session.user.isSuperAdmin || hasRole(role, 'SUPERVISOR');
 
   return (
     <TenantProvider
@@ -33,6 +34,7 @@ export default async function TenantLayout({
           tenantName={tenant.name}
           role={role}
           showTeam={showTeam}
+          canManageDedupe={canManageDedupe}
           userName={session.user.name ?? null}
           userEmail={session.user.email ?? ''}
           enabledFeatures={enabledFeatures}

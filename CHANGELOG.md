@@ -2,6 +2,70 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.2.2 · 2026-04-01] Post Sprint 11.1 — Hardening de navegación y límites Server/Client
+
+### Changed
+
+- `app/[tenantSlug]/notifications/page.tsx` y `components/notifications/notifications-full-list.tsx`: la paginación/filtros ya no pasan callbacks desde Server Components hacia Client Components; ahora solo viajan props serializables y las URLs se reconstruyen en cliente.
+- `app/[tenantSlug]/tasks/page.tsx` y `components/tasks/task-tabs.tsx`: mismo ajuste de frontera Server/Client para tabs y paginación del módulo de tareas, eliminando errores de serialización en runtime.
+- `components/leads/lead-detail-tabs.tsx` y `app/[tenantSlug]/leads/[id]/page.tsx`: las pestañas del detalle de lead ahora reciben `href` serializados por item en vez de funciones, manteniendo la navegación por URL sin violar el boundary de Next.js.
+- `components/superadmin/tenant-settings-tabs.tsx` y `app/(superadmin)/superadmin/tenants/[id]/page.tsx`: la paginación de membresías del tenant en `SuperAdmin` fue alineada al mismo patrón serializable.
+- `app/[tenantSlug]/layout.tsx` y `components/tenant-sidebar.tsx`: el módulo `Duplicados` ahora solo aparece en la navegación lateral para perfiles `SUPERVISOR`/`ADMIN` del tenant o `SuperAdmin` del sistema.
+- `app/[tenantSlug]/leads/dedupe/page.tsx`: el acceso directo por URL se mantiene bloqueado para perfiles sin permiso y el fallback cambió de `forbidden()` (experimental en esta configuración) a `notFound()` para evitar errores de runtime.
+
+### Fixed
+
+- Se corrige el error de Next.js `Functions cannot be passed directly to Client Components...` que afectaba rutas como `/{tenantSlug}/notifications` y `/{tenantSlug}/tasks` tras la estandarización de paginación.
+- Se evita que perfiles comerciales sin privilegios de manager/admin vean o intenten acceder al módulo de deduplicación desde el sidebar.
+- Se elimina el runtime error asociado a `forbidden()` en la pantalla de deduplicación cuando `experimental.authInterrupts` no está habilitado.
+
+### Tests
+
+- Verificación posterior al hotfix:
+  - `pnpm test` ✅ (**360 / 360** tests pasando)
+  - `pnpm lint` ✅
+  - `pnpm build` ✅
+
+## [v1.2.1 · 2026-04-01] Post Sprint 11 — Paginación transversal con shadcn
+
+### Added
+
+- `lib/pagination.ts`: utilidades compartidas para paginación URL-driven (`firstSearchParam`, `buildSearchHref`, `getPaginationState`) con clamping consistente de página/tamaño.
+- `components/ui/list-pagination.tsx`: wrapper reutilizable sobre `shadcn/ui` para renderizar paginación homogénea con resumen de rango, numeración y elipsis.
+- `components/leads/lead-detail-tabs.tsx`: wrapper client para sincronizar pestañas del detalle de lead con la URL y soportar paginación independiente por sección embebida.
+- Nuevas variantes paginadas de server actions para colecciones embebidas y públicas:
+  - `listLeadInteractionsAction`
+  - `listLeadDocumentsPageAction`
+  - `listLeadQuotesPageAction`
+  - `listLeadTasksPageAction`
+  - `listLeadPortalTokensPageAction`
+  - `getPortalQuotesPageByToken`
+  - `listTenantNotificationsPageAction`
+
+### Changed
+
+- `components/ui/pagination.tsx`: labels adaptados al UX del producto en español (`Anterior`, `Siguiente`, `Más páginas`).
+- Paginación estandarizada con `shadcn/ui`, query params y render server-side en vistas principales del tenant:
+  - `app/[tenantSlug]/products/page.tsx`
+  - `app/[tenantSlug]/quotes/page.tsx`
+  - `app/[tenantSlug]/documents/page.tsx`
+  - `app/[tenantSlug]/tasks/page.tsx`
+  - `app/[tenantSlug]/notifications/page.tsx`
+  - `app/[tenantSlug]/team/page.tsx`
+- `app/[tenantSlug]/leads/[id]/page.tsx`: las secciones `Interacciones`, `Reasignaciones`, `Documentos`, `Cotizaciones`, `Tareas` y `Portal` ahora paginan con parámetros independientes por pestaña (`interactionsPage`, `reassignmentsPage`, `documentsPage`, `quotesPage`, `tasksPage`, `portalPage`).
+- `app/portal/[token]/page.tsx`: el listado público de cotizaciones del cliente ahora pagina por URL y mantiene navegación coherente al volver al detalle.
+- `app/(superadmin)/superadmin/page.tsx`, `app/(superadmin)/superadmin/plans/page.tsx` y `app/(superadmin)/superadmin/tenants/[id]/page.tsx`: listados administrativos paginados sin romper KPIs/global counters.
+- `components/tasks/task-tabs.tsx`, `components/notifications/notifications-full-list.tsx`, `components/leads/interaction-timeline.tsx`, `components/leads/portal-tokens-card.tsx` y `components/superadmin/tenant-settings-tabs.tsx` ahora aceptan metadata externa de paginación/contadores para desacoplar métricas globales de la página actual.
+- `lib/product-actions.ts`, `lib/quote-actions.ts`, `lib/task-actions.ts`, `lib/document-actions.ts`, `lib/portal-actions.ts` y `lib/notifications-actions.ts` ahora usan estado de paginación centralizado y corrigen conteos/estadísticas para que no dependan del slice visible.
+- `lib/validators.ts`: nuevos filtros para interacciones, documentos y tokens de portal; `taskFiltersSchema` amplía soporte para `scope: 'mine' | 'all'`.
+
+### Tests
+
+- Validación completa tras la estandarización de paginación:
+  - `pnpm test` ✅ (**360 / 360** tests pasando)
+  - `pnpm lint` ✅
+  - `pnpm build` ✅
+
 ## [v1.2.0 · 2026-03-31] Sprint 11 — Client Portal MVP
 
 ### Added

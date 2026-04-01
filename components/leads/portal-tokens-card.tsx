@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Check, Copy, Globe, Loader2, XCircle } from 'lucide-react';
 import { createPortalTokenAction, revokePortalTokenAction } from '@/lib/portal-actions';
 import { Badge } from '@/components/ui/badge';
@@ -21,13 +21,32 @@ type Props = {
   tenantSlug: string;
   leadId: string;
   tokens: PortalToken[];
+  counts?: {
+    active: number;
+    inactive: number;
+  };
 };
 
-export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens }: Props) {
+export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, counts }: Props) {
   const [tokens, setTokens] = useState(initialTokens);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [summary, setSummary] = useState({
+    active: counts?.active ?? initialTokens.filter((token) => token.isActive).length,
+    inactive: counts?.inactive ?? initialTokens.filter((token) => !token.isActive).length,
+  });
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setTokens(initialTokens);
+  }, [initialTokens]);
+
+  useEffect(() => {
+    setSummary({
+      active: counts?.active ?? initialTokens.filter((token) => token.isActive).length,
+      inactive: counts?.inactive ?? initialTokens.filter((token) => !token.isActive).length,
+    });
+  }, [counts?.active, counts?.inactive, initialTokens]);
 
   const handleCreate = useCallback(() => {
     startTransition(async () => {
@@ -48,6 +67,7 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens }: 
             },
             ...prev,
           ]);
+          setSummary((prev) => ({ ...prev, active: prev.active + 1 }));
         }
       } catch {
         /* ignore */
@@ -61,6 +81,10 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens }: 
         try {
           await revokePortalTokenAction({ tenantSlug, tokenId });
           setTokens((prev) => prev.map((t) => (t.id === tokenId ? { ...t, isActive: false } : t)));
+          setSummary((prev) => ({
+            active: Math.max(0, prev.active - 1),
+            inactive: prev.inactive + 1,
+          }));
         } catch {
           /* ignore */
         }
@@ -78,6 +102,8 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens }: 
 
   const activeTokens = tokens.filter((t) => t.isActive);
   const inactiveTokens = tokens.filter((t) => !t.isActive);
+  const activeCount = summary.active;
+  const inactiveCount = summary.inactive;
 
   return (
     <Card>
@@ -131,7 +157,7 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens }: 
         {activeTokens.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Enlaces activos ({activeTokens.length})
+              Enlaces activos ({activeCount})
             </p>
             <ul className="divide-y rounded-md border">
               {activeTokens.map((t) => {
@@ -200,7 +226,7 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens }: 
         {inactiveTokens.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Revocados ({inactiveTokens.length})
+              Revocados ({inactiveCount})
             </p>
             <ul className="divide-y rounded-md border opacity-60">
               {inactiveTokens.map((t) => (

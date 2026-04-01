@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { forbidden } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { buildDuplicateGroupsByCriterion, DUPLICATE_CRITERION_LABEL } from '@/lib/dedupe-utils';
 import { db } from '@/lib/db';
@@ -34,7 +34,7 @@ export default async function LeadDedupePage({
   };
 
   if (!canManageDuplicateLeads(actor)) {
-    forbidden();
+    notFound();
   }
 
   const leads = await db.lead.findMany({

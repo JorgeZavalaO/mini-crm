@@ -170,9 +170,23 @@ export const deleteInteractionSchema = z.object({
   interactionId: z.string().min(1),
 });
 
+export const interactionFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: z.string().min(1),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+});
+
 export const uploadDocumentSchema = z.object({
   tenantSlug: z.string().min(1),
   leadId: z.string().min(1).optional(),
+});
+
+export const documentFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: optionalId,
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 
 export const deleteDocumentSchema = z.object({
@@ -256,6 +270,7 @@ export const taskFiltersSchema = z.object({
   assignedToId: optionalId,
   status: z.nativeEnum(TaskStatus).optional(),
   priority: z.nativeEnum(TaskPriority).optional(),
+  scope: z.enum(['mine', 'all']).default('all'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -329,4 +344,11 @@ export const createPortalTokenSchema = z.object({
 export const revokePortalTokenSchema = z.object({
   tenantSlug: z.string().min(1),
   tokenId: z.string().min(1),
+});
+
+export const portalTokenFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: z.string().min(1),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });

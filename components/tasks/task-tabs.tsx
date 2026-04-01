@@ -1,13 +1,37 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2, Circle, Clock, XCircle } from 'lucide-react';
+import { buildSearchHref } from '@/lib/pagination';
 import type { TaskRow } from '@/lib/task-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ListPagination } from '@/components/ui/list-pagination';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TaskList } from './task-list';
 
 type MemberOption = { id: string; name: string | null; email: string };
+
+type TaskStats = {
+  pending: number;
+  inProgress: number;
+  done: number;
+  cancelled: number;
+};
+
+type PaginationMeta = {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  startItem: number;
+  endItem: number;
+};
+
+type TaskQueryState = {
+  assignedToId?: string;
+  status?: string;
+  priority?: string;
+  pageSize: number;
+};
 
 type Props = {
   tasks: TaskRow[];
@@ -17,16 +41,13 @@ type Props = {
   isSuperAdmin: boolean;
   members: MemberOption[];
   canViewAll: boolean;
+  view: 'mine' | 'all';
+  queryState: TaskQueryState;
+  pagination: PaginationMeta;
+  stats: TaskStats;
 };
 
-function StatsCards({ tasks }: { tasks: TaskRow[] }) {
-  const stats = {
-    pending: tasks.filter((t) => t.status === 'PENDING').length,
-    inProgress: tasks.filter((t) => t.status === 'IN_PROGRESS').length,
-    done: tasks.filter((t) => t.status === 'DONE').length,
-    cancelled: tasks.filter((t) => t.status === 'CANCELLED').length,
-  };
-
+function StatsCards({ stats }: { stats: TaskStats }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <Card className="border-l-4 border-l-amber-500">
@@ -88,19 +109,40 @@ export function TaskTabs({
   isSuperAdmin,
   members,
   canViewAll,
+  view,
+  queryState,
+  pagination,
+  stats,
 }: Props) {
-  const [tab, setTab] = useState<string>('mine');
+  const router = useRouter();
 
-  const myTasks = useMemo(
-    () => tasks.filter((t) => t.createdById === currentUserId || t.assignedToId === currentUserId),
-    [tasks, currentUserId],
-  );
+  const pageHref = (page: number) =>
+    buildSearchHref(
+      {
+        view,
+        assignedToId: queryState.assignedToId,
+        status: queryState.status,
+        priority: queryState.priority,
+        pageSize: queryState.pageSize,
+      },
+      { page },
+    );
+
+  const viewHref = (nextView: 'mine' | 'all') =>
+    buildSearchHref(
+      {
+        assignedToId: queryState.assignedToId,
+        status: queryState.status,
+        priority: queryState.priority,
+        pageSize: queryState.pageSize,
+      },
+      { view: nextView, page: 1 },
+    );
 
   if (!canViewAll) {
-    // Non-supervisor: no tabs, just show their tasks (already filtered by backend)
     return (
-      <>
-        <StatsCards tasks={tasks} />
+      <div className="space-y-6">
+        <StatsCards stats={stats} />
         <Card>
           <CardContent className="px-0 py-2">
             <TaskList
@@ -114,36 +156,31 @@ export function TaskTabs({
             />
           </CardContent>
         </Card>
-      </>
+
+        <ListPagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startItem={pagination.startItem}
+          endItem={pagination.endItem}
+          hrefForPage={pageHref}
+        />
+      </div>
     );
   }
 
   return (
-    <Tabs value={tab} onValueChange={setTab}>
+    <Tabs
+      value={view}
+      onValueChange={(nextView) => router.push(viewHref(nextView as 'mine' | 'all'))}
+    >
       <TabsList>
         <TabsTrigger value="mine">Mis tareas</TabsTrigger>
         <TabsTrigger value="all">Todas</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="mine" className="mt-4 space-y-6">
-        <StatsCards tasks={myTasks} />
-        <Card>
-          <CardContent className="px-0 py-2">
-            <TaskList
-              tasks={myTasks}
-              tenantSlug={tenantSlug}
-              currentUserId={currentUserId}
-              currentRole={currentRole}
-              isSuperAdmin={isSuperAdmin}
-              members={members}
-              showLeadName
-            />
-          </CardContent>
-        </Card>
-      </TabsContent>
-
-      <TabsContent value="all" className="mt-4 space-y-6">
-        <StatsCards tasks={tasks} />
+      <TabsContent value={view} className="mt-4 space-y-6">
+        <StatsCards stats={stats} />
         <Card>
           <CardContent className="px-0 py-2">
             <TaskList
@@ -157,6 +194,15 @@ export function TaskTabs({
             />
           </CardContent>
         </Card>
+
+        <ListPagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startItem={pagination.startItem}
+          endItem={pagination.endItem}
+          hrefForPage={pageHref}
+        />
       </TabsContent>
     </Tabs>
   );

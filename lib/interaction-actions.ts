@@ -1,9 +1,11 @@
 'use server';
 
+import type { InteractionType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { getTenantActionContextBySlug, assertTenantFeatureById } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { getPaginationState } from '@/lib/pagination';
 import {
   canCreateInteraction,
   canDeleteInteraction,
@@ -13,6 +15,7 @@ import { suggestStatusTransition } from '@/lib/lead-status-transitions';
 import {
   createInteractionSchema,
   deleteInteractionSchema,
+  interactionFiltersSchema,
   updateInteractionSchema,
 } from '@/lib/validators';
 
@@ -55,6 +58,59 @@ async function getInteractionContext(tenantSlug: string): Promise<InteractionAct
 
 function revalidateLeadViews(tenantSlug: string, leadId: string) {
   revalidatePath(`/${tenantSlug}/leads/${leadId}`);
+}
+
+export type InteractionRow = {
+  id: string;
+  leadId: string;
+  type: InteractionType;
+  subject: string | null;
+  notes: string;
+  occurredAt: Date;
+  createdAt: Date;
+  authorId: string;
+  author: { name: string | null; email: string };
+};
+
+export async function listLeadInteractionsAction(input: unknown): Promise<{
+  interactions: InteractionRow[];
+  total: number;
+}> {
+  const parsed = interactionFiltersSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+  }
+
+  const { tenantSlug, leadId, page, pageSize } = parsed.data;
+  const ctx = await getInteractionContext(tenantSlug);
+
+  const where = {
+    tenantId: ctx.tenantId,
+    leadId,
+  };
+
+  const total = await db.interaction.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const interactions = await db.interaction.findMany({
+    where,
+    orderBy: { occurredAt: 'desc' },
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      leadId: true,
+      type: true,
+      subject: true,
+      notes: true,
+      occurredAt: true,
+      createdAt: true,
+      authorId: true,
+      author: { select: { name: true, email: true } },
+    },
+  });
+
+  return { interactions, total };
 }
 
 export async function createInteractionAction(input: unknown) {

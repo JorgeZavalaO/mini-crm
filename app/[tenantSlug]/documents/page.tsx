@@ -1,17 +1,35 @@
 import { FileText } from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
+import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { listTenantDocumentsAction } from '@/lib/document-actions';
+import { documentFiltersSchema } from '@/lib/validators';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentList } from '@/components/documents/document-list';
 import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
+import { ListPagination } from '@/components/ui/list-pagination';
 
 export default async function DocumentsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tenantSlug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { tenantSlug } = await params;
-  const { session, membership } = await requireTenantFeature(tenantSlug, 'DOCUMENTS');
+  const [{ session, membership }, rawSearchParams] = await Promise.all([
+    requireTenantFeature(tenantSlug, 'DOCUMENTS'),
+    searchParams,
+  ]);
+
+  const parsedFilters = documentFiltersSchema.safeParse({
+    tenantSlug,
+    page: firstSearchParam(rawSearchParams.page) ?? '1',
+    pageSize: firstSearchParam(rawSearchParams.pageSize) ?? '20',
+  });
+
+  const filters = parsedFilters.success
+    ? parsedFilters.data
+    : documentFiltersSchema.parse({ tenantSlug, page: 1, pageSize: 20 });
 
   const actor = {
     userId: session.user.id,
@@ -19,10 +37,22 @@ export default async function DocumentsPage({
     isSuperAdmin: session.user.isSuperAdmin,
   };
 
-  const { docs: documents } = await listTenantDocumentsAction(tenantSlug).catch(() => ({
+  const { docs: documents, total } = await listTenantDocumentsAction(
+    tenantSlug,
+    filters.page,
+    filters.pageSize,
+  ).catch(() => ({
     docs: [],
     total: 0,
   }));
+
+  const pagination = getPaginationState({
+    totalItems: total,
+    page: filters.page,
+    pageSize: filters.pageSize,
+  });
+
+  const pageHref = (page: number) => buildSearchHref({ pageSize: filters.pageSize }, { page });
 
   return (
     <div className="space-y-6">
@@ -54,9 +84,9 @@ export default async function DocumentsPage({
         <CardHeader>
           <CardTitle className="text-base">
             Todos los documentos
-            {documents.length > 0 && (
+            {total > 0 && (
               <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
-                {documents.length}
+                {total}
               </span>
             )}
           </CardTitle>
@@ -72,6 +102,17 @@ export default async function DocumentsPage({
             currentRole={actor.role}
             isSuperAdmin={actor.isSuperAdmin}
           />
+
+          <div className="px-6 pb-4">
+            <ListPagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={total}
+              startItem={pagination.startItem}
+              endItem={pagination.endItem}
+              hrefForPage={pageHref}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

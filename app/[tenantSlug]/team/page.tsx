@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { requireTenantRole } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
+import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { mapTeamInvitationListItem } from '@/lib/team-invite-service';
 import { hasRole } from '@/lib/rbac';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ListPagination } from '@/components/ui/list-pagination';
 import {
   Table,
   TableBody,
@@ -31,26 +33,72 @@ function formatDate(value: Date) {
   });
 }
 
-export default async function TeamPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
+function parsePage(value: string | string[] | undefined) {
+  const raw = firstSearchParam(value);
+  const numeric = Number(raw ?? '1');
+
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    return 1;
+  }
+
+  return Math.floor(numeric);
+}
+
+export default async function TeamPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ tenantSlug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { tenantSlug } = await params;
-  const { tenant, session, membership } = await requireTenantRole(tenantSlug, 'SUPERVISOR');
+  const [{ tenant, session, membership }, rawSearchParams] = await Promise.all([
+    requireTenantRole(tenantSlug, 'SUPERVISOR'),
+    searchParams,
+  ]);
+
+  const membersPage = parsePage(rawSearchParams.membersPage);
+  const invitesPage = parsePage(rawSearchParams.invitesPage);
+  const membersPageSize = 10;
+  const invitesPageSize = 10;
+  const now = new Date();
 
   const canManage = session.user.isSuperAdmin || hasRole(membership?.role, 'ADMIN');
-  const [members, invitations] = await Promise.all([
+  const invitationsWhere = {
+    tenantId: tenant.id,
+    acceptedAt: null,
+    canceledAt: null,
+  };
+
+  const [memberTotal, invitationTotal] = await Promise.all([
+    db.membership.count({ where: { tenantId: tenant.id } }),
+    canManage ? db.teamInvitation.count({ where: invitationsWhere }) : Promise.resolve(0),
+  ]);
+
+  const membersPagination = getPaginationState({
+    totalItems: memberTotal,
+    page: membersPage,
+    pageSize: membersPageSize,
+  });
+  const invitesPagination = getPaginationState({
+    totalItems: invitationTotal,
+    page: invitesPage,
+    pageSize: invitesPageSize,
+  });
+
+  const [members, invitations, pendingInvitations, expiredInvitations] = await Promise.all([
     db.membership.findMany({
       where: { tenantId: tenant.id },
       include: {
         user: { select: { id: true, name: true, email: true } },
       },
       orderBy: { createdAt: 'asc' },
+      skip: membersPagination.skip,
+      take: membersPageSize,
     }),
     canManage
       ? db.teamInvitation.findMany({
-          where: {
-            tenantId: tenant.id,
-            acceptedAt: null,
-            canceledAt: null,
-          },
+          where: invitationsWhere,
           select: {
             id: true,
             email: true,
@@ -62,13 +110,29 @@ export default async function TeamPage({ params }: { params: Promise<{ tenantSlu
             invitedBy: { select: { name: true, email: true } },
           },
           orderBy: { createdAt: 'desc' },
+          skip: invitesPagination.skip,
+          take: invitesPageSize,
         })
       : Promise.resolve([]),
+    canManage
+      ? db.teamInvitation.count({
+          where: { ...invitationsWhere, expiresAt: { gt: now } },
+        })
+      : Promise.resolve(0),
+    canManage
+      ? db.teamInvitation.count({
+          where: { ...invitationsWhere, expiresAt: { lte: now } },
+        })
+      : Promise.resolve(0),
   ]);
 
   const invitationRows = invitations.map(mapTeamInvitationListItem);
-  const pendingInvitations = invitationRows.filter((invite) => invite.status === 'PENDING').length;
-  const expiredInvitations = invitationRows.filter((invite) => invite.status === 'EXPIRED').length;
+
+  const membersPageHref = (page: number) =>
+    buildSearchHref({ invitesPage: invitesPagination.currentPage }, { membersPage: page });
+
+  const invitesPageHref = (page: number) =>
+    buildSearchHref({ membersPage: membersPagination.currentPage }, { invitesPage: page });
 
   return (
     <div className="min-w-0 space-y-6">
@@ -159,6 +223,15 @@ export default async function TeamPage({ params }: { params: Promise<{ tenantSlu
         </Table>
       </div>
 
+      <ListPagination
+        currentPage={membersPagination.currentPage}
+        totalPages={membersPagination.totalPages}
+        totalItems={memberTotal}
+        startItem={membersPagination.startItem}
+        endItem={membersPagination.endItem}
+        hrefForPage={membersPageHref}
+      />
+
       {canManage && (
         <div className="space-y-4">
           <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
@@ -234,6 +307,15 @@ export default async function TeamPage({ params }: { params: Promise<{ tenantSlu
               </TableBody>
             </Table>
           </div>
+
+          <ListPagination
+            currentPage={invitesPagination.currentPage}
+            totalPages={invitesPagination.totalPages}
+            totalItems={invitationTotal}
+            startItem={invitesPagination.startItem}
+            endItem={invitesPagination.endItem}
+            hrefForPage={invitesPageHref}
+          />
         </div>
       )}
     </div>

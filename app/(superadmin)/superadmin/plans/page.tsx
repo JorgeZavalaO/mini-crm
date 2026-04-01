@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { Building2, CalendarDays, HardDrive, Package, Users } from 'lucide-react';
 import { db } from '@/lib/db';
 import { FEATURE_LABEL } from '@/lib/feature-catalog';
+import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ListPagination } from '@/components/ui/list-pagination';
 import { Separator } from '@/components/ui/separator';
 import { CreatePlanDialog } from '@/components/superadmin/create-plan-dialog';
 import { PlanDetailsDialog } from '@/components/superadmin/plan-details-dialog';
@@ -11,7 +13,31 @@ import { PlanEditDialog } from '@/components/superadmin/plan-edit-dialog';
 import { PlanToggleDialog } from '@/components/superadmin/plan-toggle-dialog';
 import type { SuperadminPlanRow } from '@/components/superadmin/plan-types';
 
-export default async function PlansPage() {
+function parsePage(value: string | string[] | undefined) {
+  const raw = firstSearchParam(value);
+  const numeric = Number(raw ?? '1');
+
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    return 1;
+  }
+
+  return Math.floor(numeric);
+}
+
+export default async function PlansPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const rawSearchParams = await searchParams;
+  const page = parsePage(rawSearchParams.page);
+  const pageSize = 9;
+  const [totalPlans, totalActive] = await Promise.all([
+    db.plan.count(),
+    db.plan.count({ where: { isActive: true } }),
+  ]);
+  const pagination = getPaginationState({ totalItems: totalPlans, page, pageSize });
+
   const plans = await db.plan.findMany({
     orderBy: { name: 'asc' },
     include: {
@@ -26,6 +52,8 @@ export default async function PlansPage() {
         select: { featureKey: true, enabled: true },
       },
     },
+    skip: pagination.skip,
+    take: pageSize,
   });
 
   const planRows: SuperadminPlanRow[] = plans.map((plan) => ({
@@ -40,7 +68,7 @@ export default async function PlansPage() {
     features: plan.features,
   }));
 
-  const totalActive = planRows.filter((p) => p.isActive).length;
+  const pageHref = (nextPage: number) => buildSearchHref({}, { page: nextPage });
 
   return (
     <div className="flex flex-col gap-8">
@@ -176,6 +204,15 @@ export default async function PlansPage() {
           })}
         </div>
       )}
+
+      <ListPagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={totalPlans}
+        startItem={pagination.startItem}
+        endItem={pagination.endItem}
+        hrefForPage={pageHref}
+      />
     </div>
   );
 }

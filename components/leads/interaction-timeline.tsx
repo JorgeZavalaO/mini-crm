@@ -57,6 +57,7 @@ type InteractionTimelineProps = {
   isSuperAdmin: boolean;
   canCreate: boolean;
   currentStatus: LeadStatus;
+  totalCount?: number;
 };
 
 const TYPE_ICON: Record<InteractionType, React.ReactNode> = {
@@ -120,10 +121,12 @@ export function InteractionTimeline({
   isSuperAdmin,
   canCreate,
   currentStatus,
+  totalCount,
 }: InteractionTimelineProps) {
   const sorted = [...interactions].sort(
     (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
   );
+  const displayCount = totalCount ?? sorted.length;
 
   return (
     <div className="space-y-4">
@@ -131,9 +134,9 @@ export function InteractionTimeline({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">Interacciones</span>
-          {sorted.length > 0 && (
+          {displayCount > 0 && (
             <Badge variant="secondary" className="text-xs">
-              {sorted.length}
+              {displayCount}
             </Badge>
           )}
         </div>

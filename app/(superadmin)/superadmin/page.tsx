@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { db } from '@/lib/db';
+import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ListPagination } from '@/components/ui/list-pagination';
 import {
   Table,
   TableBody,
@@ -35,9 +37,29 @@ const superadminTenantInclude = {
   _count: { select: { leads: { where: { deletedAt: null } } } },
 } as const;
 
-export default async function SuperadminPage() {
-  const [tenantCount, userCount, leadCount, plans, tenants] = await Promise.all([
+function parsePage(value: string | string[] | undefined) {
+  const raw = firstSearchParam(value);
+  const numeric = Number(raw ?? '1');
+
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    return 1;
+  }
+
+  return Math.floor(numeric);
+}
+
+export default async function SuperadminPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const rawSearchParams = await searchParams;
+  const page = parsePage(rawSearchParams.page);
+  const pageSize = 10;
+
+  const [tenantCount, tenantTableTotal, userCount, leadCount, plans] = await Promise.all([
     db.tenant.count({ where: { deletedAt: null } }),
+    db.tenant.count(),
     db.user.count(),
     db.lead.count({ where: { deletedAt: null } }),
     db.plan.findMany({
@@ -51,13 +73,23 @@ export default async function SuperadminPage() {
         isActive: true,
       },
     }),
-    db.tenant.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: superadminTenantInclude,
-    }),
   ]);
 
+  const pagination = getPaginationState({
+    totalItems: tenantTableTotal,
+    page,
+    pageSize,
+  });
+
+  const tenants = await db.tenant.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: superadminTenantInclude,
+    skip: pagination.skip,
+    take: pageSize,
+  });
+
   const tenantRows = tenants as SuperadminTenantRow[];
+  const pageHref = (nextPage: number) => buildSearchHref({}, { page: nextPage });
 
   return (
     <div className="min-w-0 space-y-8">
@@ -179,6 +211,15 @@ export default async function SuperadminPage() {
             </TableBody>
           </Table>
         </div>
+
+        <ListPagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={tenantTableTotal}
+          startItem={pagination.startItem}
+          endItem={pagination.endItem}
+          hrefForPage={pageHref}
+        />
       </div>
     </div>
   );

@@ -22,6 +22,9 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - **Edición de cotizaciones**: formulario de edición completo con selector de productos del catálogo, prelleno de datos y actualización en servidor.
 - **Envío de cotización por email**: integración con **Resend** para enviar cotizaciones al cliente vía email transaccional con tabla HTML responsiva; transición automática de `BORRADOR` a `ENVIADA`.
 - **Client Portal MVP**: portal público para que clientes consulten sus cotizaciones sin autenticación. Token criptográfico de 32 bytes con expiración a 30 días, generación y revocación desde la pestaña Portal del lead detail (SUPERVISOR+), layout minimalista con listado y detalle de cotizaciones (solo ENVIADA/ACEPTADA/RECHAZADA).
+- **Paginación transversal con `shadcn/ui`**: listados principales del tenant, secciones embebidas del detalle de lead, portal público y vistas `SuperAdmin` usan paginación server-side orientada por URL, con métricas globales desacopladas del slice visible.
+- **Fronteras Server/Client endurecidas**: la navegación paginada y tabs interactivas (`notifications`, `tasks`, detalle de lead y memberships en `SuperAdmin`) usan props serializables entre Server Components y Client Components para evitar errores de runtime de Next.js.
+- **Acceso a deduplicación restringido por rol**: `Duplicados` solo es visible para `SUPERVISOR`/`ADMIN` del tenant o `SuperAdmin`; perfiles operativos sin privilegios ya no lo ven en el sidebar ni pueden abrir `/{tenantSlug}/leads/dedupe` por URL directa.
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -57,6 +60,8 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 9      | Catálogo de productos, edición de cotizaciones y envío por email | ✅ Completado |
 | 10     | Notificaciones persistentes                                      | ✅ Completado |
 | 11     | Client Portal MVP                                                | ✅ Completado |
+| 11.1   | Paginación transversal y estandarización UX                      | ✅ Completado |
+| 11.2   | Hardening de navegación y límites Server/Client                  | ✅ Completado |
 
 ## Stack
 
@@ -171,6 +176,7 @@ pnpm dev
 - `app/[tenantSlug]/leads/[id]`
 - `app/[tenantSlug]/leads/import`
 - `app/[tenantSlug]/leads/dedupe`
+- `app/[tenantSlug]/notifications`
 - `app/[tenantSlug]/team`
 - `app/[tenantSlug]/profile`
 - `app/[tenantSlug]/documents`
@@ -183,6 +189,11 @@ pnpm dev
 
 - `app/(auth)/login`
 - `app/(auth)/invite/[token]`
+
+### Portal público
+
+- `app/portal/[token]`
+- `app/portal/[token]/quotes/[id]`
 
 ### SuperAdmin
 
@@ -334,6 +345,21 @@ pnpm dev
 - Entrada **Catálogo** con ícono `Package` en sidebar del tenant cuando `QUOTING_BASIC` está activa.
 - 13 tests de product-actions cubriendo creación, edición, eliminación y listado.
 - `package.json` bumpeado a `v1.0.0`.
+
+### Post Sprint 11 — Paginación transversal
+
+- Todas las vistas con volumen operativo ahora usan paginación consistente basada en `shadcn/ui` y query params.
+- El patrón es server-side y URL-driven tanto en tenant app como en `SuperAdmin` y portal público.
+- El detalle de lead soporta paginación independiente por pestaña (`Interacciones`, `Reasignaciones`, `Documentos`, `Cotizaciones`, `Tareas`, `Portal`) sin perder contexto de navegación.
+- Los KPIs, badges y contadores se calculan sobre el dataset completo filtrado, no sobre la página visible, para evitar métricas engañosas.
+- La validación del hito quedó cerrada con `pnpm test`, `pnpm lint` y `pnpm build` en verde.
+
+### Post Sprint 11.1 — Hardening de navegación
+
+- Se corrigió la frontera entre Server Components y Client Components en pantallas paginadas para evitar el error `Functions cannot be passed directly to Client Components` de Next.js.
+- `Notifications`, `Tasks`, tabs del detalle de lead y paginación de memberships en `SuperAdmin` ahora reconstruyen navegación a partir de estado serializable, manteniendo SSR + interactividad sin callbacks cruzando el boundary.
+- El módulo `Duplicados` quedó endurecido por rol: solo managers/admins del tenant o `SuperAdmin` pueden verlo en sidebar y acceder por URL.
+- La pantalla `/{tenantSlug}/leads/dedupe` usa un bloqueo seguro para perfiles sin permiso sin depender de `forbidden()` experimental.
 
 ## Calidad y validación
 

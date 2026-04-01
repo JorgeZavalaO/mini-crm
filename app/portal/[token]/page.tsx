@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FileText, Clock, CheckCircle2, XCircle } from 'lucide-react';
-import { getPortalDataByToken } from '@/lib/portal-actions';
+import { getPortalQuotesPageByToken } from '@/lib/portal-actions';
+import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ListPagination } from '@/components/ui/list-pagination';
 
 const STATUS_LABEL: Record<
   string,
@@ -18,11 +20,39 @@ const STATUS_LABEL: Record<
   RECHAZADA: { label: 'Rechazada', variant: 'destructive', icon: XCircle },
 };
 
-export default async function PortalPage({ params }: { params: Promise<{ token: string }> }) {
+function parsePage(value: string | string[] | undefined) {
+  const raw = firstSearchParam(value);
+  const numeric = Number(raw ?? '1');
+
+  if (!Number.isFinite(numeric) || numeric < 1) {
+    return 1;
+  }
+
+  return Math.floor(numeric);
+}
+
+export default async function PortalPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { token } = await params;
-  const data = await getPortalDataByToken(token);
+  const rawSearchParams = await searchParams;
+  const page = parsePage(rawSearchParams.page);
+  const pageSize = 6;
+  const data = await getPortalQuotesPageByToken(token, page, pageSize);
 
   if (!data) return notFound();
+
+  const pagination = getPaginationState({
+    totalItems: data.total,
+    page,
+    pageSize,
+  });
+
+  const pageHref = (nextPage: number) => buildSearchHref({}, { page: nextPage });
 
   return (
     <div className="space-y-6">
@@ -47,7 +77,15 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             const statusCfg = STATUS_LABEL[quote.status] ?? STATUS_LABEL.ENVIADA;
             const StatusIcon = statusCfg.icon;
             return (
-              <Link key={quote.id} href={`/portal/${token}/quotes/${quote.id}`}>
+              <Link
+                key={quote.id}
+                href={`/portal/${token}/quotes/${quote.id}${buildSearchHref(
+                  {},
+                  {
+                    page: pagination.currentPage,
+                  },
+                )}`}
+              >
                 <Card className="transition-colors hover:bg-muted/50">
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
@@ -83,6 +121,15 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
               </Link>
             );
           })}
+
+          <ListPagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={data.total}
+            startItem={pagination.startItem}
+            endItem={pagination.endItem}
+            hrefForPage={pageHref}
+          />
         </div>
       )}
     </div>

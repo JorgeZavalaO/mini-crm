@@ -1,12 +1,20 @@
 'use server';
 
 import { randomBytes } from 'crypto';
+import type { QuoteStatus } from '@prisma/client';
 import { db } from '@/lib/db';
 import { getTenantActionContextBySlug, assertTenantFeatureById } from '@/lib/auth-guard';
 import { AppError } from '@/lib/errors';
+import { getPaginationState } from '@/lib/pagination';
 import { canCreatePortalToken, canRevokePortalToken } from '@/lib/lead-permissions';
-import { createPortalTokenSchema, revokePortalTokenSchema } from '@/lib/validators';
+import {
+  createPortalTokenSchema,
+  portalTokenFiltersSchema,
+  revokePortalTokenSchema,
+} from '@/lib/validators';
 import { revalidatePath } from 'next/cache';
+
+const PORTAL_VISIBLE_QUOTE_STATUSES: QuoteStatus[] = ['ENVIADA', 'ACEPTADA', 'RECHAZADA'];
 
 function toPermissionContext(ctx: Awaited<ReturnType<typeof getTenantActionContextBySlug>>) {
   return {
@@ -116,6 +124,42 @@ export async function listLeadPortalTokensAction(input: { tenantSlug: string; le
   return tokens;
 }
 
+export async function listLeadPortalTokensPageAction(input: unknown): Promise<{
+  tokens: Awaited<ReturnType<typeof listLeadPortalTokensAction>>;
+  total: number;
+}> {
+  const parsed = portalTokenFiltersSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+  }
+
+  const { tenantSlug, leadId, page, pageSize } = parsed.data;
+  const ctx = await getTenantActionContextBySlug(tenantSlug);
+  await assertTenantFeatureById(ctx.tenant.id, 'CLIENT_PORTAL');
+
+  const where = { tenantId: ctx.tenant.id, leadId };
+  const total = await db.portalToken.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const tokens = await db.portalToken.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      token: true,
+      isActive: true,
+      expiresAt: true,
+      lastAccessedAt: true,
+      createdAt: true,
+      createdBy: { select: { name: true, email: true } },
+    },
+  });
+
+  return { tokens, total };
+}
+
 // ─── Obtener datos públicos del portal por token ────────
 
 export type PortalData = {
@@ -176,7 +220,7 @@ export async function getPortalDataByToken(token: string): Promise<PortalData | 
       tenantId: portalToken.tenantId,
       leadId: portalToken.leadId,
       deletedAt: null,
-      status: { in: ['ENVIADA', 'ACEPTADA', 'RECHAZADA'] },
+      status: { in: PORTAL_VISIBLE_QUOTE_STATUSES },
     },
     orderBy: { createdAt: 'desc' },
     select: {
@@ -203,6 +247,93 @@ export async function getPortalDataByToken(token: string): Promise<PortalData | 
     tenantName: portalToken.tenant.name,
     leadName: portalToken.lead.businessName,
     leadEmail: portalToken.lead.emails[0] ?? null,
+    quotes: quotes.map((q) => ({
+      ...q,
+      totalAmount: Number(q.totalAmount),
+      items: q.items.map((item) => ({
+        ...item,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        lineSubtotal: Number(item.lineSubtotal),
+      })),
+    })),
+  };
+}
+
+export async function getPortalQuotesPageByToken(
+  token: string,
+  page = 1,
+  pageSize = 6,
+): Promise<(PortalData & { total: number }) | null> {
+  const portalToken = await db.portalToken.findUnique({
+    where: { token },
+    select: {
+      id: true,
+      isActive: true,
+      expiresAt: true,
+      tenantId: true,
+      leadId: true,
+      tenant: { select: { name: true } },
+      lead: {
+        select: {
+          businessName: true,
+          emails: true,
+          deletedAt: true,
+        },
+      },
+    },
+  });
+
+  if (!portalToken) return null;
+  if (!portalToken.isActive) return null;
+  if (portalToken.expiresAt && portalToken.expiresAt < new Date()) return null;
+  if (portalToken.lead.deletedAt) return null;
+
+  await db.portalToken.update({
+    where: { id: portalToken.id },
+    data: { lastAccessedAt: new Date() },
+  });
+
+  const where = {
+    tenantId: portalToken.tenantId,
+    leadId: portalToken.leadId,
+    deletedAt: null,
+    status: { in: PORTAL_VISIBLE_QUOTE_STATUSES },
+  };
+
+  const total = await db.quote.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const quotes = await db.quote.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      quoteNumber: true,
+      status: true,
+      totalAmount: true,
+      currency: true,
+      issuedAt: true,
+      validUntil: true,
+      createdAt: true,
+      items: {
+        select: {
+          description: true,
+          quantity: true,
+          unitPrice: true,
+          lineSubtotal: true,
+        },
+      },
+    },
+  });
+
+  return {
+    tenantName: portalToken.tenant.name,
+    leadName: portalToken.lead.businessName,
+    leadEmail: portalToken.lead.emails[0] ?? null,
+    total,
     quotes: quotes.map((q) => ({
       ...q,
       totalAmount: Number(q.totalAmount),

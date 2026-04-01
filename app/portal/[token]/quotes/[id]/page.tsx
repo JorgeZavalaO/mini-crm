@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { firstSearchParam } from '@/lib/pagination';
 import { getPortalDataByToken } from '@/lib/portal-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,11 +29,15 @@ const STATUS_LABEL: Record<
 
 export default async function PortalQuoteDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string; id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { token, id } = await params;
+  const [{ token, id }, rawSearchParams] = await Promise.all([params, searchParams]);
   const data = await getPortalDataByToken(token);
+  const pageParam = firstSearchParam(rawSearchParams.page);
+  const backHref = pageParam ? `/portal/${token}?page=${pageParam}` : `/portal/${token}`;
 
   if (!data) return notFound();
 
@@ -52,7 +57,7 @@ export default async function PortalQuoteDetailPage({
   return (
     <div className="space-y-6">
       <Link
-        href={`/portal/${token}`}
+        href={backHref}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="size-4" />

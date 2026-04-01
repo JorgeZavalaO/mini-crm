@@ -4,7 +4,12 @@ import { db } from '@/lib/db';
 import { requireTenantAccess } from '@/lib/auth-guard';
 import { hasRole, type Role } from '@/lib/rbac';
 import { AppError } from '@/lib/errors';
-import { markNotificationReadSchema, deleteNotificationSchema } from '@/lib/validators';
+import { getPaginationState } from '@/lib/pagination';
+import {
+  deleteNotificationSchema,
+  markNotificationReadSchema,
+  notificationFiltersSchema,
+} from '@/lib/validators';
 import type { NotificationType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 
@@ -20,10 +25,16 @@ export type NotificationItem = {
 
 // ─── Listado de notificaciones (persistidas) ─────────────
 
-export async function getTenantNotificationsAction(
-  tenantSlug: string,
-  filters?: { isRead?: boolean },
-): Promise<NotificationItem[]> {
+export async function listTenantNotificationsPageAction(input: unknown): Promise<{
+  items: NotificationItem[];
+  total: number;
+}> {
+  const parsed = notificationFiltersSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+  }
+
+  const { tenantSlug, isRead, page, pageSize } = parsed.data;
   const { session, tenant } = await requireTenantAccess(tenantSlug);
   const userId = session.user.id;
 
@@ -33,14 +44,18 @@ export async function getTenantNotificationsAction(
     deletedAt: null,
   };
 
-  if (filters?.isRead !== undefined) {
-    where.isRead = filters.isRead;
+  if (isRead !== undefined) {
+    where.isRead = isRead;
   }
 
-  const rows = await db.notification.findMany({
+  const total = await db.notification.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const items = await db.notification.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    take: 50,
+    skip: pagination.skip,
+    take: pageSize,
     select: {
       id: true,
       type: true,
@@ -52,7 +67,21 @@ export async function getTenantNotificationsAction(
     },
   });
 
-  return rows;
+  return { items, total };
+}
+
+export async function getTenantNotificationsAction(
+  tenantSlug: string,
+  filters?: { isRead?: boolean },
+): Promise<NotificationItem[]> {
+  const result = await listTenantNotificationsPageAction({
+    tenantSlug,
+    isRead: filters?.isRead,
+    page: 1,
+    pageSize: 50,
+  });
+
+  return result.items;
 }
 
 // ─── Conteo de no leídas ────────────────────────────────

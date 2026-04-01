@@ -21,6 +21,7 @@ import { db } from '@/lib/db';
 import { buildDuplicateGroupsByCriterion, summarizeDuplicateGroups } from '@/lib/dedupe-utils';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { buildLeadStatusBuckets, LEAD_STATUS_LABEL } from '@/lib/lead-status';
+import { hasRole } from '@/lib/rbac';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,6 +72,8 @@ export default async function DashboardPage({
     isTenantFeatureEnabled(tenant.id, 'DEDUPE'),
   ]);
 
+  const isManager = session.user.isSuperAdmin || hasRole(membership?.role, 'SUPERVISOR');
+
   const [
     leads,
     members,
@@ -81,21 +84,39 @@ export default async function DashboardPage({
     myLeads,
     dedupeLeads,
   ] = await Promise.all([
-    db.lead.count({ where: { tenantId: tenant.id, deletedAt: null } }),
-    db.membership.count({ where: { tenantId: tenant.id, isActive: true } }),
-    db.lead.count({ where: { tenantId: tenant.id, deletedAt: null, ownerId: null } }),
-    assignmentsEnabled
+    isManager
+      ? db.lead.count({ where: { tenantId: tenant.id, deletedAt: null } })
+      : db.lead.count({
+          where: { tenantId: tenant.id, deletedAt: null, ownerId: session.user.id },
+        }),
+    isManager
+      ? db.membership.count({ where: { tenantId: tenant.id, isActive: true } })
+      : Promise.resolve(0),
+    isManager
+      ? db.lead.count({ where: { tenantId: tenant.id, deletedAt: null, ownerId: null } })
+      : Promise.resolve(0),
+    assignmentsEnabled && isManager
       ? db.leadReassignmentRequest.count({
           where: { tenantId: tenant.id, status: 'PENDING' },
         })
       : Promise.resolve(0),
-    db.lead.groupBy({
-      by: ['status'],
-      where: { tenantId: tenant.id, deletedAt: null },
-      _count: { _all: true },
-    }),
+    isManager
+      ? db.lead.groupBy({
+          by: ['status'],
+          where: { tenantId: tenant.id, deletedAt: null },
+          _count: { _all: true },
+        })
+      : db.lead.groupBy({
+          by: ['status'],
+          where: { tenantId: tenant.id, deletedAt: null, ownerId: session.user.id },
+          _count: { _all: true },
+        }),
     db.lead.findMany({
-      where: { tenantId: tenant.id, deletedAt: null },
+      where: {
+        tenantId: tenant.id,
+        deletedAt: null,
+        ...(!isManager ? { ownerId: session.user.id } : {}),
+      },
       orderBy: { updatedAt: 'desc' },
       take: 6,
       select: {
@@ -112,7 +133,7 @@ export default async function DashboardPage({
       : db.lead.count({
           where: { tenantId: tenant.id, deletedAt: null, ownerId: session.user.id },
         }),
-    dedupeEnabled
+    dedupeEnabled && isManager
       ? db.lead.findMany({
           where: { tenantId: tenant.id, deletedAt: null },
           orderBy: { updatedAt: 'asc' },
@@ -168,7 +189,7 @@ export default async function DashboardPage({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {importEnabled && (
+          {importEnabled && isManager && (
             <Button variant="outline" size="sm" asChild>
               <Link href={`/${tenantSlug}/leads/import`}>
                 <FileUp className="mr-1.5 h-3.5 w-3.5" />
@@ -176,7 +197,7 @@ export default async function DashboardPage({
               </Link>
             </Button>
           )}
-          {dedupeEnabled && (
+          {dedupeEnabled && isManager && (
             <Button variant="outline" size="sm" asChild>
               <Link href={`/${tenantSlug}/leads/dedupe`}>
                 <Copy className="mr-1.5 h-3.5 w-3.5" />
@@ -195,55 +216,61 @@ export default async function DashboardPage({
 
       {/* ── KPIs ── */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {/* Leads totales */}
+        {/* Leads totales / Mi cartera */}
         <div className="rounded-xl border bg-card p-5">
           <div className="flex items-start justify-between">
-            <p className="text-sm text-muted-foreground">Leads totales</p>
+            <p className="text-sm text-muted-foreground">
+              {isManager ? 'Leads totales' : 'Mi cartera'}
+            </p>
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30">
               <ClipboardList className="h-4 w-4" />
             </div>
           </div>
           <p className="mt-3 text-3xl font-bold">{leads}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Pipeline activo del tenant</p>
-        </div>
-
-        {/* Sin owner */}
-        <div
-          className={cn(
-            'rounded-xl border bg-card p-5',
-            unassignedLeads > 0 && 'border-amber-200 dark:border-amber-800',
-          )}
-        >
-          <div className="flex items-start justify-between">
-            <p className="text-sm text-muted-foreground">Sin owner</p>
-            <div
-              className={cn(
-                'flex h-8 w-8 items-center justify-center rounded-lg',
-                unassignedLeads > 0
-                  ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30'
-                  : 'bg-muted text-muted-foreground',
-              )}
-            >
-              <UserCheck className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="mt-3 text-3xl font-bold">{unassignedLeads}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {unassignedLeads > 0 ? (
-              <Link
-                href={`/${tenantSlug}/leads?ownerId=unassigned&page=1`}
-                className="text-amber-600 underline-offset-2 hover:underline dark:text-amber-400"
-              >
-                Cola pendiente de asignación →
-              </Link>
-            ) : (
-              'Todos los leads tienen owner'
-            )}
+            {isManager ? 'Pipeline activo del tenant' : 'Leads asignados a ti'}
           </p>
         </div>
 
-        {/* Reasignaciones */}
-        {assignmentsEnabled && (
+        {/* Sin owner (solo managers) */}
+        {isManager && (
+          <div
+            className={cn(
+              'rounded-xl border bg-card p-5',
+              unassignedLeads > 0 && 'border-amber-200 dark:border-amber-800',
+            )}
+          >
+            <div className="flex items-start justify-between">
+              <p className="text-sm text-muted-foreground">Sin owner</p>
+              <div
+                className={cn(
+                  'flex h-8 w-8 items-center justify-center rounded-lg',
+                  unassignedLeads > 0
+                    ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30'
+                    : 'bg-muted text-muted-foreground',
+                )}
+              >
+                <UserCheck className="h-4 w-4" />
+              </div>
+            </div>
+            <p className="mt-3 text-3xl font-bold">{unassignedLeads}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {unassignedLeads > 0 ? (
+                <Link
+                  href={`/${tenantSlug}/leads?ownerId=unassigned&page=1`}
+                  className="text-amber-600 underline-offset-2 hover:underline dark:text-amber-400"
+                >
+                  Cola pendiente de asignación →
+                </Link>
+              ) : (
+                'Todos los leads tienen owner'
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* Reasignaciones (solo managers) */}
+        {assignmentsEnabled && isManager && (
           <div
             className={cn(
               'rounded-xl border bg-card p-5',
@@ -268,20 +295,22 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* Miembros */}
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-start justify-between">
-            <p className="text-sm text-muted-foreground">Miembros activos</p>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30">
-              <Users className="h-4 w-4" />
+        {/* Miembros (solo managers) */}
+        {isManager && (
+          <div className="rounded-xl border bg-card p-5">
+            <div className="flex items-start justify-between">
+              <p className="text-sm text-muted-foreground">Miembros activos</p>
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30">
+                <Users className="h-4 w-4" />
+              </div>
             </div>
+            <p className="mt-3 text-3xl font-bold">{members}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Equipo actualmente operativo</p>
           </div>
-          <p className="mt-3 text-3xl font-bold">{members}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Equipo actualmente operativo</p>
-        </div>
+        )}
 
-        {/* Duplicados */}
-        {dedupeEnabled && (
+        {/* Duplicados (solo managers) */}
+        {dedupeEnabled && isManager && (
           <div
             className={cn(
               'rounded-xl border bg-card p-5',
@@ -317,8 +346,8 @@ export default async function DashboardPage({
           </div>
         )}
 
-        {/* Mi cartera */}
-        {!session.user.isSuperAdmin && (
+        {/* Mi cartera (solo managers que no son superAdmin) */}
+        {isManager && !session.user.isSuperAdmin && (
           <div className="rounded-xl border bg-card p-5">
             <div className="flex items-start justify-between">
               <p className="text-sm text-muted-foreground">Mi cartera</p>
@@ -338,7 +367,9 @@ export default async function DashboardPage({
           <div>
             <h2 className="text-base font-semibold">Pipeline por estado</h2>
             <p className="text-xs text-muted-foreground">
-              Distribución actual del embudo comercial.
+              {isManager
+                ? 'Distribución actual del embudo comercial.'
+                : 'Distribución de tu embudo comercial.'}
             </p>
           </div>
           <Button variant="ghost" size="sm" asChild>
@@ -387,8 +418,8 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* ── Herramientas ── */}
-      {(importEnabled || dedupeEnabled) && (
+      {/* ── Herramientas (solo managers) ── */}
+      {isManager && (importEnabled || dedupeEnabled) && (
         <div className="space-y-4">
           <h2 className="text-base font-semibold">Herramientas</h2>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -453,7 +484,9 @@ export default async function DashboardPage({
           <div>
             <h2 className="text-base font-semibold">Actividad reciente</h2>
             <p className="text-xs text-muted-foreground">
-              Últimos leads actualizados en el pipeline.
+              {isManager
+                ? 'Últimos leads actualizados en el pipeline.'
+                : 'Tus leads actualizados recientemente.'}
             </p>
           </div>
           <Button variant="ghost" size="sm" asChild>
@@ -524,8 +557,8 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      {/* ── Alerta leads sin owner ── */}
-      {unassignedLeads > 0 && (
+      {/* ── Alerta leads sin owner (solo managers) ── */}
+      {isManager && unassignedLeads > 0 && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
           <div className="flex-1 text-sm">

@@ -1,14 +1,40 @@
+import type { Prisma } from '@prisma/client';
 import { CheckCircle2, Clock, ScrollText, SendHorizonal, XCircle } from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
+import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { listTenantQuotesAction } from '@/lib/quote-actions';
+import { quoteFiltersSchema } from '@/lib/validators';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ListPagination } from '@/components/ui/list-pagination';
 import { QuoteDialogTrigger } from '@/components/quotes/quote-dialog-trigger';
 import { QuoteList } from '@/components/quotes/quote-list';
 
-export default async function QuotesPage({ params }: { params: Promise<{ tenantSlug: string }> }) {
+export default async function QuotesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ tenantSlug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { tenantSlug } = await params;
-  const { session, membership, tenant } = await requireTenantFeature(tenantSlug, 'QUOTING_BASIC');
+  const [{ session, membership, tenant }, rawSearchParams] = await Promise.all([
+    requireTenantFeature(tenantSlug, 'QUOTING_BASIC'),
+    searchParams,
+  ]);
+
+  const parsedFilters = quoteFiltersSchema.safeParse({
+    tenantSlug,
+    leadId: firstSearchParam(rawSearchParams.leadId),
+    q: firstSearchParam(rawSearchParams.q),
+    status: firstSearchParam(rawSearchParams.status),
+    page: firstSearchParam(rawSearchParams.page) ?? '1',
+    pageSize: firstSearchParam(rawSearchParams.pageSize) ?? '20',
+  });
+
+  const filters = parsedFilters.success
+    ? parsedFilters.data
+    : quoteFiltersSchema.parse({ tenantSlug, page: 1, pageSize: 20 });
 
   const actor = {
     userId: session.user.id,
@@ -16,8 +42,20 @@ export default async function QuotesPage({ params }: { params: Promise<{ tenantS
     isSuperAdmin: session.user.isSuperAdmin,
   };
 
-  const [quotesResult, leads] = await Promise.all([
-    listTenantQuotesAction({ tenantSlug, page: 1, pageSize: 100 }).catch(() => ({
+  const statsWhere: Prisma.QuoteWhereInput = {
+    tenantId: tenant.id,
+    deletedAt: null,
+    leadId: filters.leadId ?? undefined,
+    OR: filters.q
+      ? [
+          { quoteNumber: { contains: filters.q, mode: 'insensitive' } },
+          { lead: { businessName: { contains: filters.q, mode: 'insensitive' } } },
+        ]
+      : undefined,
+  };
+
+  const [quotesResult, leads, statusRows] = await Promise.all([
+    listTenantQuotesAction(filters).catch(() => ({
       quotes: [],
       total: 0,
     })),
@@ -27,16 +65,42 @@ export default async function QuotesPage({ params }: { params: Promise<{ tenantS
       take: 200,
       select: { id: true, businessName: true, ruc: true },
     }),
+    db.quote.groupBy({
+      by: ['status'],
+      where: statsWhere,
+      _count: { _all: true },
+    }),
   ]);
 
   const { quotes, total } = quotesResult;
+  const pagination = getPaginationState({
+    totalItems: total,
+    page: filters.page,
+    pageSize: filters.pageSize,
+  });
+
+  const countByStatus = statusRows.reduce<Record<string, number>>((acc, row) => {
+    acc[row.status] = row._count._all;
+    return acc;
+  }, {});
 
   const stats = {
-    borrador: quotes.filter((q) => q.status === 'BORRADOR').length,
-    enviada: quotes.filter((q) => q.status === 'ENVIADA').length,
-    aceptada: quotes.filter((q) => q.status === 'ACEPTADA').length,
-    rechazada: quotes.filter((q) => q.status === 'RECHAZADA').length,
+    borrador: countByStatus.BORRADOR ?? 0,
+    enviada: countByStatus.ENVIADA ?? 0,
+    aceptada: countByStatus.ACEPTADA ?? 0,
+    rechazada: countByStatus.RECHAZADA ?? 0,
   };
+
+  const pageHref = (page: number) =>
+    buildSearchHref(
+      {
+        leadId: filters.leadId,
+        q: filters.q,
+        status: filters.status,
+        pageSize: filters.pageSize,
+      },
+      { page },
+    );
 
   return (
     <div className="space-y-6">
@@ -116,7 +180,7 @@ export default async function QuotesPage({ params }: { params: Promise<{ tenantS
             {total} cotización{total === 1 ? '' : 'es'} registrada{total === 1 ? '' : 's'}
           </CardTitle>
         </CardHeader>
-        <CardContent className="p-0 pb-1">
+        <CardContent className="space-y-4 p-0 pb-4">
           <QuoteList
             quotes={quotes}
             tenantSlug={tenantSlug}
@@ -125,6 +189,17 @@ export default async function QuotesPage({ params }: { params: Promise<{ tenantS
             isSuperAdmin={actor.isSuperAdmin}
             showLeadColumn
           />
+
+          <div className="px-6">
+            <ListPagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={total}
+              startItem={pagination.startItem}
+              endItem={pagination.endItem}
+              hrefForPage={pageHref}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>

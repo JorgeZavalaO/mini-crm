@@ -1,10 +1,11 @@
 'use server';
 
-import type { TaskPriority, TaskStatus } from '@prisma/client';
+import type { Prisma, TaskPriority, TaskStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { assertTenantFeatureById, getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { getPaginationState } from '@/lib/pagination';
 import {
   canCompleteTask,
   canCreateTask,
@@ -229,7 +230,7 @@ export async function listLeadTasksAction(leadId: string, tenantSlug: string): P
 
   const actor = toActorContext(ctx);
 
-  const where: Record<string, unknown> = {
+  const where: Prisma.TaskWhereInput = {
     leadId,
     tenantId: ctx.tenant.id,
     deletedAt: null,
@@ -279,6 +280,84 @@ export async function listLeadTasksAction(leadId: string, tenantSlug: string): P
   }));
 }
 
+export async function listLeadTasksPageAction(input: unknown): Promise<{
+  tasks: TaskRow[];
+  total: number;
+}> {
+  const parsed = taskFiltersSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+  }
+
+  const { tenantSlug, leadId, status, priority, page, pageSize } = parsed.data;
+  if (!leadId) {
+    throw new AppError('Lead requerido para listar tareas', 400);
+  }
+
+  const ctx = await getTenantActionContextBySlug(tenantSlug);
+  await assertTenantFeatureById(ctx.tenant.id, 'TASKS');
+
+  const actor = toActorContext(ctx);
+
+  const where: Prisma.TaskWhereInput = {
+    leadId,
+    tenantId: ctx.tenant.id,
+    deletedAt: null,
+    ...(status ? { status } : {}),
+    ...(priority ? { priority } : {}),
+  };
+
+  if (!canViewAllTasks(actor)) {
+    where.OR = [{ createdById: actor.userId }, { assignedToId: actor.userId }];
+  }
+
+  const total = await db.task.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const tasks = await db.task.findMany({
+    where,
+    orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+      completedAt: true,
+      createdAt: true,
+      leadId: true,
+      createdById: true,
+      assignedToId: true,
+      lead: { select: { businessName: true } },
+      createdBy: { select: { name: true } },
+      assignedTo: { select: { name: true } },
+    },
+  });
+
+  return {
+    tasks: tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      status: t.status,
+      priority: t.priority,
+      dueDate: t.dueDate,
+      completedAt: t.completedAt,
+      createdAt: t.createdAt,
+      leadId: t.leadId,
+      leadName: t.lead?.businessName ?? null,
+      createdById: t.createdById,
+      createdByName: t.createdBy?.name ?? null,
+      assignedToId: t.assignedToId,
+      assignedToName: t.assignedTo?.name ?? null,
+    })),
+    total,
+  };
+}
+
 export async function listTenantTasksAction(input: unknown): Promise<{
   tasks: TaskRow[];
   total: number;
@@ -287,14 +366,14 @@ export async function listTenantTasksAction(input: unknown): Promise<{
   if (!parsed.success) {
     throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
   }
-  const { tenantSlug, leadId, assignedToId, status, priority, page, pageSize } = parsed.data;
+  const { tenantSlug, leadId, assignedToId, status, priority, scope, page, pageSize } = parsed.data;
 
   const ctx = await getTenantActionContextBySlug(tenantSlug);
   await assertTenantFeatureById(ctx.tenant.id, 'TASKS');
 
   const actor = toActorContext(ctx);
 
-  const where: Record<string, unknown> = {
+  const where: Prisma.TaskWhereInput = {
     tenantId: ctx.tenant.id,
     deletedAt: null,
     ...(leadId ? { leadId } : {}),
@@ -303,36 +382,39 @@ export async function listTenantTasksAction(input: unknown): Promise<{
     ...(priority ? { priority } : {}),
   };
 
-  // Non-supervisors can only see tasks they created or are assigned to
-  if (!canViewAllTasks(actor)) {
+  // Scope "mine" fuerza vista personal incluso para managers.
+  if (scope === 'mine') {
+    where.OR = [{ createdById: actor.userId }, { assignedToId: actor.userId }];
+  } else if (!canViewAllTasks(actor)) {
+    // Non-supervisors can only see tasks they created or are assigned to
     where.OR = [{ createdById: actor.userId }, { assignedToId: actor.userId }];
   }
 
-  const [tasks, total] = await Promise.all([
-    db.task.findMany({
-      where,
-      orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        priority: true,
-        dueDate: true,
-        completedAt: true,
-        createdAt: true,
-        leadId: true,
-        createdById: true,
-        assignedToId: true,
-        lead: { select: { businessName: true } },
-        createdBy: { select: { name: true } },
-        assignedTo: { select: { name: true } },
-      },
-    }),
-    db.task.count({ where }),
-  ]);
+  const total = await db.task.count({ where });
+  const pagination = getPaginationState({ totalItems: total, page, pageSize });
+
+  const tasks = await db.task.findMany({
+    where,
+    orderBy: [{ status: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+    skip: pagination.skip,
+    take: pageSize,
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+      completedAt: true,
+      createdAt: true,
+      leadId: true,
+      createdById: true,
+      assignedToId: true,
+      lead: { select: { businessName: true } },
+      createdBy: { select: { name: true } },
+      assignedTo: { select: { name: true } },
+    },
+  });
 
   return {
     tasks: tasks.map((t) => ({
