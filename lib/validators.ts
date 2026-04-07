@@ -70,6 +70,9 @@ export const createLeadSchema = z.object({
   notes: optionalText(5000),
   phones: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
   emails: z.array(z.string().trim().email().max(200)).max(20).default([]),
+  gerente: optionalText(200),
+  contactName: optionalText(200),
+  contactPhone: optionalText(40),
   status: z.nativeEnum(LeadStatus).default(LeadStatus.NEW),
   ownerId: nullableId,
 });

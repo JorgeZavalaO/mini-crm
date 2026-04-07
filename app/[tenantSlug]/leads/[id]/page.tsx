@@ -230,6 +230,9 @@ export default async function LeadDetailPage({
         notes: true,
         phones: true,
         emails: true,
+        gerente: true,
+        contactName: true,
+        contactPhone: true,
         ownerId: true,
         createdAt: true,
         updatedAt: true,
@@ -524,6 +527,15 @@ export default async function LeadDetailPage({
                           </p>
                         </div>
                       </div>
+                      {lead.gerente && (
+                        <div className="flex items-start gap-3 px-6 py-3.5">
+                          <UserIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Gerente / Responsable</p>
+                            <p className="font-medium">{lead.gerente}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -536,6 +548,26 @@ export default async function LeadDetailPage({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-6 sm:grid-cols-2">
+                    {(lead.contactName || lead.contactPhone) && (
+                      <div className="space-y-1 sm:col-span-2">
+                        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          <UserIcon className="size-3.5" />
+                          Persona de contacto
+                        </p>
+                        {lead.contactName && (
+                          <p className="text-sm font-medium">{lead.contactName}</p>
+                        )}
+                        {lead.contactPhone && (
+                          <a
+                            href={`tel:${lead.contactPhone}`}
+                            className="flex items-center gap-1.5 text-sm hover:underline"
+                          >
+                            <Phone className="size-3 text-muted-foreground" />
+                            {lead.contactPhone}
+                          </a>
+                        )}
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         <Phone className="size-3.5" />

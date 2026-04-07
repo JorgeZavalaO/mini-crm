@@ -53,6 +53,9 @@ type EditableLead = {
   notes: string | null;
   phones: string[];
   emails: string[];
+  gerente: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
   status: LeadStatus;
   ownerId: string | null;
 };
@@ -79,6 +82,9 @@ function toFormDefaults(lead?: EditableLead) {
     notes: lead?.notes ?? '',
     phonesText: (lead?.phones ?? []).join('\n'),
     emailsText: (lead?.emails ?? []).join('\n'),
+    gerente: lead?.gerente ?? '',
+    contactName: lead?.contactName ?? '',
+    contactPhone: lead?.contactPhone ?? '',
     status: (lead?.status ?? 'NEW') as LeadStatus,
     ownerValue: lead?.ownerId ?? UNASSIGNED,
   };
@@ -112,6 +118,9 @@ export function LeadFormDialog({
   const [notes, setNotes] = useState(defaults.notes);
   const [phonesText, setPhonesText] = useState(defaults.phonesText);
   const [emailsText, setEmailsText] = useState(defaults.emailsText);
+  const [gerente, setGerente] = useState(defaults.gerente);
+  const [contactName, setContactName] = useState(defaults.contactName);
+  const [contactPhone, setContactPhone] = useState(defaults.contactPhone);
   const [status, setStatus] = useState<LeadStatus>(defaults.status);
   const [ownerValue, setOwnerValue] = useState(defaults.ownerValue);
 
@@ -126,6 +135,9 @@ export function LeadFormDialog({
     setNotes(nextDefaults.notes);
     setPhonesText(nextDefaults.phonesText);
     setEmailsText(nextDefaults.emailsText);
+    setGerente(nextDefaults.gerente);
+    setContactName(nextDefaults.contactName);
+    setContactPhone(nextDefaults.contactPhone);
     setStatus(nextDefaults.status);
     setOwnerValue(nextDefaults.ownerValue);
   }
@@ -142,6 +154,9 @@ export function LeadFormDialog({
       notes,
       phones: parseDelimitedList(phonesText),
       emails: parseDelimitedList(emailsText),
+      gerente: gerente || null,
+      contactName: contactName || null,
+      contactPhone: contactPhone || null,
       status,
       ...(canAssign ? { ownerId: ownerValue === UNASSIGNED ? null : ownerValue } : {}),
     };
@@ -306,6 +321,37 @@ export function LeadFormDialog({
                 value={emailsText}
                 onChange={(e) => setEmailsText(e.target.value)}
                 placeholder="ventas@empresa.com"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`${lead?.id ?? 'new'}-gerente`}>Gerente / Responsable</Label>
+            <Input
+              id={`${lead?.id ?? 'new'}-gerente`}
+              value={gerente}
+              onChange={(e) => setGerente(e.target.value)}
+              placeholder="Juan Pérez"
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-contactName`}>Persona de contacto</Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-contactName`}
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+                placeholder="María García"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-contactPhone`}>Teléfono de contacto</Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-contactPhone`}
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="+51 999 123 456"
               />
             </div>
           </div>

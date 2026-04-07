@@ -82,6 +82,9 @@ type LeadRow = {
   notes: string | null;
   phones: string[];
   emails: string[];
+  gerente: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
   ownerId: string | null;
   owner: { id: string; name: string | null; email: string } | null;
   updatedAt: string;

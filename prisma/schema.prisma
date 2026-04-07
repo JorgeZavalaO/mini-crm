@@ -243,6 +243,9 @@ model Lead {
   notes                String?
   phones               String[]                  @default([])
   emails               String[]                  @default([])
+  gerente              String?
+  contactName          String?
+  contactPhone         String?
   status               LeadStatus                @default(NEW)
   tenantId             String
   tenant               Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
