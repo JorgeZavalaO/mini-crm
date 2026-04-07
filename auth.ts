@@ -46,7 +46,7 @@ function rejectAuthorizationAttempt(context: AuthAttemptContext, reason: string)
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: appEnv.AUTH_SECRET,
-  trustHost: true,
+  trustHost: appEnv.AUTH_TRUST_HOST,
   providers: [
     Credentials({
       credentials: {

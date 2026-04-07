@@ -6,6 +6,14 @@ export type SecurityHeaderOptions = {
 export type HeadersLike = Pick<Headers, 'get'>;
 
 export function getClientIpFromHeaders(headers: HeadersLike) {
+  const providerIp =
+    headers.get('cf-connecting-ip') ??
+    headers.get('x-real-ip') ??
+    headers.get('x-vercel-forwarded-for');
+  if (providerIp?.trim()) {
+    return providerIp.trim();
+  }
+
   const forwardedFor = headers.get('x-forwarded-for');
   if (forwardedFor) {
     const firstIp = forwardedFor
@@ -18,12 +26,7 @@ export function getClientIpFromHeaders(headers: HeadersLike) {
     }
   }
 
-  return (
-    headers.get('cf-connecting-ip') ??
-    headers.get('x-real-ip') ??
-    headers.get('x-vercel-forwarded-for') ??
-    null
-  );
+  return null;
 }
 
 export function buildSecurityHeaders({ isHttps = false, requestId }: SecurityHeaderOptions = {}) {

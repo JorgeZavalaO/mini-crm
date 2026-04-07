@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 type PortalToken = {
   id: string;
-  token: string;
   isActive: boolean;
   expiresAt: Date | null;
   lastAccessedAt: Date | null;
@@ -54,16 +53,14 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
         const result = await createPortalTokenAction({ tenantSlug, leadId });
         if (result.success && result.token) {
           setNewToken(result.token);
-          // Refresh list
           setTokens((prev) => [
             {
               id: result.tokenId,
-              token: result.token,
               isActive: true,
-              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
               lastAccessedAt: null,
               createdAt: new Date(),
-              createdBy: { name: null, email: '' },
+              createdBy: { name: 'Tú', email: '' },
             },
             ...prev,
           ]);
@@ -95,7 +92,7 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
 
   const handleCopy = useCallback((token: string) => {
     const url = `${window.location.origin}/portal/${token}`;
-    navigator.clipboard.writeText(url);
+    void navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, []);
@@ -104,6 +101,10 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
   const inactiveTokens = tokens.filter((t) => !t.isActive);
   const activeCount = summary.active;
   const inactiveCount = summary.inactive;
+  const newPortalUrl =
+    newToken && typeof window !== 'undefined'
+      ? `${window.location.origin}/portal/${newToken}`
+      : null;
 
   return (
     <Card>
@@ -124,15 +125,12 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Token recién creado */}
         {newToken && (
           <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
             <p className="mb-2 text-sm font-medium text-primary">Enlace generado:</p>
             <div className="flex items-center gap-2">
               <code className="flex-1 truncate rounded bg-muted px-2 py-1 text-xs">
-                {typeof window !== 'undefined'
-                  ? `${window.location.origin}/portal/${newToken}`
-                  : `/portal/${newToken}`}
+                {newPortalUrl ?? `/portal/${newToken}`}
               </code>
               <Button
                 variant="outline"
@@ -148,12 +146,12 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
               </Button>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Comparte este enlace con el cliente. Expira en 30 días.
+              Guardalo ahora: despues de cerrar este aviso, el valor del enlace ya no volvera a
+              mostrarse.
             </p>
           </div>
         )}
 
-        {/* Lista de tokens activos */}
         {activeTokens.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -166,9 +164,6 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                   <li key={t.id} className="flex items-center justify-between px-3 py-2.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <code className="truncate text-xs text-muted-foreground">
-                          ...{t.token.slice(-8)}
-                        </code>
                         <Badge
                           variant={isExpired ? 'destructive' : 'default'}
                           className="text-[10px]"
@@ -177,16 +172,18 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                         </Badge>
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span>Creado por {t.createdBy.name || t.createdBy.email || 'Usuario'}</span>
+                        <span>.</span>
                         <span>Creado {new Date(t.createdAt).toLocaleDateString('es-PE')}</span>
                         {t.expiresAt && (
                           <>
-                            <span>·</span>
+                            <span>.</span>
                             <span>Expira {new Date(t.expiresAt).toLocaleDateString('es-PE')}</span>
                           </>
                         )}
                         {t.lastAccessedAt && (
                           <>
-                            <span>·</span>
+                            <span>.</span>
                             <span>
                               Visto {new Date(t.lastAccessedAt).toLocaleDateString('es-PE')}
                             </span>
@@ -195,15 +192,6 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        onClick={() => handleCopy(t.token)}
-                        title="Copiar enlace"
-                      >
-                        <Copy className="size-3.5" />
-                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -222,7 +210,6 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
           </div>
         )}
 
-        {/* Tokens inactivos */}
         {inactiveTokens.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -233,16 +220,15 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                 <li key={t.id} className="flex items-center px-3 py-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <code className="truncate text-xs text-muted-foreground">
-                        ...{t.token.slice(-8)}
-                      </code>
                       <Badge variant="secondary" className="text-[10px]">
                         Revocado
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Creado {new Date(t.createdAt).toLocaleDateString('es-PE')}
-                    </p>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <span>Creado por {t.createdBy.name || t.createdBy.email || 'Usuario'}</span>
+                      <span>.</span>
+                      <span>Creado {new Date(t.createdAt).toLocaleDateString('es-PE')}</span>
+                    </div>
                   </div>
                 </li>
               ))}

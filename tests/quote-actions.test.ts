@@ -16,11 +16,21 @@ vi.mock('@/lib/auth-guard', () => ({
   assertTenantFeatureById: assertTenantFeatureByIdMock,
 }));
 
-const dbMock = vi.hoisted(() => ({
+const { getTenantMemberIdsMock, createNotificationsForEventMock } = vi.hoisted(() => ({
+  getTenantMemberIdsMock: vi.fn(),
+  createNotificationsForEventMock: vi.fn(),
+}));
+
+vi.mock('@/lib/notifications-actions', () => ({
+  getTenantMemberIds: getTenantMemberIdsMock,
+  createNotificationsForEvent: createNotificationsForEventMock,
+}));
+
+const txMock = vi.hoisted(() => ({
+  tenant: {
+    update: vi.fn(),
+  },
   quote: {
-    count: vi.fn(),
-    findFirst: vi.fn(),
-    findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
   },
@@ -28,17 +38,20 @@ const dbMock = vi.hoisted(() => ({
     deleteMany: vi.fn(),
     createMany: vi.fn(),
   },
-  lead: {
-    findFirst: vi.fn(),
-  },
   interaction: {
     create: vi.fn(),
   },
-  membership: {
+}));
+
+const dbMock = vi.hoisted(() => ({
+  quote: {
+    count: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn(),
+    update: vi.fn(),
   },
-  notification: {
-    createMany: vi.fn(),
+  lead: {
+    findFirst: vi.fn(),
   },
   $transaction: vi.fn(),
 }));
@@ -70,23 +83,20 @@ beforeEach(() => {
   vi.clearAllMocks();
   getTenantActionContextBySlugMock.mockResolvedValue(makeContext());
   assertTenantFeatureByIdMock.mockResolvedValue(undefined);
-  dbMock.quote.count.mockResolvedValue(0);
-  dbMock.quote.findFirst.mockResolvedValue(null);
-  dbMock.quote.create.mockResolvedValue({ id: 'quote-1' });
+  getTenantMemberIdsMock.mockResolvedValue([]);
+  createNotificationsForEventMock.mockResolvedValue(undefined);
   dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
-  dbMock.interaction.create.mockResolvedValue({ id: 'int-1' });
-  dbMock.membership.findMany.mockResolvedValue([]);
-  dbMock.notification.createMany.mockResolvedValue({ count: 0 });
-  dbMock.$transaction.mockImplementation(async (cb: (tx: unknown) => unknown) =>
-    cb({
-      quote: { update: vi.fn() },
-      quoteItem: { deleteMany: vi.fn(), createMany: vi.fn() },
-    } as unknown),
-  );
+  dbMock.$transaction.mockImplementation(async (cb: (tx: typeof txMock) => unknown) => cb(txMock));
+  txMock.tenant.update.mockResolvedValue({ quoteSequence: 1 });
+  txMock.quote.create.mockResolvedValue({ id: 'quote-1', quoteNumber: 'Q-2026-000001' });
+  txMock.interaction.create.mockResolvedValue({ id: 'int-1' });
+  txMock.quote.update.mockResolvedValue({});
+  txMock.quoteItem.deleteMany.mockResolvedValue({ count: 0 });
+  txMock.quoteItem.createMany.mockResolvedValue({ count: 1 });
 });
 
 describe('createQuoteAction', () => {
-  it('crea cotización válida y revalida rutas', async () => {
+  it('crea cotizacion valida usando quoteSequence transaccional y revalida rutas', async () => {
     const result = await createQuoteAction({
       tenantSlug: TENANT_SLUG,
       leadId: LEAD_ID,
@@ -96,7 +106,13 @@ describe('createQuoteAction', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(dbMock.quote.create).toHaveBeenCalledOnce();
+    expect(txMock.tenant.update).toHaveBeenCalledWith({
+      where: { id: TENANT_ID },
+      data: { quoteSequence: { increment: 1 } },
+      select: { quoteSequence: true },
+    });
+    expect(txMock.quote.create).toHaveBeenCalledOnce();
+    expect(txMock.interaction.create).toHaveBeenCalledOnce();
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/quotes`);
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
   });
@@ -131,13 +147,14 @@ describe('createQuoteAction', () => {
 });
 
 describe('changeQuoteStatusAction', () => {
-  it('permite transición BORRADOR -> ENVIADA', async () => {
+  it('permite transicion BORRADOR -> ENVIADA', async () => {
     dbMock.quote.findFirst.mockResolvedValue({
       id: 'q1',
       leadId: LEAD_ID,
       status: 'BORRADOR',
-      quoteNumber: 'COT-001',
+      quoteNumber: 'Q-2026-000001',
     });
+    dbMock.quote.update.mockResolvedValue({});
 
     await expect(
       changeQuoteStatusAction({ tenantSlug: TENANT_SLUG, quoteId: 'q1', status: 'ENVIADA' }),
@@ -146,12 +163,12 @@ describe('changeQuoteStatusAction', () => {
     expect(dbMock.quote.update).toHaveBeenCalledOnce();
   });
 
-  it('bloquea transición inválida BORRADOR -> ACEPTADA', async () => {
+  it('bloquea transicion invalida BORRADOR -> ACEPTADA', async () => {
     dbMock.quote.findFirst.mockResolvedValue({
       id: 'q1',
       leadId: LEAD_ID,
       status: 'BORRADOR',
-      quoteNumber: 'COT-001',
+      quoteNumber: 'Q-2026-000001',
     });
 
     await expect(
@@ -168,6 +185,7 @@ describe('deleteQuoteAction', () => {
       createdById: USER_ID,
       status: 'BORRADOR',
     });
+    dbMock.quote.update.mockResolvedValue({});
 
     await expect(
       deleteQuoteAction({ tenantSlug: TENANT_SLUG, quoteId: 'q1' }),
@@ -190,7 +208,7 @@ describe('deleteQuoteAction', () => {
 });
 
 describe('list actions', () => {
-  it('listLeadQuotesAction retorna mapeo numérico de decimales', async () => {
+  it('listLeadQuotesAction retorna mapeo numerico de decimales', async () => {
     dbMock.quote.findMany.mockResolvedValue([
       {
         id: 'q1',

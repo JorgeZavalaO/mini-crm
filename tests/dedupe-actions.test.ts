@@ -28,6 +28,21 @@ const dbMock = vi.hoisted(() => ({
   leadReassignmentRequest: {
     updateMany: vi.fn(),
   },
+  interaction: {
+    updateMany: vi.fn(),
+  },
+  document: {
+    updateMany: vi.fn(),
+  },
+  quote: {
+    updateMany: vi.fn(),
+  },
+  task: {
+    updateMany: vi.fn(),
+  },
+  portalToken: {
+    updateMany: vi.fn(),
+  },
   $transaction: vi.fn(),
 }));
 
@@ -143,6 +158,27 @@ describe('mergeDuplicateLeadsAction', () => {
 
     expect(result).toMatchObject({ success: true });
     expect(dbMock.$transaction).toHaveBeenCalled();
+    expect(dbMock.leadReassignmentRequest.updateMany).toHaveBeenCalled();
+    expect(dbMock.interaction.updateMany).toHaveBeenCalledWith({
+      where: { leadId: { in: ['lead-dup'] } },
+      data: { leadId: 'lead-primary' },
+    });
+    expect(dbMock.document.updateMany).toHaveBeenCalledWith({
+      where: { leadId: { in: ['lead-dup'] } },
+      data: { leadId: 'lead-primary' },
+    });
+    expect(dbMock.quote.updateMany).toHaveBeenCalledWith({
+      where: { leadId: { in: ['lead-dup'] } },
+      data: { leadId: 'lead-primary' },
+    });
+    expect(dbMock.task.updateMany).toHaveBeenCalledWith({
+      where: { leadId: { in: ['lead-dup'] } },
+      data: { leadId: 'lead-primary' },
+    });
+    expect(dbMock.portalToken.updateMany).toHaveBeenCalledWith({
+      where: { leadId: { in: ['lead-dup'] } },
+      data: { leadId: 'lead-primary' },
+    });
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/dedupe`);
   });
 });

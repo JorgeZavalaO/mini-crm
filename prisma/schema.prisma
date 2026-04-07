@@ -102,6 +102,7 @@ model Tenant {
   maxUsers                 Int?
   maxStorageGb             Int?
   retentionDays            Int?
+  quoteSequence            Int                       @default(0)
   deletedAt                DateTime?
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
@@ -455,7 +456,7 @@ model PortalToken {
   id             String    @id @default(cuid())
   tenantId       String
   leadId         String
-  token          String    @unique
+  tokenHash      String    @unique
   isActive       Boolean   @default(true)
   expiresAt      DateTime?
   lastAccessedAt DateTime?

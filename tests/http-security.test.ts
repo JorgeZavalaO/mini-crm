@@ -17,7 +17,18 @@ describe('http security headers', () => {
     );
   });
 
-  it('extrae la ip del cliente desde x-forwarded-for cuando existe', () => {
+  it('prioriza headers del proveedor sobre x-forwarded-for', () => {
+    const headers = new Headers({
+      'cf-connecting-ip': '198.51.100.1',
+      'x-real-ip': '198.51.100.2',
+      'x-vercel-forwarded-for': '198.51.100.3',
+      'x-forwarded-for': '203.0.113.10, 198.51.100.4',
+    });
+
+    expect(getClientIpFromHeaders(headers)).toBe('198.51.100.1');
+  });
+
+  it('extrae la ip del cliente desde x-forwarded-for cuando es el ultimo fallback', () => {
     const headers = new Headers({
       'x-forwarded-for': '203.0.113.10, 198.51.100.4',
     });

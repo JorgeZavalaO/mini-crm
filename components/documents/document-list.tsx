@@ -49,6 +49,10 @@ function getMimeLabel(mime: string): { label: string; icon: React.ReactNode } {
   return { label: 'Archivo', icon: <FileText className="size-4 text-muted-foreground" /> };
 }
 
+function buildDocumentDownloadHref(downloadUrl: string) {
+  return `${downloadUrl}?download=1`;
+}
+
 type Props = {
   docs: DocumentRow[];
   tenantSlug: string;
@@ -130,7 +134,7 @@ export function DocumentList({
                   <TableCell className="pr-0">{icon}</TableCell>
                   <TableCell className="max-w-45">
                     <a
-                      href={doc.blobUrl}
+                      href={doc.downloadUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block truncate text-sm font-medium hover:underline"
@@ -183,7 +187,7 @@ export function DocumentList({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
                           <a
-                            href={doc.blobUrl}
+                            href={buildDocumentDownloadHref(doc.downloadUrl)}
                             target="_blank"
                             rel="noopener noreferrer"
                             download

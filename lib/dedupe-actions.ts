@@ -117,6 +117,31 @@ export async function mergeDuplicateLeadsAction(input: unknown) {
       data: { leadId: primary.id },
     });
 
+    await tx.interaction.updateMany({
+      where: { leadId: { in: duplicateLeadIds } },
+      data: { leadId: primary.id },
+    });
+
+    await tx.document.updateMany({
+      where: { leadId: { in: duplicateLeadIds } },
+      data: { leadId: primary.id },
+    });
+
+    await tx.quote.updateMany({
+      where: { leadId: { in: duplicateLeadIds } },
+      data: { leadId: primary.id },
+    });
+
+    await tx.task.updateMany({
+      where: { leadId: { in: duplicateLeadIds } },
+      data: { leadId: primary.id },
+    });
+
+    await tx.portalToken.updateMany({
+      where: { leadId: { in: duplicateLeadIds } },
+      data: { leadId: primary.id },
+    });
+
     await tx.lead.updateMany({
       where: { id: { in: duplicateLeadIds } },
       data: {

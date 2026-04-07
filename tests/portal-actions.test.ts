@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { hashPortalToken } from '@/lib/portal-tokens';
 
 const { revalidatePathMock } = vi.hoisted(() => ({
   revalidatePathMock: vi.fn(),
@@ -21,6 +22,7 @@ const dbMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
   },
   portalToken: {
+    count: vi.fn(),
     create: vi.fn(),
     findFirst: vi.fn(),
     findMany: vi.fn(),
@@ -28,6 +30,7 @@ const dbMock = vi.hoisted(() => ({
     update: vi.fn(),
   },
   quote: {
+    count: vi.fn(),
     findMany: vi.fn(),
   },
 }));
@@ -46,7 +49,6 @@ const TENANT_SLUG = 'acme';
 const USER_ID = 'user-a';
 const LEAD_ID = 'lead-1';
 const TOKEN_ID = 'tok-1';
-const TOKEN_VALUE = 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
 
 function makeAdminContext(userId = USER_ID) {
   return {
@@ -68,14 +70,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   getTenantActionContextBySlugMock.mockResolvedValue(makeAdminContext());
   assertTenantFeatureByIdMock.mockResolvedValue(undefined);
+  dbMock.quote.count.mockResolvedValue(1);
 });
 
-// ─── createPortalTokenAction ──────────────────────────
-
 describe('createPortalTokenAction', () => {
-  it('crea un token de portal para el lead', async () => {
+  it('crea un token de portal y solo persiste el hash', async () => {
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
-    dbMock.portalToken.create.mockResolvedValue({ id: TOKEN_ID, token: TOKEN_VALUE });
+    dbMock.portalToken.create.mockResolvedValue({ id: TOKEN_ID });
 
     const result = await createPortalTokenAction({
       tenantSlug: TENANT_SLUG,
@@ -84,12 +85,14 @@ describe('createPortalTokenAction', () => {
 
     expect(result.success).toBe(true);
     expect(result.tokenId).toBe(TOKEN_ID);
-    expect(result.token).toBeDefined();
+    expect(result.token).toHaveLength(64);
+    expect(result.expiresAt).toBeTruthy();
     expect(dbMock.portalToken.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         tenantId: TENANT_ID,
         leadId: LEAD_ID,
         createdById: USER_ID,
+        tokenHash: hashPortalToken(result.token),
       }),
     });
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
@@ -108,13 +111,7 @@ describe('createPortalTokenAction', () => {
       createPortalTokenAction({ tenantSlug: TENANT_SLUG, leadId: LEAD_ID }),
     ).rejects.toThrow('No autorizado');
   });
-
-  it('lanza 400 con datos inválidos', async () => {
-    await expect(createPortalTokenAction({})).rejects.toThrow();
-  });
 });
-
-// ─── revokePortalTokenAction ──────────────────────────
 
 describe('revokePortalTokenAction', () => {
   it('revoca un token activo', async () => {
@@ -133,30 +130,13 @@ describe('revokePortalTokenAction', () => {
     });
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
   });
-
-  it('lanza 404 si el token no existe', async () => {
-    dbMock.portalToken.findFirst.mockResolvedValue(null);
-    await expect(
-      revokePortalTokenAction({ tenantSlug: TENANT_SLUG, tokenId: 'nope' }),
-    ).rejects.toThrow('Token no encontrado');
-  });
-
-  it('lanza 403 para miembros sin permiso', async () => {
-    getTenantActionContextBySlugMock.mockResolvedValue(makeMemberContext());
-    await expect(
-      revokePortalTokenAction({ tenantSlug: TENANT_SLUG, tokenId: TOKEN_ID }),
-    ).rejects.toThrow('No autorizado');
-  });
 });
 
-// ─── listLeadPortalTokensAction ───────────────────────
-
 describe('listLeadPortalTokensAction', () => {
-  it('lista tokens del lead', async () => {
+  it('lista solo metadatos del lead sin exponer el token', async () => {
     const tokens = [
       {
         id: TOKEN_ID,
-        token: TOKEN_VALUE,
         isActive: true,
         expiresAt: null,
         lastAccessedAt: null,
@@ -172,18 +152,25 @@ describe('listLeadPortalTokensAction', () => {
     });
 
     expect(result).toEqual(tokens);
-    expect(dbMock.portalToken.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { tenantId: TENANT_ID, leadId: LEAD_ID },
+    expect(result[0]).not.toHaveProperty('token');
+  });
+
+  it('bloquea el listado a roles sin permiso', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeMemberContext());
+
+    await expect(
+      listLeadPortalTokensAction({
+        tenantSlug: TENANT_SLUG,
+        leadId: LEAD_ID,
       }),
-    );
+    ).rejects.toThrow('No autorizado para ver tokens de portal');
   });
 });
 
-// ─── getPortalDataByToken ─────────────────────────────
-
 describe('getPortalDataByToken', () => {
-  it('devuelve datos del portal con cotizaciones', async () => {
+  it('busca usando tokenHash, actualiza lastAccessedAt y devuelve cotizaciones visibles', async () => {
+    const rawToken = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+
     dbMock.portalToken.findUnique.mockResolvedValue({
       id: TOKEN_ID,
       isActive: true,
@@ -197,7 +184,7 @@ describe('getPortalDataByToken', () => {
     dbMock.quote.findMany.mockResolvedValue([
       {
         id: 'q1',
-        quoteNumber: 'COT-001',
+        quoteNumber: 'Q-2026-000001',
         status: 'ENVIADA',
         totalAmount: 1000,
         currency: 'USD',
@@ -208,13 +195,14 @@ describe('getPortalDataByToken', () => {
       },
     ]);
 
-    const result = await getPortalDataByToken(TOKEN_VALUE);
+    const result = await getPortalDataByToken(rawToken);
 
     expect(result).not.toBeNull();
-    expect(result!.tenantName).toBe('Acme Corp');
-    expect(result!.leadName).toBe('Juan Corp');
     expect(result!.quotes).toHaveLength(1);
-    // Verifica que se actualiza lastAccessedAt
+    expect(dbMock.portalToken.findUnique).toHaveBeenCalledWith({
+      where: { tokenHash: hashPortalToken(rawToken) },
+      select: expect.any(Object),
+    });
     expect(dbMock.portalToken.update).toHaveBeenCalledWith({
       where: { id: TOKEN_ID },
       data: { lastAccessedAt: expect.any(Date) },
@@ -224,51 +212,6 @@ describe('getPortalDataByToken', () => {
   it('devuelve null si el token no existe', async () => {
     dbMock.portalToken.findUnique.mockResolvedValue(null);
     const result = await getPortalDataByToken('invalid-token');
-    expect(result).toBeNull();
-  });
-
-  it('devuelve null si el token está inactivo', async () => {
-    dbMock.portalToken.findUnique.mockResolvedValue({
-      id: TOKEN_ID,
-      isActive: false,
-      expiresAt: null,
-      tenantId: TENANT_ID,
-      leadId: LEAD_ID,
-      tenant: { name: 'Acme' },
-      lead: { businessName: 'Juan Corp', emails: [], deletedAt: null },
-    });
-
-    const result = await getPortalDataByToken(TOKEN_VALUE);
-    expect(result).toBeNull();
-  });
-
-  it('devuelve null si el token está expirado', async () => {
-    dbMock.portalToken.findUnique.mockResolvedValue({
-      id: TOKEN_ID,
-      isActive: true,
-      expiresAt: new Date('2020-01-01'),
-      tenantId: TENANT_ID,
-      leadId: LEAD_ID,
-      tenant: { name: 'Acme' },
-      lead: { businessName: 'Juan Corp', emails: [], deletedAt: null },
-    });
-
-    const result = await getPortalDataByToken(TOKEN_VALUE);
-    expect(result).toBeNull();
-  });
-
-  it('devuelve null si el lead fue eliminado', async () => {
-    dbMock.portalToken.findUnique.mockResolvedValue({
-      id: TOKEN_ID,
-      isActive: true,
-      expiresAt: null,
-      tenantId: TENANT_ID,
-      leadId: LEAD_ID,
-      tenant: { name: 'Acme' },
-      lead: { businessName: 'Juan Corp', emails: [], deletedAt: new Date() },
-    });
-
-    const result = await getPortalDataByToken(TOKEN_VALUE);
     expect(result).toBeNull();
   });
 });

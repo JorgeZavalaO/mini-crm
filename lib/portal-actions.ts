@@ -1,18 +1,27 @@
 'use server';
 
-import { randomBytes } from 'crypto';
 import type { QuoteStatus } from '@prisma/client';
+import { revalidatePath } from 'next/cache';
+import { assertTenantFeatureById, getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
-import { getTenantActionContextBySlug, assertTenantFeatureById } from '@/lib/auth-guard';
 import { AppError } from '@/lib/errors';
+import {
+  canCreatePortalToken,
+  canRevokePortalToken,
+  canViewPortalTokens,
+} from '@/lib/lead-permissions';
 import { getPaginationState } from '@/lib/pagination';
-import { canCreatePortalToken, canRevokePortalToken } from '@/lib/lead-permissions';
+import {
+  createPortalToken,
+  getPortalTokenExpiresAt,
+  hashPortalToken,
+  isPortalTokenActive,
+} from '@/lib/portal-tokens';
 import {
   createPortalTokenSchema,
   portalTokenFiltersSchema,
   revokePortalTokenSchema,
 } from '@/lib/validators';
-import { revalidatePath } from 'next/cache';
 
 const PORTAL_VISIBLE_QUOTE_STATUSES: QuoteStatus[] = ['ENVIADA', 'ACEPTADA', 'RECHAZADA'];
 
@@ -25,7 +34,15 @@ function toPermissionContext(ctx: Awaited<ReturnType<typeof getTenantActionConte
   };
 }
 
-// ─── Crear token de portal para un lead ─────────────────
+function assertPortalTokenReadAccess(
+  ctx: Awaited<ReturnType<typeof getTenantActionContextBySlug>>,
+) {
+  const perm = toPermissionContext(ctx);
+
+  if (!canViewPortalTokens(perm)) {
+    throw new AppError('No autorizado para ver tokens de portal', 403);
+  }
+}
 
 export async function createPortalTokenAction(input: unknown) {
   const parsed = createPortalTokenSchema.safeParse(input);
@@ -42,7 +59,6 @@ export async function createPortalTokenAction(input: unknown) {
     throw new AppError('No autorizado para crear tokens de portal', 403);
   }
 
-  // Verificar que el lead existe
   const lead = await db.lead.findFirst({
     where: { id: leadId, tenantId: ctx.tenant.id, deletedAt: null },
     select: { id: true },
@@ -51,23 +67,27 @@ export async function createPortalTokenAction(input: unknown) {
     throw new AppError('Lead no encontrado', 404);
   }
 
-  const token = randomBytes(32).toString('hex');
+  const { rawToken, tokenHash } = createPortalToken();
+  const expiresAt = getPortalTokenExpiresAt();
 
   const portalToken = await db.portalToken.create({
     data: {
       tenantId: ctx.tenant.id,
       leadId,
-      token,
+      tokenHash,
       createdById: ctx.session.user.id,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+      expiresAt,
     },
   });
 
   revalidatePath(`/${tenantSlug}/leads/${leadId}`);
-  return { success: true, tokenId: portalToken.id, token };
+  return {
+    success: true,
+    tokenId: portalToken.id,
+    token: rawToken,
+    expiresAt: expiresAt.toISOString(),
+  };
 }
-
-// ─── Revocar token de portal ────────────────────────────
 
 export async function revokePortalTokenAction(input: unknown) {
   const parsed = revokePortalTokenSchema.safeParse(input);
@@ -101,18 +121,16 @@ export async function revokePortalTokenAction(input: unknown) {
   return { success: true };
 }
 
-// ─── Listar tokens de un lead ───────────────────────────
-
 export async function listLeadPortalTokensAction(input: { tenantSlug: string; leadId: string }) {
   const ctx = await getTenantActionContextBySlug(input.tenantSlug);
   await assertTenantFeatureById(ctx.tenant.id, 'CLIENT_PORTAL');
+  assertPortalTokenReadAccess(ctx);
 
-  const tokens = await db.portalToken.findMany({
+  return db.portalToken.findMany({
     where: { tenantId: ctx.tenant.id, leadId: input.leadId },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
-      token: true,
       isActive: true,
       expiresAt: true,
       lastAccessedAt: true,
@@ -120,8 +138,6 @@ export async function listLeadPortalTokensAction(input: { tenantSlug: string; le
       createdBy: { select: { name: true, email: true } },
     },
   });
-
-  return tokens;
 }
 
 export async function listLeadPortalTokensPageAction(input: unknown): Promise<{
@@ -136,6 +152,7 @@ export async function listLeadPortalTokensPageAction(input: unknown): Promise<{
   const { tenantSlug, leadId, page, pageSize } = parsed.data;
   const ctx = await getTenantActionContextBySlug(tenantSlug);
   await assertTenantFeatureById(ctx.tenant.id, 'CLIENT_PORTAL');
+  assertPortalTokenReadAccess(ctx);
 
   const where = { tenantId: ctx.tenant.id, leadId };
   const total = await db.portalToken.count({ where });
@@ -148,7 +165,6 @@ export async function listLeadPortalTokensPageAction(input: unknown): Promise<{
     take: pageSize,
     select: {
       id: true,
-      token: true,
       isActive: true,
       expiresAt: true,
       lastAccessedAt: true,
@@ -159,8 +175,6 @@ export async function listLeadPortalTokensPageAction(input: unknown): Promise<{
 
   return { tokens, total };
 }
-
-// ─── Obtener datos públicos del portal por token ────────
 
 export type PortalData = {
   tenantName: string;
@@ -186,7 +200,7 @@ export type PortalData = {
 
 export async function getPortalDataByToken(token: string): Promise<PortalData | null> {
   const portalToken = await db.portalToken.findUnique({
-    where: { token },
+    where: { tokenHash: hashPortalToken(token) },
     select: {
       id: true,
       isActive: true,
@@ -205,11 +219,9 @@ export async function getPortalDataByToken(token: string): Promise<PortalData | 
   });
 
   if (!portalToken) return null;
-  if (!portalToken.isActive) return null;
-  if (portalToken.expiresAt && portalToken.expiresAt < new Date()) return null;
+  if (!isPortalTokenActive(portalToken)) return null;
   if (portalToken.lead.deletedAt) return null;
 
-  // Actualizar last accessed
   await db.portalToken.update({
     where: { id: portalToken.id },
     data: { lastAccessedAt: new Date() },
@@ -247,10 +259,10 @@ export async function getPortalDataByToken(token: string): Promise<PortalData | 
     tenantName: portalToken.tenant.name,
     leadName: portalToken.lead.businessName,
     leadEmail: portalToken.lead.emails[0] ?? null,
-    quotes: quotes.map((q) => ({
-      ...q,
-      totalAmount: Number(q.totalAmount),
-      items: q.items.map((item) => ({
+    quotes: quotes.map((quote) => ({
+      ...quote,
+      totalAmount: Number(quote.totalAmount),
+      items: quote.items.map((item) => ({
         ...item,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
@@ -266,7 +278,7 @@ export async function getPortalQuotesPageByToken(
   pageSize = 6,
 ): Promise<(PortalData & { total: number }) | null> {
   const portalToken = await db.portalToken.findUnique({
-    where: { token },
+    where: { tokenHash: hashPortalToken(token) },
     select: {
       id: true,
       isActive: true,
@@ -285,8 +297,7 @@ export async function getPortalQuotesPageByToken(
   });
 
   if (!portalToken) return null;
-  if (!portalToken.isActive) return null;
-  if (portalToken.expiresAt && portalToken.expiresAt < new Date()) return null;
+  if (!isPortalTokenActive(portalToken)) return null;
   if (portalToken.lead.deletedAt) return null;
 
   await db.portalToken.update({
@@ -334,10 +345,10 @@ export async function getPortalQuotesPageByToken(
     leadName: portalToken.lead.businessName,
     leadEmail: portalToken.lead.emails[0] ?? null,
     total,
-    quotes: quotes.map((q) => ({
-      ...q,
-      totalAmount: Number(q.totalAmount),
-      items: q.items.map((item) => ({
+    quotes: quotes.map((quote) => ({
+      ...quote,
+      totalAmount: Number(quote.totalAmount),
+      items: quote.items.map((item) => ({
         ...item,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),

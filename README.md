@@ -12,16 +12,16 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - CRUD de leads con filtros, asignación y reasignación.
 - Importación masiva de leads por archivo Excel (`.xlsx/.xls`) o CSV, con análisis previo y confirmación en 2 pasos.
 - Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
-- Módulo de documentos operativo: carga, listado y eliminación con almacenamiento en Vercel Blob.
+- Módulo de documentos operativo: carga, listado y eliminación con almacenamiento privado en Vercel Blob y descarga autenticada vía `GET /api/documents/[id]`.
 - Módulo de cotizaciones operativo: CRUD de cotizaciones con ítems, cálculo de subtotal/impuesto/total, estados (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y soporte de moneda (`PEN`/`USD`).
 - Campanita de notificaciones en el dashboard de tenant: leads sin asignar, leads nuevos, leads ganados, cotizaciones generadas, aceptadas y rechazadas de los últimos 7 días.
 - **Notificaciones persistentes**: modelo `Notification` en DB con tipos (`UNASSIGNED_LEAD`, `LEAD_NEW`, `LEAD_WON`, `QUOTE_CREATED`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `PENDING_REASSIGNMENT`). Badge de no leídas, marcar leída individual/masiva, eliminación, página completa con tabs (Todas/No leídas/Leídas). Hooks automáticos al crear leads y cambiar estado de cotizaciones.
 - Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle.
-- **Módulo de Tareas** operativo: CRUD de tareas con prioridades (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), estados (`PENDING`, `IN_PROGRESS`, `DONE`, `CANCELLED`), asignación a miembros del equipo, fecha límite con indicador de vencimiento y soft-delete.
+- **Módulo de Tareas** operativo: CRUD de tareas con prioridades (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), estados (`PENDING`, `IN_PROGRESS`, `DONE`, `CANCELLED`), asignación validada contra memberships activas, restricción de asignación a terceros para `SUPERVISOR+`, fecha límite con indicador de vencimiento y soft-delete.
 - **Catálogo de productos** operativo: CRUD de productos con nombre, descripción, precio unitario (`Decimal 12,4`), moneda (`PEN`/`USD`) y estado activo/inactivo. Solo `ADMIN`/`SUPERVISOR` pueden gestionar el catálogo.
 - **Edición de cotizaciones**: formulario de edición completo con selector de productos del catálogo, prelleno de datos y actualización en servidor.
 - **Envío de cotización por email**: integración con **Resend** para enviar cotizaciones al cliente vía email transaccional con tabla HTML responsiva; transición automática de `BORRADOR` a `ENVIADA`.
-- **Client Portal MVP**: portal público para que clientes consulten sus cotizaciones sin autenticación. Token criptográfico de 32 bytes con expiración a 30 días, generación y revocación desde la pestaña Portal del lead detail (SUPERVISOR+), layout minimalista con listado y detalle de cotizaciones (solo ENVIADA/ACEPTADA/RECHAZADA).
+- **Client Portal MVP**: portal público para que clientes consulten sus cotizaciones sin autenticación. Los tokens se almacenan hasheados, el valor bruto solo se muestra una vez al crearlo, la pestaña Portal solo está disponible para `SUPERVISOR+` y el layout sigue ofreciendo listado/detalle de cotizaciones visibles (solo ENVIADA/ACEPTADA/RECHAZADA).
 - **Paginación transversal con `shadcn/ui`**: listados principales del tenant, secciones embebidas del detalle de lead, portal público y vistas `SuperAdmin` usan paginación server-side orientada por URL, con métricas globales desacopladas del slice visible.
 - **Fronteras Server/Client endurecidas**: la navegación paginada y tabs interactivas (`notifications`, `tasks`, detalle de lead y memberships en `SuperAdmin`) usan props serializables entre Server Components y Client Components para evitar errores de runtime de Next.js.
 - **Acceso a deduplicación restringido por rol**: `Duplicados` solo es visible para `SUPERVISOR`/`ADMIN` del tenant o `SuperAdmin`; perfiles operativos sin privilegios ya no lo ven en el sidebar ni pueden abrir `/{tenantSlug}/leads/dedupe` por URL directa.
@@ -93,8 +93,8 @@ Variables mínimas:
 
 Variables recomendadas:
 
-- `AUTH_TRUST_HOST` (si despliegas detrás de reverse proxy fuera de Vercel o quieres dejarlo explícito en producción)
-- `BLOB_READ_WRITE_TOKEN` (requerido para el módulo `DOCUMENTS` en producción)
+- `AUTH_TRUST_HOST` (en `development/test` cae en `true`; en `production` cae en `false` salvo override explícito)
+- `BLOB_READ_WRITE_TOKEN` (requerido para el módulo `DOCUMENTS`; los blobs ahora se suben como privados y se sirven por route autenticada)
 - `QUOTING_BASIC` habilitado en plan `SCALE` (activar desde panel SuperAdmin para exponer cotizaciones en el tenant)
 - `RESEND_API_KEY` (requerido para envío de cotizaciones por email)
 - `LOG_LEVEL`
@@ -142,7 +142,9 @@ Usuarios de prueba creados por el seed:
 
 Para ingresar como `SuperAdmin`, el login ya no requiere `slug`; basta con el email y la contrasena. Para cuentas tenant, el `slug` del tenant sigue siendo obligatorio.
 
-En despliegues productivos detrás de proxy/reverse proxy, asegúrate de que `AUTH_SECRET` esté configurado correctamente y considera fijar `AUTH_TRUST_HOST=true` en el entorno si tu plataforma no lo infiere automáticamente.
+En despliegues productivos detrás de proxy/reverse proxy, asegúrate de que `AUTH_SECRET` esté configurado correctamente. `AUTH_TRUST_HOST` ahora cae en `false` en producción salvo override explícito, así que debes activarlo solo si tu plataforma realmente entrega un host confiable.
+
+Si aplicas la migración de hardening del portal, los enlaces de cliente emitidos antes de ese cambio quedan invalidados y deben regenerarse. Si ya tenías documentos públicos en Blob, ejecuta `pnpm documents:migrate-private-blob` una vez para re-subirlos al store privado manteniendo el `blobPathname`.
 
 La protección de rutas en `proxy.ts` usa el wrapper `auth(...)` de Auth.js para leer la misma sesión que exponen `/api/auth/session` y los server components; esto evita discrepancias de lectura del token entre el borde y el runtime principal.
 
@@ -154,18 +156,19 @@ pnpm dev
 
 ## Scripts principales
 
-| Script                 | Descripción                        |
-| ---------------------- | ---------------------------------- |
-| `pnpm dev`             | Levanta el entorno de desarrollo   |
-| `pnpm build`           | Compila la aplicación              |
-| `pnpm lint`            | Ejecuta ESLint                     |
-| `pnpm test`            | Corre pruebas unitarias con Vitest |
-| `pnpm test:watch`      | Modo watch de Vitest               |
-| `pnpm prisma:generate` | Genera Prisma Client               |
-| `pnpm prisma:migrate`  | Ejecuta migraciones de desarrollo  |
-| `pnpm prisma:validate` | Valida schema/config de Prisma     |
-| `pnpm prisma:seed`     | Carga datos semilla                |
-| `pnpm prisma:studio`   | Abre Prisma Studio                 |
+| Script                                | Descripción                                 |
+| ------------------------------------- | ------------------------------------------- |
+| `pnpm dev`                            | Levanta el entorno de desarrollo            |
+| `pnpm build`                          | Compila la aplicación                       |
+| `pnpm lint`                           | Ejecuta ESLint                              |
+| `pnpm test`                           | Corre pruebas unitarias con Vitest          |
+| `pnpm test:watch`                     | Modo watch de Vitest                        |
+| `pnpm prisma:generate`                | Genera Prisma Client                        |
+| `pnpm prisma:migrate`                 | Ejecuta migraciones de desarrollo           |
+| `pnpm prisma:validate`                | Valida schema/config de Prisma              |
+| `pnpm prisma:seed`                    | Carga datos semilla                         |
+| `pnpm documents:migrate-private-blob` | Migra documentos existentes al Blob privado |
+| `pnpm prisma:studio`                  | Abre Prisma Studio                          |
 
 ## Estructura funcional actual
 
@@ -284,7 +287,7 @@ pnpm dev
 - Se añadió descarga de plantilla Excel con cabeceras oficiales y filas de ejemplo para carga masiva.
 - La importación ahora exige `ruc` como campo obligatorio y lo usa como clave principal de deduplicación.
 - `businessName` pasa a opcional durante importación (si falta, se usa el valor de `ruc` como fallback).
-- Nuevo módulo `documents` completo: subida (máx. 5 MB), listado, descarga y eliminación con control de permisos.
+- Nuevo módulo `documents` completo: subida (máx. 5 MB), listado, descarga autenticada vía route interna y eliminación con control de permisos.
 - Se habilitó pestaña `Documentos` en el detalle de lead y repositorio general en `/{tenantSlug}/documents`.
 
 ### Sprint 7 (cierre)
@@ -331,6 +334,7 @@ pnpm dev
 ### Sprint 8 (cierre)
 
 - Módulo de tareas completo: CRUD con prioridades (`LOW`/`MEDIUM`/`HIGH`/`URGENT`), estados (`PENDING`/`IN_PROGRESS`/`DONE`/`CANCELLED`), asignación a miembros y soft-delete.
+- La asignación o reasignación de tareas a terceros quedó endurecida en servidor: solo `SUPERVISOR+` puede mover ownership entre miembros y toda asignación valida membership activa dentro del tenant.
 - `changeTaskStatusAction` asigna `completedAt` automáticamente al marcar como `DONE` y lo limpia en otros estados.
 - Pestaña **Tareas** en detalle de lead con badge de tareas activas y creación en contexto.
 - Página `/{tenantSlug}/tasks` con 4 tarjetas de estadísticas y listado completo del tenant.

@@ -91,7 +91,15 @@ describe('uploadDocumentAction', () => {
     const fd = makeFormData();
     await uploadDocumentAction(fd);
 
-    expect(putMock).toHaveBeenCalledOnce();
+    expect(putMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(File),
+      expect.objectContaining({
+        access: 'private',
+        addRandomSuffix: false,
+        contentType: 'application/pdf',
+      }),
+    );
     expect(dbMock.document.create).toHaveBeenCalledOnce();
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/documents`);
   });
@@ -125,6 +133,15 @@ describe('uploadDocumentAction', () => {
     fd.append('file', new File(['data'], 'virus.exe', { type: 'application/octet-stream' }));
 
     await expect(uploadDocumentAction(fd)).rejects.toThrow('Tipo de archivo no permitido');
+    expect(putMock).not.toHaveBeenCalled();
+  });
+
+  it('lanza error si la extension no coincide con el MIME permitido', async () => {
+    const fd = new FormData();
+    fd.append('tenantSlug', TENANT_SLUG);
+    fd.append('file', new File(['data'], 'archivo.pdf', { type: 'image/png' }));
+
+    await expect(uploadDocumentAction(fd)).rejects.toThrow('archivo no coincide');
     expect(putMock).not.toHaveBeenCalled();
   });
 
@@ -251,7 +268,6 @@ describe('listLeadDocumentsAction', () => {
       {
         id: DOC_ID,
         name: 'contrato.pdf',
-        blobUrl: 'https://blob.test/contrato.pdf',
         mimeType: 'application/pdf',
         sizeBytes: 1024,
         createdAt: new Date('2026-01-01'),
@@ -264,6 +280,7 @@ describe('listLeadDocumentsAction', () => {
     const result = await listLeadDocumentsAction(LEAD_ID, TENANT_SLUG);
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('contrato.pdf');
+    expect(result[0].downloadUrl).toBe(`/api/documents/${DOC_ID}`);
     expect(result[0].leadName).toBeNull();
   });
 

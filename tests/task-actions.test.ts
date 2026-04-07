@@ -27,6 +27,9 @@ const dbMock = vi.hoisted(() => ({
   lead: {
     findFirst: vi.fn(),
   },
+  membership: {
+    findUnique: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/db', () => ({ db: dbMock }));
@@ -137,6 +140,7 @@ describe('createTaskAction', () => {
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
+    dbMock.membership.findUnique.mockResolvedValue({ userId: USER_ID, isActive: true });
     dbMock.task.create.mockResolvedValue(CREATED_TASK);
   });
 
@@ -209,6 +213,27 @@ describe('createTaskAction', () => {
     const result = await createTaskAction(VALID_CREATE_INPUT);
     expect(result).toEqual({ success: true, taskId: TASK_ID });
   });
+
+  it('bloquea a un vendedor cuando intenta asignar la tarea a otro usuario', async () => {
+    await expect(
+      createTaskAction({
+        ...VALID_CREATE_INPUT,
+        assignedToId: OTHER_USER_ID,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('rechaza asignar la tarea a un usuario sin membership activa', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    dbMock.membership.findUnique.mockResolvedValue({ userId: OTHER_USER_ID, isActive: false });
+
+    await expect(
+      createTaskAction({
+        ...VALID_CREATE_INPUT,
+        assignedToId: OTHER_USER_ID,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -227,6 +252,7 @@ describe('updateTaskAction', () => {
       assignedToId: null,
     });
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
+    dbMock.membership.findUnique.mockResolvedValue({ userId: USER_ID, isActive: true });
     dbMock.task.update.mockResolvedValue({
       ...CREATED_TASK,
       title: 'Hacer seguimiento actualizado',
@@ -267,6 +293,35 @@ describe('updateTaskAction', () => {
 
     const result = await updateTaskAction(VALID_UPDATE_INPUT);
     expect(result).toEqual({ success: true });
+  });
+
+  it('bloquea a un vendedor cuando intenta reasignar la tarea a otro usuario', async () => {
+    await expect(
+      updateTaskAction({
+        ...VALID_UPDATE_INPUT,
+        assignedToId: OTHER_USER_ID,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('lanza 404 cuando el nuevo lead no pertenece al tenant', async () => {
+    dbMock.lead.findFirst.mockResolvedValue(null);
+
+    await expect(updateTaskAction(VALID_UPDATE_INPUT)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('revalida el lead anterior y el nuevo cuando cambia la relación', async () => {
+    dbMock.task.findFirst.mockResolvedValue({
+      id: TASK_ID,
+      leadId: 'lead-previo',
+      createdById: USER_ID,
+      assignedToId: null,
+    });
+
+    await updateTaskAction(VALID_UPDATE_INPUT);
+
+    expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/lead-previo`);
+    expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
   });
 });
 

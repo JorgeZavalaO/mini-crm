@@ -27,6 +27,18 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/gif',
 ]);
 
+const ALLOWED_EXTENSIONS_BY_MIME: Record<string, string[]> = {
+  'application/pdf': ['.pdf'],
+  'application/msword': ['.doc'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/vnd.ms-excel': ['.xls'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/webp': ['.webp'],
+  'image/gif': ['.gif'],
+};
+
 type DocumentActorContext = {
   tenantId: string;
   tenantSlug: string;
@@ -66,6 +78,29 @@ function revalidateDocumentViews(tenantSlug: string, leadId?: string | null) {
   }
 }
 
+function getNormalizedFileExtension(filename: string) {
+  const extensionIndex = filename.lastIndexOf('.');
+  if (extensionIndex === -1) return null;
+
+  return filename.slice(extensionIndex).toLowerCase();
+}
+
+function assertAllowedDocumentExtension(filename: string, mimeType: string) {
+  const fileExtension = getNormalizedFileExtension(filename);
+  const allowedExtensions = ALLOWED_EXTENSIONS_BY_MIME[mimeType];
+
+  if (!fileExtension || !allowedExtensions?.includes(fileExtension)) {
+    throw new AppError(
+      'La extensión del archivo no coincide con el tipo permitido. Verifica el formato antes de subirlo.',
+      400,
+    );
+  }
+}
+
+function buildDocumentDownloadUrl(documentId: string) {
+  return `/api/documents/${documentId}`;
+}
+
 // ── Upload ────────────────────────────────────────────────────────────────────
 
 export async function uploadDocumentAction(formData: FormData) {
@@ -96,6 +131,7 @@ export async function uploadDocumentAction(formData: FormData) {
       400,
     );
   }
+  assertAllowedDocumentExtension(file.name, file.type);
 
   const ctx = await getDocumentContext(tenantSlug);
 
@@ -117,8 +153,9 @@ export async function uploadDocumentAction(formData: FormData) {
   const pathname = `${ctx.tenantId}/${leadId ?? 'general'}/${Date.now()}_${safeName}`;
 
   const blob = await put(pathname, file, {
-    access: 'public',
+    access: 'private',
     contentType: file.type,
+    addRandomSuffix: false,
   });
 
   await db.document.create({
@@ -179,7 +216,7 @@ export async function deleteDocumentAction(input: unknown) {
 export type DocumentRow = {
   id: string;
   name: string;
-  blobUrl: string;
+  downloadUrl: string;
   mimeType: string;
   sizeBytes: number;
   createdAt: Date;
@@ -201,7 +238,6 @@ export async function listLeadDocumentsAction(
     select: {
       id: true,
       name: true,
-      blobUrl: true,
       mimeType: true,
       sizeBytes: true,
       createdAt: true,
@@ -211,7 +247,11 @@ export async function listLeadDocumentsAction(
     },
   });
 
-  return docs.map((d) => ({ ...d, leadName: null }));
+  return docs.map((d) => ({
+    ...d,
+    downloadUrl: buildDocumentDownloadUrl(d.id),
+    leadName: null,
+  }));
 }
 
 export async function listLeadDocumentsPageAction(input: unknown): Promise<{
@@ -246,7 +286,6 @@ export async function listLeadDocumentsPageAction(input: unknown): Promise<{
     select: {
       id: true,
       name: true,
-      blobUrl: true,
       mimeType: true,
       sizeBytes: true,
       createdAt: true,
@@ -257,7 +296,11 @@ export async function listLeadDocumentsPageAction(input: unknown): Promise<{
   });
 
   return {
-    docs: docs.map((d) => ({ ...d, leadName: null })),
+    docs: docs.map((d) => ({
+      ...d,
+      downloadUrl: buildDocumentDownloadUrl(d.id),
+      leadName: null,
+    })),
     total,
   };
 }
@@ -284,7 +327,6 @@ export async function listTenantDocumentsAction(
     select: {
       id: true,
       name: true,
-      blobUrl: true,
       mimeType: true,
       sizeBytes: true,
       createdAt: true,
@@ -299,7 +341,7 @@ export async function listTenantDocumentsAction(
     docs: docs.map((d) => ({
       id: d.id,
       name: d.name,
-      blobUrl: d.blobUrl,
+      downloadUrl: buildDocumentDownloadUrl(d.id),
       mimeType: d.mimeType,
       sizeBytes: d.sizeBytes,
       createdAt: d.createdAt,

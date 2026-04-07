@@ -280,7 +280,12 @@ describe('updateInteractionAction', () => {
   it('el autor puede editar su propia interacción', async () => {
     const result = await updateInteractionAction(VALID_UPDATE_INPUT);
     expect(result).toEqual({ success: true });
-    expect(dbMock.interaction.update).toHaveBeenCalled();
+    expect(dbMock.interaction.update).toHaveBeenCalledWith({
+      where: { id: INTERACTION_ID },
+      data: expect.not.objectContaining({
+        leadId: expect.anything(),
+      }),
+    });
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
   });
 
@@ -294,6 +299,20 @@ describe('updateInteractionAction', () => {
 
     const result = await updateInteractionAction(VALID_UPDATE_INPUT);
     expect(result).toEqual({ success: true });
+  });
+
+  it('ignora leadId legado en el payload y mantiene la relación original', async () => {
+    await updateInteractionAction({
+      ...VALID_UPDATE_INPUT,
+      leadId: 'lead-ajeno',
+    });
+
+    expect(dbMock.interaction.update).toHaveBeenCalledWith({
+      where: { id: INTERACTION_ID },
+      data: expect.not.objectContaining({
+        leadId: 'lead-ajeno',
+      }),
+    });
   });
 });
 

@@ -5,6 +5,7 @@ export type AppEnv = {
   NODE_ENV: RuntimeMode;
   DATABASE_URL: string;
   AUTH_SECRET: string;
+  AUTH_TRUST_HOST: boolean;
   LOG_LEVEL: LogLevel;
   AUTH_RATE_LIMIT_WINDOW_MS: number;
   AUTH_RATE_LIMIT_MAX_ATTEMPTS: number;
@@ -30,6 +31,18 @@ function parseLogLevel(value: string | undefined, nodeEnv: RuntimeMode): LogLeve
   }
 
   return nodeEnv === 'development' ? 'debug' : 'info';
+}
+
+function parseBoolean(value: string | undefined, fallback: boolean, envName: string): boolean {
+  if (!value?.trim()) {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+
+  throw new Error(`${envName} debe ser true o false`);
 }
 
 function parsePositiveInteger(
@@ -68,6 +81,11 @@ export function getValidatedEnv(source: NodeJS.ProcessEnv = process.env): AppEnv
     DATABASE_URL: databaseUrl,
     AUTH_SECRET:
       rawAuthSecret && rawAuthSecret.length >= 32 ? rawAuthSecret : FALLBACK_DEV_AUTH_SECRET,
+    AUTH_TRUST_HOST: parseBoolean(
+      source.AUTH_TRUST_HOST,
+      nodeEnv !== 'production',
+      'AUTH_TRUST_HOST',
+    ),
     LOG_LEVEL: parseLogLevel(source.LOG_LEVEL, nodeEnv),
     BLOB_READ_WRITE_TOKEN: source.BLOB_READ_WRITE_TOKEN?.trim() || undefined,
     RESEND_API_KEY: source.RESEND_API_KEY?.trim() || undefined,

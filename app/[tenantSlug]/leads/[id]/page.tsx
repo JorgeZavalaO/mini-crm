@@ -27,6 +27,7 @@ import {
   canCreateInteraction,
   canEditLead,
   canResolveReassignment,
+  canViewPortalTokens,
 } from '@/lib/lead-permissions';
 import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import {
@@ -138,6 +139,8 @@ export default async function LeadDetailPage({
     isTenantFeatureEnabled(tenant.id, 'CLIENT_PORTAL'),
   ]);
 
+  const canViewLeadPortal = portalEnabled && canViewPortalTokens(actor);
+
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
     ? db.membership.findMany({
         where: { tenantId: tenant.id, isActive: true },
@@ -186,7 +189,7 @@ export default async function LeadDetailPage({
       }).catch(() => ({ tasks: [], total: 0 }))
     : Promise.resolve({ tasks: [], total: 0 });
 
-  const portalTokensPromise = portalEnabled
+  const portalTokensPromise = canViewLeadPortal
     ? listLeadPortalTokensPageAction({
         tenantSlug,
         leadId: id,
@@ -258,10 +261,10 @@ export default async function LeadDetailPage({
         resolvedBy: { select: { name: true, email: true } },
       },
     }),
-    portalEnabled
+    canViewLeadPortal
       ? db.portalToken.count({ where: { tenantId: tenant.id, leadId: id, isActive: true } })
       : Promise.resolve(0),
-    portalEnabled
+    canViewLeadPortal
       ? db.portalToken.count({ where: { tenantId: tenant.id, leadId: id, isActive: false } })
       : Promise.resolve(0),
   ]);
@@ -297,7 +300,7 @@ export default async function LeadDetailPage({
           : requestedTab === 'tareas'
             ? tasksEnabled
             : requestedTab === 'portal'
-              ? portalEnabled
+              ? canViewLeadPortal
               : true;
 
   const activeTab = requestedTab && requestedTabIsEnabled ? requestedTab : 'datos';
@@ -899,9 +902,9 @@ export default async function LeadDetailPage({
             label: 'Portal',
             href: tabHrefs.portal,
             icon: <Globe className="size-3.5" />,
-            disabled: !portalEnabled,
+            disabled: !canViewLeadPortal,
             badge: portalTokensTotal,
-            content: portalEnabled ? (
+            content: canViewLeadPortal ? (
               <div className="space-y-4">
                 <PortalTokensCard
                   tenantSlug={tenantSlug}
@@ -927,7 +930,7 @@ export default async function LeadDetailPage({
               </div>
             ),
           },
-        ]}
+        ].filter((item) => item.value !== 'portal' || canViewLeadPortal)}
       />
     </div>
   );

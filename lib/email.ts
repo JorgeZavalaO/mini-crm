@@ -22,6 +22,23 @@ function formatMoney(value: number, currency: 'PEN' | 'USD'): string {
   }).format(value);
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function escapeHtmlWithLineBreaks(value: string): string {
+  return escapeHtml(value).replaceAll(/\r?\n/g, '<br/>');
+}
+
+function sanitizeEmailSubject(value: string): string {
+  return value.replaceAll(/[\r\n]+/g, ' ').trim();
+}
+
 export type SendQuoteEmailOptions = {
   to: string;
   quoteNumber: string;
@@ -45,13 +62,16 @@ export type SendQuoteEmailOptions = {
 
 export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void> {
   const resend = getResend();
+  const clientName = escapeHtml(opts.clientName);
+  const senderName = escapeHtml(opts.senderName);
+  const notes = opts.notes ? escapeHtmlWithLineBreaks(opts.notes) : null;
 
   const itemsRows = opts.items
     .map(
       (item) =>
         `<tr>
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${item.lineNumber}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${item.description}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${escapeHtml(item.description)}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">${item.quantity}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">${formatMoney(item.unitPrice, opts.currency)}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;">${formatMoney(item.lineSubtotal, opts.currency)}</td>
@@ -75,7 +95,7 @@ export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void>
     <tr>
       <td style="padding:32px 32px 24px;border-bottom:2px solid #111827;">
         <h1 style="margin:0;font-size:22px;color:#111827;">Cotización ${opts.quoteNumber}</h1>
-        <p style="margin:6px 0 0;color:#6b7280;font-size:14px;">Para: <strong>${opts.clientName}</strong></p>
+        <p style="margin:6px 0 0;color:#6b7280;font-size:14px;">Para: <strong>${clientName}</strong></p>
       </td>
     </tr>
     <tr>
@@ -116,8 +136,8 @@ export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void>
             : ''
         }
         ${
-          opts.notes
-            ? `<p style="margin-top:12px;font-size:13px;color:#374151;background:#f9fafb;padding:12px;border-radius:6px;border-left:3px solid #d1d5db;">${opts.notes}</p>`
+          notes
+            ? `<p style="margin-top:12px;font-size:13px;color:#374151;background:#f9fafb;padding:12px;border-radius:6px;border-left:3px solid #d1d5db;">${notes}</p>`
             : ''
         }
       </td>
@@ -125,7 +145,7 @@ export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void>
     <tr>
       <td style="padding:20px 32px;border-top:1px solid #e5e7eb;">
         <p style="margin:0;font-size:13px;color:#9ca3af;">
-          Enviado por <strong>${opts.senderName}</strong> a través de Mini CRM.
+          Enviado por <strong>${senderName}</strong> a través de Mini CRM.
         </p>
       </td>
     </tr>
@@ -136,7 +156,7 @@ export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void>
   const result = await resend.emails.send({
     from: 'cotizaciones@resend.dev',
     to: opts.to,
-    subject: `Cotización ${opts.quoteNumber} — ${opts.clientName}`,
+    subject: sanitizeEmailSubject(`Cotización ${opts.quoteNumber} - ${opts.clientName}`),
     html,
   });
 

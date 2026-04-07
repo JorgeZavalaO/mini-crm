@@ -162,3 +162,7 @@ export function canCreatePortalToken(ctx: LeadPermissionContext): boolean {
 export function canRevokePortalToken(ctx: LeadPermissionContext): boolean {
   return canCreatePortalToken(ctx);
 }
+
+export function canViewPortalTokens(ctx: LeadPermissionContext): boolean {
+  return canCreatePortalToken(ctx);
+}

@@ -38,6 +38,8 @@ type QuoteItemInput = {
   unitPrice: number;
 };
 
+type QuoteTransactionClient = Prisma.TransactionClient;
+
 function toQuoteActorContext(
   ctx: Awaited<ReturnType<typeof getTenantActionContextBySlug>>,
 ): QuoteActorContext {
@@ -100,19 +102,22 @@ function buildQuoteTotals(items: QuoteItemInput[], taxRate: number) {
   };
 }
 
-async function generateQuoteNumber(tenantId: string): Promise<string> {
-  const prefix = `Q-${new Date().getFullYear()}`;
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const total = await db.quote.count({ where: { tenantId } });
-    const candidate = `${prefix}-${String(total + 1 + attempt).padStart(6, '0')}`;
-    const exists = await db.quote.findFirst({
-      where: { tenantId, quoteNumber: candidate },
-      select: { id: true },
-    });
-    if (!exists) return candidate;
-  }
+async function generateQuoteNumber(
+  tx: QuoteTransactionClient,
+  tenantId: string,
+  issuedAt = new Date(),
+): Promise<string> {
+  const tenant = await tx.tenant.update({
+    where: { id: tenantId },
+    data: {
+      quoteSequence: {
+        increment: 1,
+      },
+    },
+    select: { quoteSequence: true },
+  });
 
-  return `${prefix}-${Date.now()}`;
+  return `Q-${issuedAt.getFullYear()}-${String(tenant.quoteSequence).padStart(6, '0')}`;
 }
 
 function assertAllowedStatusTransition(current: QuoteStatus, next: QuoteStatus) {
@@ -150,48 +155,55 @@ export async function createQuoteAction(input: unknown) {
   }
 
   const { normalizedItems, subtotal, taxAmount, totalAmount } = buildQuoteTotals(items, taxRate);
-  const quoteNumber = await generateQuoteNumber(ctx.tenantId);
 
-  const quote = await db.quote.create({
-    data: {
-      tenantId: ctx.tenantId,
-      leadId,
-      quoteNumber,
-      currency,
-      taxRate: new Prisma.Decimal(taxRate),
-      subtotal: new Prisma.Decimal(subtotal),
-      taxAmount: new Prisma.Decimal(taxAmount),
-      totalAmount: new Prisma.Decimal(totalAmount),
-      validUntil,
-      notes: notes ?? null,
-      createdById: ctx.userId,
-      items: {
-        create: normalizedItems.map((item) => ({
-          lineNumber: item.lineNumber,
-          description: item.description,
-          quantity: new Prisma.Decimal(item.quantity),
-          unitPrice: new Prisma.Decimal(item.unitPrice),
-          lineSubtotal: new Prisma.Decimal(item.lineSubtotal),
-        })),
-      },
-    },
-    select: { id: true },
-  });
+  const quote = await db.$transaction(async (tx) => {
+    const quoteNumber = await generateQuoteNumber(tx, ctx.tenantId);
 
-  // Trazabilidad: interacción automática en el historial del lead
-  await db.interaction.create({
-    data: {
-      tenantId: ctx.tenantId,
-      leadId,
-      authorId: ctx.userId,
-      type: 'NOTE',
-      occurredAt: new Date(),
-      notes: `Cotización ${quoteNumber} creada · Total: ${new Intl.NumberFormat('es-PE', {
-        style: 'currency',
+    const createdQuote = await tx.quote.create({
+      data: {
+        tenantId: ctx.tenantId,
+        leadId,
+        quoteNumber,
         currency,
-        minimumFractionDigits: 2,
-      }).format(totalAmount)}.`,
-    },
+        taxRate: new Prisma.Decimal(taxRate),
+        subtotal: new Prisma.Decimal(subtotal),
+        taxAmount: new Prisma.Decimal(taxAmount),
+        totalAmount: new Prisma.Decimal(totalAmount),
+        validUntil,
+        notes: notes ?? null,
+        createdById: ctx.userId,
+        items: {
+          create: normalizedItems.map((item) => ({
+            lineNumber: item.lineNumber,
+            description: item.description,
+            quantity: new Prisma.Decimal(item.quantity),
+            unitPrice: new Prisma.Decimal(item.unitPrice),
+            lineSubtotal: new Prisma.Decimal(item.lineSubtotal),
+          })),
+        },
+      },
+      select: { id: true, quoteNumber: true },
+    });
+
+    await tx.interaction.create({
+      data: {
+        tenantId: ctx.tenantId,
+        leadId,
+        authorId: ctx.userId,
+        type: 'NOTE',
+        occurredAt: new Date(),
+        notes: `Cotización ${createdQuote.quoteNumber} creada · Total: ${new Intl.NumberFormat(
+          'es-PE',
+          {
+            style: 'currency',
+            currency,
+            minimumFractionDigits: 2,
+          },
+        ).format(totalAmount)}.`,
+      },
+    });
+
+    return createdQuote;
   });
 
   revalidateQuoteViews(tenantSlug, leadId);
@@ -203,7 +215,7 @@ export async function createQuoteAction(input: unknown) {
     tenantSlug,
     type: 'QUOTE_CREATED',
     title: 'Cotización generada',
-    description: `${quoteNumber} · Total: ${new Intl.NumberFormat('es-PE', { style: 'currency', currency, minimumFractionDigits: 2 }).format(totalAmount)}`,
+    description: `${quote.quoteNumber} · Total: ${new Intl.NumberFormat('es-PE', { style: 'currency', currency, minimumFractionDigits: 2 }).format(totalAmount)}`,
     href: `/${tenantSlug}/quotes/${quote.id}`,
     recipientUserIds: memberIds.filter((id) => id !== ctx.userId),
   });

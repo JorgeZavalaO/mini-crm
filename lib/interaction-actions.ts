@@ -173,7 +173,7 @@ export async function updateInteractionAction(input: unknown) {
   if (!parsed.success) {
     throw new AppError(parsed.error.issues[0]?.message ?? 'Datos de interacción inválidos', 400);
   }
-  const { tenantSlug, interactionId, leadId, type, subject, notes, occurredAt } = parsed.data;
+  const { tenantSlug, interactionId, type, subject, notes, occurredAt } = parsed.data;
 
   const ctx = await getInteractionContext(tenantSlug);
 
@@ -196,7 +196,6 @@ export async function updateInteractionAction(input: unknown) {
       subject: subject ?? null,
       notes,
       occurredAt,
-      leadId,
     },
   });
 

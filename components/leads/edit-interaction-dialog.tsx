@@ -79,7 +79,6 @@ export function EditInteractionDialog({ tenantSlug, interaction }: EditInteracti
         await updateInteractionAction({
           tenantSlug,
           interactionId: interaction.id,
-          leadId: interaction.leadId ?? undefined,
           type,
           subject: subject.trim() || undefined,
           notes,

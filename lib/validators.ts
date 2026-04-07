@@ -161,8 +161,13 @@ export const createInteractionSchema = z.object({
   targetStatus: z.nativeEnum(LeadStatus).optional(),
 });
 
-export const updateInteractionSchema = createInteractionSchema.extend({
+export const updateInteractionSchema = z.object({
+  tenantSlug: z.string().min(1),
   interactionId: z.string().min(1),
+  type: z.nativeEnum(InteractionType),
+  subject: optionalText(200),
+  notes: z.string().trim().min(1, 'Las notas son requeridas').max(5000),
+  occurredAt: z.coerce.date(),
 });
 
 export const deleteInteractionSchema = z.object({

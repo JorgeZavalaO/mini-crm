@@ -6,6 +6,7 @@ import {
   canImportLeads,
   canManageDuplicateLeads,
   canResolveReassignment,
+  canViewPortalTokens,
   canViewAllTasks,
 } from '@/lib/lead-permissions';
 
@@ -48,11 +49,13 @@ describe('lead permissions', () => {
   it('permite a supervisor+ asignar tareas a otros y ver todas las tareas', () => {
     expect(canAssignTaskToOthers(supervisor)).toBe(true);
     expect(canViewAllTasks(supervisor)).toBe(true);
+    expect(canViewPortalTokens(supervisor)).toBe(true);
   });
 
   it('no permite a roles < supervisor asignar tareas a otros ni ver todas', () => {
     expect(canAssignTaskToOthers(freelance)).toBe(false);
     expect(canViewAllTasks(freelance)).toBe(false);
+    expect(canViewPortalTokens(freelance)).toBe(false);
   });
 
   it('permite a superAdmin asignar tareas a otros y ver todas las tareas', () => {
@@ -64,5 +67,6 @@ describe('lead permissions', () => {
     };
     expect(canAssignTaskToOthers(superAdmin)).toBe(true);
     expect(canViewAllTasks(superAdmin)).toBe(true);
+    expect(canViewPortalTokens(superAdmin)).toBe(true);
   });
 });

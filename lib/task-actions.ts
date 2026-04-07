@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { getPaginationState } from '@/lib/pagination';
 import {
+  canAssignTaskToOthers,
   canCompleteTask,
   canCreateTask,
   canDeleteTask,
@@ -75,6 +76,51 @@ function revalidateTaskViews(tenantSlug: string, leadId?: string | null) {
   if (leadId) revalidatePath(`/${tenantSlug}/leads/${leadId}`);
 }
 
+async function assertTaskLeadBelongsToTenant(tenantId: string, leadId: string) {
+  const lead = await db.lead.findFirst({
+    where: { id: leadId, tenantId, deletedAt: null },
+    select: { id: true },
+  });
+
+  if (!lead) {
+    throw new AppError('Lead no encontrado', 404);
+  }
+}
+
+async function assertTaskAssigneeBelongsToTenant(tenantId: string, assignedToId: string) {
+  const membership = await db.membership.findUnique({
+    where: {
+      userId_tenantId: {
+        userId: assignedToId,
+        tenantId,
+      },
+    },
+    select: { userId: true, isActive: true },
+  });
+
+  if (!membership || !membership.isActive) {
+    throw new AppError('El usuario asignado no pertenece al tenant o está inactivo', 400);
+  }
+}
+
+function assertTaskAssignmentChangeAllowed(
+  ctx: TaskActorContext,
+  previousAssignedToId: string | null,
+  nextAssignedToId: string | null,
+) {
+  if (previousAssignedToId === nextAssignedToId) {
+    return;
+  }
+
+  const touchesAnotherMember = [previousAssignedToId, nextAssignedToId].some(
+    (value) => value != null && value !== ctx.userId,
+  );
+
+  if (touchesAnotherMember && !canAssignTaskToOthers(ctx)) {
+    throw new AppError('No autorizado para asignar tareas a otros usuarios', 403);
+  }
+}
+
 // ─── Actions ─────────────────────────────────────────────
 
 export async function createTaskAction(input: unknown) {
@@ -90,13 +136,14 @@ export async function createTaskAction(input: unknown) {
     throw new AppError('No autorizado para crear tareas', 403);
   }
 
-  // Verificar que el lead pertenece al tenant
   if (leadId) {
-    const lead = await db.lead.findFirst({
-      where: { id: leadId, tenantId: ctx.tenantId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!lead) throw new AppError('Lead no encontrado', 404);
+    await assertTaskLeadBelongsToTenant(ctx.tenantId, leadId);
+  }
+
+  assertTaskAssignmentChangeAllowed(ctx, null, assignedToId ?? null);
+
+  if (assignedToId) {
+    await assertTaskAssigneeBelongsToTenant(ctx.tenantId, assignedToId);
   }
 
   const task = await db.task.create({
@@ -139,6 +186,16 @@ export async function updateTaskAction(input: unknown) {
     throw new AppError('No autorizado para editar esta tarea', 403);
   }
 
+  if (leadId) {
+    await assertTaskLeadBelongsToTenant(ctx.tenantId, leadId);
+  }
+
+  assertTaskAssignmentChangeAllowed(ctx, existing.assignedToId, assignedToId ?? null);
+
+  if (assignedToId) {
+    await assertTaskAssigneeBelongsToTenant(ctx.tenantId, assignedToId);
+  }
+
   await db.task.update({
     where: { id: taskId },
     data: {
@@ -152,6 +209,9 @@ export async function updateTaskAction(input: unknown) {
   });
 
   revalidateTaskViews(tenantSlug, existing.leadId);
+  if (leadId && leadId !== existing.leadId) {
+    revalidateTaskViews(tenantSlug, leadId);
+  }
   return { success: true };
 }
 

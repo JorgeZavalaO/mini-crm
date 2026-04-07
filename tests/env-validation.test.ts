@@ -18,9 +18,38 @@ describe('env validation', () => {
 
     expect(result.AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
     expect(result.LOG_LEVEL).toBe('debug');
+    expect(result.AUTH_TRUST_HOST).toBe(true);
     expect(result.AUTH_RATE_LIMIT_WINDOW_MS).toBe(600000);
     expect(result.AUTH_RATE_LIMIT_MAX_ATTEMPTS).toBe(5);
     expect(result.AUTH_RATE_LIMIT_BLOCK_MS).toBe(900000);
+  });
+
+  it('desactiva AUTH_TRUST_HOST por defecto en producción y acepta override valido', () => {
+    const defaultProd = getValidatedEnv({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://demo',
+      AUTH_SECRET: '12345678901234567890123456789012',
+    } as NodeJS.ProcessEnv);
+
+    const overriddenProd = getValidatedEnv({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgresql://demo',
+      AUTH_SECRET: '12345678901234567890123456789012',
+      AUTH_TRUST_HOST: 'true',
+    } as NodeJS.ProcessEnv);
+
+    expect(defaultProd.AUTH_TRUST_HOST).toBe(false);
+    expect(overriddenProd.AUTH_TRUST_HOST).toBe(true);
+  });
+
+  it('rechaza AUTH_TRUST_HOST no booleano', () => {
+    expect(() =>
+      getValidatedEnv({
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgresql://demo',
+        AUTH_TRUST_HOST: 'maybe',
+      } as NodeJS.ProcessEnv),
+    ).toThrow('AUTH_TRUST_HOST debe ser true o false');
   });
 
   it('exige AUTH_SECRET robusto en producción', () => {
