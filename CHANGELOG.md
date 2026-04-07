@@ -2,6 +2,50 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.3.0 · 2026-04-07] Sprint 12 — Hardening de seguridad, modelo Lead enriquecido y visualizaciones
+
+### Added
+
+- **`components/leads/owner-history-timeline.tsx`**: nuevo componente que muestra el historial completo de cambios de propietario de un lead (quién lo reasignó, cuándo y a quién).
+- **`model LeadOwnerHistory`** en `prisma/schema.prisma`: registra `previousOwnerId`, `newOwnerId`, `changedById` y `reassignmentRequestId`; relaciones FK con `SET NULL` en borrado de usuario. Migración aplicada.
+- **Campos adicionales en el modelo `Lead`**: `gerente` (nombre del gerente/sponsor comercial), `contactName` (persona de contacto clave) y `contactPhone` (teléfono de contacto). Actualizados en `lead-form-dialog.tsx`, `lead-table.tsx` y el servidor. Migración aplicada.
+- **`components/dashboard/leads-trend-chart.tsx`**: gráfico de líneas con la tendencia mensual de leads captados, basado en `recharts`.
+- **`components/dashboard/pipeline-bar-chart.tsx`**: gráfico de barras con el conteo de leads por estado del pipeline, basado en `recharts`.
+- **`components/ui/chart.tsx`**: envoltorio reutilizable `ChartContainer`, `ChartTooltip` y `ChartLegend` de `shadcn/ui` para integración con `recharts`.
+- **`recharts`** añadido como dependencia de producción.
+- **`tests/quote-actions.test.ts`**: nueva suite de 20+ tests que cubre creación, edición, cambios de estado y eliminación de cotizaciones con aislamiento de tenant.
+- **`scripts/migrate-documents-to-private-blob.ts`**: script de migración one-off para mover documentos existentes a almacenamiento privado en Vercel Blob.
+- Nuevos tests en `tests/portal-actions.test.ts` (cobertura ampliada) y `tests/task-actions.test.ts` (validación de asignación a usuarios fuera del tenant).
+
+### Changed
+
+- **`app/[tenantSlug]/dashboard/page.tsx`**: dashboard rediseñado con gráficos de tendencia y pipeline integrados usando los nuevos componentes `recharts`.
+- **Aislamiento de tenant endurecido** en `lib/lead-actions.ts` y `lib/quote-actions.ts`: `tenantId` se incluye explícitamente en todas las operaciones de actualización, archivo y cambio de estado para evitar mutaciones cross-tenant.
+- **`lib/password.ts`**: hashing reforzado con validación de longitud mínima y comparaciones timing-safe para mitigar timing attacks.
+- **`lib/auth-rate-limit.ts`**: mejoras en la gestión de intentos fallidos y reset de contadores.
+- **`lib/http-security.ts`**: headers de seguridad adicionales en respuestas HTTP.
+- **`lib/email.ts`**: escape de HTML en cuerpo y sanitización del asunto del email para prevenir XSS en emails transaccionales.
+- **`app/api/documents/[id]/route.ts`**: headers de seguridad (`Content-Disposition`, `X-Content-Type-Options`) añadidos a la descarga de documentos.
+- **`lib/lead-permissions.ts`**: ajustes para permitir `createdById` nulo en modelos relacionados; nueva función de control de acceso para historial de propietarios.
+- **`prisma/schema.prisma`**: FK de `User` en múltiples modelos cambiadas a `onDelete: SetNull` para proteger integridad ante borrado de usuarios; nuevos índices de rendimiento.
+- **Internacionalización de la UI**: etiquetas de roles, estados y textos de interfaz traducidos/homogeneizados al español en 23+ archivos del lado cliente y servidor.
+- `app/[tenantSlug]/leads/[id]/page.tsx`: pestaña de historial de propietarios integrada con `OwnerHistoryTimeline`.
+- `lib/interaction-actions.ts`: schema de interacción actualizado (`tenantSlug`, `type`, `subject`, `notes`, `occurredAt`).
+- `lib/portal-tokens.ts`: gestión de tokens reforzada; valor bruto nunca persiste, solo el hash.
+
+### Fixed
+
+- Operaciones de edición y archivo de leads y cotizaciones ya no son ejecutables desde un tenant que no sea el propietario del recurso.
+- Corrección de comparaciones de contraseña inseguras por comparación de longitud y timing-safe en `password.ts`.
+- Email de cotización ya no es vulnerable a inyección de etiquetas HTML en el nombre del cliente.
+
+### Tests
+
+- Validación completa tras Sprint 12:
+  - `pnpm test` ✅ (**392 / 392** tests pasando, 36 suites)
+  - `pnpm lint` — pendiente de verificación post-merge
+  - `pnpm build` — pendiente de verificación post-merge
+
 ## [v1.2.2 · 2026-04-01] Post Sprint 11.1 — Hardening de navegación y límites Server/Client
 
 ### Changed

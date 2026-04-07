@@ -25,6 +25,17 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - **Paginación transversal con `shadcn/ui`**: listados principales del tenant, secciones embebidas del detalle de lead, portal público y vistas `SuperAdmin` usan paginación server-side orientada por URL, con métricas globales desacopladas del slice visible.
 - **Fronteras Server/Client endurecidas**: la navegación paginada y tabs interactivas (`notifications`, `tasks`, detalle de lead y memberships en `SuperAdmin`) usan props serializables entre Server Components y Client Components para evitar errores de runtime de Next.js.
 - **Acceso a deduplicación restringido por rol**: `Duplicados` solo es visible para `SUPERVISOR`/`ADMIN` del tenant o `SuperAdmin`; perfiles operativos sin privilegios ya no lo ven en el sidebar ni pueden abrir `/{tenantSlug}/leads/dedupe` por URL directa.
+- **Modelo Lead enriquecido**: nuevos campos `gerente` (sponsor comercial), `contactName` y `contactPhone` para registrar el árbol de contactos del lead desde el formulario de alta y edición.
+- **Historial de propietarios del lead**: modelo `LeadOwnerHistory` en DB que registra cada cambio de asignación (quién reasignó, desde quién y hacia quién). Visualización en `components/leads/owner-history-timeline.tsx` integrada en el detalle del lead.
+- **Visualizaciones del dashboard**: gráfico de tendencia mensual de leads (`LeadsTrendChart`) y gráfico de barras del pipeline por estado (`PipelineBarChart`), construidos con `recharts` y el wrapper `ChartContainer` de `shadcn/ui`.
+- **Hardening de seguridad transversal (Sprint 12)**:
+  - Aislamiento de tenant endurecido en acciones de leads y cotizaciones: `tenantId` validado en todas las mutaciones.
+  - Hashing de contraseñas con validación de longitud y comparaciones timing-safe (`lib/password.ts`).
+  - Escape de HTML y sanitización del asunto en emails transaccionales (`lib/email.ts`).
+  - Headers de seguridad adicionales en descarga de documentos y respuestas HTTP.
+  - FKs de `User` cambiadas a `onDelete: SetNull` en modelos relacionados para preservar integridad ante borrado.
+  - Tokens del portal almacenados siempre como hash; el valor bruto solo se expone una vez.
+- **Internacionalización de la UI**: etiquetas de roles, estados y textos de interfaz homogeneizados al español en todo el cliente.
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -44,24 +55,25 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ## Roadmap resumido
 
-| Sprint | Objetivo                                                         | Estado        |
-| ------ | ---------------------------------------------------------------- | ------------- |
-| 2.1    | Estabilización de `team`                                         | ✅ Completado |
-| 2.2    | Reasignaciones + validaciones del core comercial                 | ✅ Completado |
-| 2.3    | Configuración Prisma + pruebas base                              | ✅ Completado |
-| 3      | Lead detail + dashboard útil para operación                      | ✅ Completado |
-| 4      | Import/Dedupe + Documents MVP                                    | ✅ Completado |
-| 5      | Invitaciones / onboarding de usuarios                            | ✅ Completado |
-| 6      | Hardening para producción                                        | ✅ Completado |
-| 7      | Cotizaciones MVP + Documentos completos                          | ✅ Completado |
-| 7.1    | Notificaciones en tiempo real                                    | ✅ Completado |
-| 7.2    | PDF de cotizaciones descargable                                  | ✅ Completado |
-| 8      | Módulo de Tareas (Tasks)                                         | ✅ Completado |
-| 9      | Catálogo de productos, edición de cotizaciones y envío por email | ✅ Completado |
-| 10     | Notificaciones persistentes                                      | ✅ Completado |
-| 11     | Client Portal MVP                                                | ✅ Completado |
-| 11.1   | Paginación transversal y estandarización UX                      | ✅ Completado |
-| 11.2   | Hardening de navegación y límites Server/Client                  | ✅ Completado |
+| Sprint | Objetivo                                                          | Estado        |
+| ------ | ----------------------------------------------------------------- | ------------- |
+| 2.1    | Estabilización de `team`                                          | ✅ Completado |
+| 2.2    | Reasignaciones + validaciones del core comercial                  | ✅ Completado |
+| 2.3    | Configuración Prisma + pruebas base                               | ✅ Completado |
+| 3      | Lead detail + dashboard útil para operación                       | ✅ Completado |
+| 4      | Import/Dedupe + Documents MVP                                     | ✅ Completado |
+| 5      | Invitaciones / onboarding de usuarios                             | ✅ Completado |
+| 6      | Hardening para producción                                         | ✅ Completado |
+| 7      | Cotizaciones MVP + Documentos completos                           | ✅ Completado |
+| 7.1    | Notificaciones en tiempo real                                     | ✅ Completado |
+| 7.2    | PDF de cotizaciones descargable                                   | ✅ Completado |
+| 8      | Módulo de Tareas (Tasks)                                          | ✅ Completado |
+| 9      | Catálogo de productos, edición de cotizaciones y envío por email  | ✅ Completado |
+| 10     | Notificaciones persistentes                                       | ✅ Completado |
+| 11     | Client Portal MVP                                                 | ✅ Completado |
+| 11.1   | Paginación transversal y estandarización UX                       | ✅ Completado |
+| 11.2   | Hardening de navegación y límites Server/Client                   | ✅ Completado |
+| 12     | Hardening de seguridad, modelo Lead enriquecido y visualizaciones | ✅ Completado |
 
 ## Stack
 
