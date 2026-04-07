@@ -234,6 +234,18 @@ describe('createTaskAction', () => {
       }),
     ).rejects.toMatchObject({ status: 400 });
   });
+
+  it('rechaza asignar la tarea a un usuario que no es miembro del tenant', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    dbMock.membership.findUnique.mockResolvedValue(null);
+
+    await expect(
+      createTaskAction({
+        ...VALID_CREATE_INPUT,
+        assignedToId: OTHER_USER_ID,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -308,6 +320,18 @@ describe('updateTaskAction', () => {
     dbMock.lead.findFirst.mockResolvedValue(null);
 
     await expect(updateTaskAction(VALID_UPDATE_INPUT)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('rechaza asignar a un usuario que no es miembro del tenant', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    dbMock.membership.findUnique.mockResolvedValue(null);
+
+    await expect(
+      updateTaskAction({
+        ...VALID_UPDATE_INPUT,
+        assignedToId: OTHER_USER_ID,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
   it('revalida el lead anterior y el nuevo cuando cambia la relación', async () => {

@@ -130,6 +130,24 @@ describe('revokePortalTokenAction', () => {
     });
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
   });
+
+  it('lanza 403 para miembros sin permiso de revocar', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeMemberContext());
+
+    await expect(
+      revokePortalTokenAction({ tenantSlug: TENANT_SLUG, tokenId: TOKEN_ID }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(dbMock.portalToken.update).not.toHaveBeenCalled();
+  });
+
+  it('lanza 404 cuando el token no existe en el tenant', async () => {
+    dbMock.portalToken.findFirst.mockResolvedValue(null);
+
+    await expect(
+      revokePortalTokenAction({ tenantSlug: TENANT_SLUG, tokenId: 'tok-inexistente' }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(dbMock.portalToken.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('listLeadPortalTokensAction', () => {
@@ -213,5 +231,54 @@ describe('getPortalDataByToken', () => {
     dbMock.portalToken.findUnique.mockResolvedValue(null);
     const result = await getPortalDataByToken('invalid-token');
     expect(result).toBeNull();
+  });
+
+  it('devuelve null si el token está revocado (isActive: false)', async () => {
+    dbMock.portalToken.findUnique.mockResolvedValue({
+      id: TOKEN_ID,
+      isActive: false,
+      expiresAt: null,
+      tenantId: TENANT_ID,
+      leadId: LEAD_ID,
+      tenant: { name: 'Acme Corp' },
+      lead: { businessName: 'Juan Corp', emails: [], deletedAt: null },
+    });
+
+    const result = await getPortalDataByToken('some-valid-token');
+    expect(result).toBeNull();
+    expect(dbMock.portalToken.update).not.toHaveBeenCalled();
+  });
+
+  it('devuelve null si el token está expirado', async () => {
+    const pastDate = new Date(Date.now() - 1000);
+    dbMock.portalToken.findUnique.mockResolvedValue({
+      id: TOKEN_ID,
+      isActive: true,
+      expiresAt: pastDate,
+      tenantId: TENANT_ID,
+      leadId: LEAD_ID,
+      tenant: { name: 'Acme Corp' },
+      lead: { businessName: 'Juan Corp', emails: [], deletedAt: null },
+    });
+
+    const result = await getPortalDataByToken('some-valid-token');
+    expect(result).toBeNull();
+    expect(dbMock.portalToken.update).not.toHaveBeenCalled();
+  });
+
+  it('devuelve null si el lead fue eliminado', async () => {
+    dbMock.portalToken.findUnique.mockResolvedValue({
+      id: TOKEN_ID,
+      isActive: true,
+      expiresAt: null,
+      tenantId: TENANT_ID,
+      leadId: LEAD_ID,
+      tenant: { name: 'Acme Corp' },
+      lead: { businessName: 'Juan Corp', emails: [], deletedAt: new Date() },
+    });
+
+    const result = await getPortalDataByToken('some-valid-token');
+    expect(result).toBeNull();
+    expect(dbMock.portalToken.update).not.toHaveBeenCalled();
   });
 });
