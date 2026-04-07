@@ -185,6 +185,13 @@ export const interactionFiltersSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(10),
 });
 
+export const ownerHistoryFiltersSchema = z.object({
+  tenantSlug: z.string().min(1),
+  leadId: z.string().min(1),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
+});
+
 export const uploadDocumentSchema = z.object({
   tenantSlug: z.string().min(1),
   leadId: z.string().min(1).optional(),

@@ -128,10 +128,17 @@ export async function createInteractionAction(input: unknown) {
 
   const lead = await db.lead.findFirst({
     where: { id: leadId, tenantId: ctx.tenantId, deletedAt: null },
-    select: { id: true, status: true },
+    select: { id: true, status: true, ownerId: true },
   });
   if (!lead) {
     throw new AppError('Lead no encontrado', 404);
+  }
+
+  if (!canCreateInteraction(ctx, { ownerId: lead.ownerId })) {
+    throw new AppError(
+      'Este lead ya tiene un responsable asignado. Solo el responsable o un supervisor pueden registrar actividad.',
+      403,
+    );
   }
 
   // Re-validar la transición en el servidor para no confiar en el cliente
@@ -157,6 +164,22 @@ export async function createInteractionAction(input: unknown) {
       await tx.lead.update({
         where: { id: leadId },
         data: { status: applyStatus },
+      });
+    }
+
+    if (lead.ownerId === null) {
+      await tx.lead.update({
+        where: { id: leadId },
+        data: { ownerId: ctx.userId },
+      });
+      await tx.leadOwnerHistory.create({
+        data: {
+          leadId,
+          tenantId: ctx.tenantId,
+          previousOwnerId: null,
+          newOwnerId: ctx.userId,
+          changedById: ctx.userId,
+        },
       });
     }
 

@@ -38,9 +38,15 @@ export function canManageDuplicateLeads(ctx: LeadPermissionContext): boolean {
   return canAssignLeads(ctx);
 }
 
-export function canCreateInteraction(ctx: LeadPermissionContext): boolean {
+export function canCreateInteraction(
+  ctx: LeadPermissionContext,
+  ownership?: { ownerId: string | null },
+): boolean {
   if (ctx.isSuperAdmin) return true;
-  return ctx.isActiveMember;
+  if (!ctx.isActiveMember) return false;
+  if (!ownership || ownership.ownerId === null) return true;
+  if (ownership.ownerId === ctx.userId) return true;
+  return hasRole(ctx.role, 'SUPERVISOR');
 }
 
 export function canEditInteraction(ctx: LeadPermissionContext, authorId: string): boolean {

@@ -27,6 +27,9 @@ const dbMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
     update: vi.fn(),
   },
+  leadOwnerHistory: {
+    create: vi.fn(),
+  },
   $transaction: vi.fn(),
 }));
 
@@ -105,9 +108,10 @@ describe('createInteractionAction', () => {
     vi.clearAllMocks();
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
-    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'NEW' });
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'NEW', ownerId: null });
     dbMock.interaction.create.mockResolvedValue({ id: INTERACTION_ID });
     dbMock.lead.update.mockResolvedValue({});
+    dbMock.leadOwnerHistory.create.mockResolvedValue({});
     // Simula la transacción ejecutando el callback con el mismo mock
     dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
       fn(dbMock),
@@ -182,6 +186,7 @@ describe('createInteractionAction', () => {
   });
 
   it('no actualiza el estado del lead cuando no se envía targetStatus', async () => {
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'NEW', ownerId: USER_ID });
     await createInteractionAction(VALID_CREATE_INPUT);
     expect(dbMock.lead.update).not.toHaveBeenCalled();
   });
@@ -195,6 +200,7 @@ describe('createInteractionAction', () => {
   });
 
   it('ignora targetStatus cuando no coincide con la regla del servidor (NOTE no puede avanzar)', async () => {
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'NEW', ownerId: USER_ID });
     await createInteractionAction({
       ...VALID_CREATE_INPUT,
       type: 'NOTE',
@@ -204,13 +210,13 @@ describe('createInteractionAction', () => {
   });
 
   it('ignora targetStatus cuando el estado del lead no permite transición (QUALIFIED es terminal)', async () => {
-    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'QUALIFIED' });
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'QUALIFIED', ownerId: USER_ID });
     await createInteractionAction({ ...VALID_CREATE_INPUT, targetStatus: 'WON' });
     expect(dbMock.lead.update).not.toHaveBeenCalled();
   });
 
   it('no actualiza el estado cuando el lead ya está en CONTACTED y solo EMAIL (sin regla)', async () => {
-    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'CONTACTED' });
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'CONTACTED', ownerId: USER_ID });
     await createInteractionAction({
       ...VALID_CREATE_INPUT,
       type: 'EMAIL',
@@ -231,6 +237,27 @@ describe('createInteractionAction', () => {
     expect(dbMock.interaction.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ subject: 'Lllamada cierre Q1' }),
+      }),
+    );
+  });
+
+  it('lanza AppError 403 cuando VENDEDOR intenta crear interacción en lead con owner distinto', async () => {
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, status: 'NEW', ownerId: OTHER_USER_ID });
+    await expect(createInteractionAction(VALID_CREATE_INPUT)).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+
+  it('auto-asigna el lead al creador y crea entrada de historial cuando lead.ownerId es null', async () => {
+    // beforeEach ya devuelve ownerId: null
+    const result = await createInteractionAction(VALID_CREATE_INPUT);
+    expect(result).toEqual({ success: true, interactionId: INTERACTION_ID });
+    expect(dbMock.lead.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { ownerId: USER_ID } }),
+    );
+    expect(dbMock.leadOwnerHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ previousOwnerId: null, newOwnerId: USER_ID }),
       }),
     );
   });

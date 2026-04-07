@@ -40,13 +40,16 @@ import { listLeadDocumentsPageAction } from '@/lib/document-actions';
 import { listLeadQuotesPageAction } from '@/lib/quote-actions';
 import { listLeadTasksPageAction } from '@/lib/task-actions';
 import { listLeadPortalTokensPageAction } from '@/lib/portal-actions';
+import { listLeadOwnerHistoryAction } from '@/lib/lead-actions';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListPagination } from '@/components/ui/list-pagination';
+import { Separator } from '@/components/ui/separator';
 import { InteractionTimeline } from '@/components/leads/interaction-timeline';
 import { LeadDetailTabs } from '@/components/leads/lead-detail-tabs';
+import { OwnerHistoryTimeline } from '@/components/leads/owner-history-timeline';
 import { DocumentList } from '@/components/documents/document-list';
 import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
 import { QuoteDialogTrigger } from '@/components/quotes/quote-dialog-trigger';
@@ -104,6 +107,7 @@ export default async function LeadDetailPage({
   const requestedTab = firstSearchParam(rawSearchParams.tab);
   const interactionsPage = parsePage(rawSearchParams.interactionsPage);
   const reassignmentsPage = parsePage(rawSearchParams.reassignmentsPage);
+  const ownerHistoryPage = parsePage(rawSearchParams.ownerHistoryPage);
   const documentsPage = parsePage(rawSearchParams.documentsPage);
   const quotesPage = parsePage(rawSearchParams.quotesPage);
   const tasksPage = parsePage(rawSearchParams.tasksPage);
@@ -111,6 +115,7 @@ export default async function LeadDetailPage({
 
   const interactionsPageSize = 10;
   const reassignmentsPageSize = 5;
+  const ownerHistoryPageSize = 10;
   const documentsPageSize = 10;
   const quotesPageSize = 10;
   const tasksPageSize = 10;
@@ -140,6 +145,7 @@ export default async function LeadDetailPage({
   ]);
 
   const canViewLeadPortal = portalEnabled && canViewPortalTokens(actor);
+  const canResolveEarly = assignmentsEnabled && canResolveReassignment(actor);
 
   const activeOwnersPromise: Promise<LeadOwnerMembership[]> = assignmentsEnabled
     ? db.membership.findMany({
@@ -198,6 +204,15 @@ export default async function LeadDetailPage({
       }).catch(() => ({ tokens: [], total: 0 }))
     : Promise.resolve({ tokens: [], total: 0 });
 
+  const ownerHistoryPromise = canResolveEarly
+    ? listLeadOwnerHistoryAction({
+        tenantSlug,
+        leadId: id,
+        page: ownerHistoryPage,
+        pageSize: ownerHistoryPageSize,
+      }).catch(() => ({ items: [], total: 0 }))
+    : Promise.resolve({ items: [], total: 0 });
+
   const reassignmentWhere = {
     tenantId: tenant.id,
     leadId: id,
@@ -215,6 +230,7 @@ export default async function LeadDetailPage({
     reassignmentRequests,
     portalActiveCount,
     portalInactiveCount,
+    ownerHistoryResult,
   ] = await Promise.all([
     db.lead.findFirst({
       where: { id, tenantId: tenant.id, deletedAt: null },
@@ -270,6 +286,7 @@ export default async function LeadDetailPage({
     canViewLeadPortal
       ? db.portalToken.count({ where: { tenantId: tenant.id, leadId: id, isActive: false } })
       : Promise.resolve(0),
+    ownerHistoryPromise,
   ]);
 
   if (!lead) {
@@ -280,7 +297,8 @@ export default async function LeadDetailPage({
   const canAssign = assignmentsEnabled && canAssignLeads(actor);
   const canResolve = assignmentsEnabled && canResolveReassignment(actor);
   const canEdit = canEditLead(actor, { ownerId: lead.ownerId });
-  const canCreateInteractionForLead = interactionsEnabled && canCreateInteraction(actor);
+  const canCreateInteractionForLead =
+    interactionsEnabled && canCreateInteraction(actor, { ownerId: lead.ownerId });
 
   const interactions = interactionsResult.interactions;
   const interactionsTotal = interactionsResult.total;
@@ -292,6 +310,8 @@ export default async function LeadDetailPage({
   const tasksTotal = tasksResult.total;
   const portalTokens = portalTokensResult.tokens;
   const portalTokensTotal = portalTokensResult.total;
+  const ownerHistoryItems = ownerHistoryResult.items;
+  const ownerHistoryTotal = ownerHistoryResult.total;
 
   const requestedTabIsEnabled =
     requestedTab === 'interacciones'
@@ -338,10 +358,16 @@ export default async function LeadDetailPage({
     page: portalPage,
     pageSize: portalPageSize,
   });
+  const ownerHistoryPagination = getPaginationState({
+    totalItems: ownerHistoryTotal,
+    page: ownerHistoryPage,
+    pageSize: ownerHistoryPageSize,
+  });
 
   const searchState = {
     interactionsPage: interactionsPagination.currentPage,
     reassignmentsPage: reassignmentsPagination.currentPage,
+    ownerHistoryPage: ownerHistoryPagination.currentPage,
     documentsPage: documentsPagination.currentPage,
     quotesPage: quotesPagination.currentPage,
     tasksPage: tasksPagination.currentPage,
@@ -361,6 +387,8 @@ export default async function LeadDetailPage({
     buildSearchHref({ ...searchState, tab: 'interacciones' }, { interactionsPage: page });
   const reassignmentsPageHref = (page: number) =>
     buildSearchHref({ ...searchState, tab: 'reasignaciones' }, { reassignmentsPage: page });
+  const ownerHistoryPageHref = (page: number) =>
+    buildSearchHref({ ...searchState, tab: 'reasignaciones' }, { ownerHistoryPage: page });
   const documentsPageHref = (page: number) =>
     buildSearchHref({ ...searchState, tab: 'documentos' }, { documentsPage: page });
   const quotesPageHref = (page: number) =>
@@ -686,11 +714,53 @@ export default async function LeadDetailPage({
             badge: reassignmentTotal,
             content: (
               <Card>
-                <CardHeader>
-                  <CardTitle>Historial de reasignaciones</CardTitle>
-                  <CardDescription>
-                    Seguimiento de solicitudes, aprobaciones y rechazos alrededor del ownership.
-                  </CardDescription>
+                {canResolve && (
+                  <>
+                    <CardHeader>
+                      <CardTitle>Historial de responsables</CardTitle>
+                      <CardDescription>
+                        Registro de todos los cambios de responsable, incluyendo asignaciones
+                        directas y solicitudes aprobadas.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <OwnerHistoryTimeline items={ownerHistoryItems} />
+                      <ListPagination
+                        currentPage={ownerHistoryPagination.currentPage}
+                        totalPages={ownerHistoryPagination.totalPages}
+                        totalItems={ownerHistoryTotal}
+                        startItem={ownerHistoryPagination.startItem}
+                        endItem={ownerHistoryPagination.endItem}
+                        hrefForPage={ownerHistoryPageHref}
+                      />
+                    </CardContent>
+                    <Separator />
+                  </>
+                )}
+
+                <CardHeader className="flex flex-row items-start justify-between gap-4">
+                  <div>
+                    <CardTitle>Solicitudes de reasignación</CardTitle>
+                    <CardDescription>
+                      Seguimiento de solicitudes, aprobaciones y rechazos alrededor del ownership.
+                    </CardDescription>
+                  </div>
+                  {!canEdit &&
+                    assignmentsEnabled &&
+                    lead.ownerId &&
+                    assignableOwners.length > 0 && (
+                      <ReassignRequestDialog
+                        tenantSlug={tenantSlug}
+                        leadId={lead.id}
+                        owners={assignableOwners}
+                        trigger={
+                          <Button type="button" size="sm" variant="outline">
+                            <RefreshCw className="size-3.5" />
+                            Solicitar reasignación
+                          </Button>
+                        }
+                      />
+                    )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {reassignmentRequests.length === 0 ? (

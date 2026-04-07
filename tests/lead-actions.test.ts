@@ -20,6 +20,7 @@ const dbMock = vi.hoisted(() => ({
   lead: {
     create: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -31,6 +32,12 @@ const dbMock = vi.hoisted(() => ({
     findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+  },
+  leadOwnerHistory: {
+    create: vi.fn(),
+    createMany: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
   },
   $transaction: vi.fn(),
 }));
@@ -150,6 +157,10 @@ describe('updateLeadAction', () => {
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, ownerId: null });
     dbMock.lead.update.mockResolvedValue({ id: LEAD_ID });
+    dbMock.leadOwnerHistory.create.mockResolvedValue({});
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
+      fn(dbMock),
+    );
   });
 
   it('lanza AppError 404 cuando el lead no existe en el tenant', async () => {
@@ -226,8 +237,12 @@ describe('assignLeadAction', () => {
     getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.membership.findUnique.mockResolvedValue(makeOwnerMembership());
-    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, ownerId: null });
     dbMock.lead.update.mockResolvedValue({ id: LEAD_ID });
+    dbMock.leadOwnerHistory.create.mockResolvedValue({});
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
+      fn(dbMock),
+    );
   });
 
   it('lanza AppError 403 cuando la feature ASSIGNMENTS está deshabilitada', async () => {
@@ -263,6 +278,19 @@ describe('assignLeadAction', () => {
       }),
     );
   });
+
+  it('crea entrada de historial al asignar lead', async () => {
+    await assignLeadAction({ tenantSlug: TENANT_SLUG, leadId: LEAD_ID, ownerId: OWNER_ID });
+    expect(dbMock.leadOwnerHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          leadId: LEAD_ID,
+          newOwnerId: OWNER_ID,
+          changedById: USER_ID,
+        }),
+      }),
+    );
+  });
 });
 
 describe('bulkAssignLeadsAction', () => {
@@ -271,7 +299,16 @@ describe('bulkAssignLeadsAction', () => {
     getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.membership.findUnique.mockResolvedValue(makeOwnerMembership());
+    dbMock.lead.findMany.mockResolvedValue([
+      { id: 'lead-1', ownerId: 'other-1' },
+      { id: 'lead-2', ownerId: 'other-2' },
+      { id: 'lead-3', ownerId: null },
+    ]);
     dbMock.lead.updateMany.mockResolvedValue({ count: 3 });
+    dbMock.leadOwnerHistory.createMany.mockResolvedValue({ count: 3 });
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
+      fn(dbMock),
+    );
   });
 
   it('lanza AppError 403 cuando el usuario no tiene permiso de asignación masiva', async () => {
@@ -295,6 +332,21 @@ describe('bulkAssignLeadsAction', () => {
 
     expect(result).toEqual({ success: true, updatedCount: 3 });
     expect(dbMock.lead.updateMany).toHaveBeenCalled();
+  });
+
+  it('crea historial para los leads que cambian de owner', async () => {
+    await bulkAssignLeadsAction({
+      tenantSlug: TENANT_SLUG,
+      leadIds: ['lead-1', 'lead-2', 'lead-3'],
+      ownerId: OWNER_ID,
+    });
+    expect(dbMock.leadOwnerHistory.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({ newOwnerId: OWNER_ID, changedById: USER_ID }),
+        ]),
+      }),
+    );
   });
 });
 
@@ -363,6 +415,7 @@ describe('resolveLeadReassignmentAction', () => {
     );
     dbMock.leadReassignmentRequest.update.mockResolvedValue({});
     dbMock.lead.update.mockResolvedValue({});
+    dbMock.leadOwnerHistory.create.mockResolvedValue({});
   });
 
   it('lanza AppError 403 cuando un VENDEDOR intenta resolver (sin permiso)', async () => {
@@ -430,5 +483,23 @@ describe('resolveLeadReassignmentAction', () => {
     });
 
     expect(result).toEqual({ success: true });
+  });
+
+  it('crea historial con reassignmentRequestId al aprobar solicitud', async () => {
+    await resolveLeadReassignmentAction({
+      tenantSlug: TENANT_SLUG,
+      requestId: 'req-1',
+      status: 'APPROVED',
+      ownerId: OWNER_ID,
+    });
+    expect(dbMock.leadOwnerHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reassignmentRequestId: 'req-1',
+          newOwnerId: OWNER_ID,
+          changedById: USER_ID,
+        }),
+      }),
+    );
   });
 });

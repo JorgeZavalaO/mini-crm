@@ -19,6 +19,7 @@ import {
   assignLeadSchema,
   bulkAssignSchema,
   createLeadSchema,
+  ownerHistoryFiltersSchema,
   requestReassignSchema,
   resolveReassignSchema,
   updateLeadSchema,
@@ -215,26 +216,40 @@ export async function updateLeadAction(input: unknown) {
   await assertUniqueRuc(ctx.tenantId, rucNormalized, payload.leadId);
 
   try {
-    await db.lead.update({
-      where: { id: payload.leadId, tenantId: ctx.tenantId },
-      data: {
-        businessName: payload.businessName.trim(),
-        ruc: payload.ruc?.trim() ?? null,
-        rucNormalized,
-        nameNormalized: normalizeLeadName(payload.businessName),
-        country: payload.country ?? null,
-        city: payload.city ?? null,
-        industry: payload.industry ?? null,
-        source: payload.source ?? null,
-        notes: payload.notes ?? null,
-        phones: normalizePhones(payload.phones),
-        emails: normalizeEmails(payload.emails),
-        gerente: payload.gerente ?? null,
-        contactName: payload.contactName ?? null,
-        contactPhone: payload.contactPhone ?? null,
-        status: payload.status,
-        ...(ownerChanged ? { ownerId: payload.ownerId ?? null } : {}),
-      },
+    await db.$transaction(async (tx) => {
+      await tx.lead.update({
+        where: { id: payload.leadId, tenantId: ctx.tenantId },
+        data: {
+          businessName: payload.businessName.trim(),
+          ruc: payload.ruc?.trim() ?? null,
+          rucNormalized,
+          nameNormalized: normalizeLeadName(payload.businessName),
+          country: payload.country ?? null,
+          city: payload.city ?? null,
+          industry: payload.industry ?? null,
+          source: payload.source ?? null,
+          notes: payload.notes ?? null,
+          phones: normalizePhones(payload.phones),
+          emails: normalizeEmails(payload.emails),
+          gerente: payload.gerente ?? null,
+          contactName: payload.contactName ?? null,
+          contactPhone: payload.contactPhone ?? null,
+          status: payload.status,
+          ...(ownerChanged ? { ownerId: payload.ownerId ?? null } : {}),
+        },
+      });
+
+      if (ownerChanged) {
+        await tx.leadOwnerHistory.create({
+          data: {
+            leadId: payload.leadId,
+            tenantId: ctx.tenantId,
+            previousOwnerId: lead.ownerId,
+            newOwnerId: payload.ownerId ?? null,
+            changedById: ctx.userId,
+          },
+        });
+      }
     });
     revalidateTenantLeadViews(ctx.tenantSlug);
     return { success: true };
@@ -289,15 +304,26 @@ export async function assignLeadAction(input: unknown) {
 
   const lead = await db.lead.findFirst({
     where: { id: parsed.data.leadId, tenantId: ctx.tenantId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, ownerId: true },
   });
   if (!lead) {
     throw new AppError('Lead no encontrado', 404);
   }
 
-  await db.lead.update({
-    where: { id: lead.id, tenantId: ctx.tenantId },
-    data: { ownerId: parsed.data.ownerId },
+  await db.$transaction(async (tx) => {
+    await tx.lead.update({
+      where: { id: lead.id, tenantId: ctx.tenantId },
+      data: { ownerId: parsed.data.ownerId },
+    });
+    await tx.leadOwnerHistory.create({
+      data: {
+        leadId: lead.id,
+        tenantId: ctx.tenantId,
+        previousOwnerId: lead.ownerId,
+        newOwnerId: parsed.data.ownerId,
+        changedById: ctx.userId,
+      },
+    });
   });
 
   revalidateTenantLeadViews(ctx.tenantSlug);
@@ -319,15 +345,38 @@ export async function bulkAssignLeadsAction(input: unknown) {
   const leadIds = Array.from(new Set(parsed.data.leadIds));
   await assertOwnerBelongsToTenant(ctx.tenantId, parsed.data.ownerId);
 
-  const result = await db.lead.updateMany({
-    where: {
-      tenantId: ctx.tenantId,
-      deletedAt: null,
-      id: { in: leadIds },
-    },
-    data: {
-      ownerId: parsed.data.ownerId,
-    },
+  const currentLeads = await db.lead.findMany({
+    where: { tenantId: ctx.tenantId, deletedAt: null, id: { in: leadIds } },
+    select: { id: true, ownerId: true },
+  });
+
+  const leadsChanging = currentLeads.filter((l) => l.ownerId !== parsed.data.ownerId);
+
+  const result = await db.$transaction(async (tx) => {
+    const updated = await tx.lead.updateMany({
+      where: {
+        tenantId: ctx.tenantId,
+        deletedAt: null,
+        id: { in: leadIds },
+      },
+      data: {
+        ownerId: parsed.data.ownerId,
+      },
+    });
+
+    if (leadsChanging.length > 0) {
+      await tx.leadOwnerHistory.createMany({
+        data: leadsChanging.map((l) => ({
+          leadId: l.id,
+          tenantId: ctx.tenantId,
+          previousOwnerId: l.ownerId,
+          newOwnerId: parsed.data.ownerId,
+          changedById: ctx.userId,
+        })),
+      });
+    }
+
+    return updated;
   });
 
   revalidateTenantLeadViews(ctx.tenantSlug);
@@ -433,6 +482,7 @@ export async function resolveLeadReassignmentAction(input: unknown) {
         resolvedById: ctx.userId,
         resolvedAt: new Date(),
         resolutionNote: parsed.data.resolutionNote ?? null,
+        previousOwnerId: request.lead.ownerId,
       },
     });
 
@@ -441,9 +491,68 @@ export async function resolveLeadReassignmentAction(input: unknown) {
         where: { id: request.lead.id },
         data: { ownerId: ownerIdToApply },
       });
+      await tx.leadOwnerHistory.create({
+        data: {
+          leadId: request.lead.id,
+          tenantId: ctx.tenantId,
+          previousOwnerId: request.lead.ownerId,
+          newOwnerId: ownerIdToApply,
+          changedById: ctx.userId,
+          reassignmentRequestId: request.id,
+        },
+      });
     }
   });
 
   revalidateTenantLeadViews(ctx.tenantSlug);
   return { success: true };
+}
+
+export type LeadOwnerHistoryRow = {
+  id: string;
+  leadId: string;
+  previousOwner: { name: string | null; email: string } | null;
+  newOwner: { name: string | null; email: string } | null;
+  changedBy: { name: string | null; email: string };
+  reassignmentRequestId: string | null;
+  createdAt: Date;
+};
+
+export async function listLeadOwnerHistoryAction(input: unknown): Promise<{
+  items: LeadOwnerHistoryRow[];
+  total: number;
+}> {
+  const parsed = ownerHistoryFiltersSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros inválidos', 400);
+  }
+
+  const { tenantSlug, leadId, page, pageSize } = parsed.data;
+  const ctx = await getLeadContext(tenantSlug);
+
+  if (!canResolveReassignment(ctx)) {
+    throw new AppError('No autorizado para ver el historial de responsables', 403);
+  }
+
+  const where = { tenantId: ctx.tenantId, leadId };
+  const total = await db.leadOwnerHistory.count({ where });
+
+  const skip = (page - 1) * pageSize;
+  const items = await db.leadOwnerHistory.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip,
+    take: pageSize,
+    select: {
+      id: true,
+      leadId: true,
+      previousOwner: { select: { name: true, email: true } },
+      newOwner: { select: { name: true, email: true } },
+      changedBy: { select: { name: true, email: true } },
+      reassignmentRequestId: true,
+      createdAt: true,
+    },
+  });
+
+  return { items, total };
 }

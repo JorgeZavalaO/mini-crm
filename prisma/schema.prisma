@@ -110,6 +110,7 @@ model Tenant {
   teamInvitations          TeamInvitation[]
   leads                    Lead[]
   leadReassignmentRequests LeadReassignmentRequest[]
+  leadOwnerHistory         LeadOwnerHistory[]
   interactions             Interaction[]
   features                 TenantFeature[]
   documents                Document[]
@@ -182,6 +183,9 @@ model User {
   targetLeadReassignments    LeadReassignmentRequest[] @relation("LeadReassignmentTargetOwner")
   interactions               Interaction[]             @relation("InteractionAuthor")
   uploadedDocuments          Document[]                @relation("DocumentUploader")
+  ownerHistoryAsPrev         LeadOwnerHistory[]        @relation("OwnerHistoryPrev")
+  ownerHistoryAsNew          LeadOwnerHistory[]        @relation("OwnerHistoryNew")
+  ownerHistoryChanges        LeadOwnerHistory[]        @relation("OwnerHistoryChanger")
   createdQuotes              Quote[]                   @relation("QuoteCreator")
   importedLeads              Lead[]                    @relation("LeadImporter")
   createdTasks               Task[]                    @relation("TaskCreator")
@@ -263,6 +267,7 @@ model Lead {
   quotes               Quote[]
   tasks                Task[]
   portalTokens         PortalToken[]
+  ownerHistory         LeadOwnerHistory[]
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
@@ -322,6 +327,7 @@ model LeadReassignmentRequest {
   tenantId         String
   requestedById    String
   requestedOwnerId String?
+  previousOwnerId  String?
   reason           String
   status           ReassignmentStatus @default(PENDING)
   resolvedById     String?
@@ -454,6 +460,27 @@ model Notification {
 
   @@index([tenantId, userId, isRead, deletedAt])
   @@index([tenantId, userId, createdAt])
+}
+
+// ─── Lead Owner History ────────────────────────────────
+
+model LeadOwnerHistory {
+  id                    String    @id @default(cuid())
+  leadId                String
+  tenantId              String
+  previousOwnerId       String?
+  newOwnerId            String?
+  changedById           String
+  reassignmentRequestId String?
+  createdAt             DateTime  @default(now())
+  lead                  Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  previousOwner         User?     @relation("OwnerHistoryPrev", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  newOwner              User?     @relation("OwnerHistoryNew", fields: [newOwnerId], references: [id], onDelete: SetNull)
+  changedBy             User      @relation("OwnerHistoryChanger", fields: [changedById], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
+  @@index([tenantId])
 }
 
 // ─── Client Portal ──────────────────────────────────────
