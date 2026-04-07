@@ -74,7 +74,7 @@ export function DocumentList({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function canDelete(uploadedById: string) {
+  function canDelete(uploadedById: string | null) {
     if (isSuperAdmin) return true;
     if (currentUserId === uploadedById) return true;
     return currentRole === 'ADMIN' || currentRole === 'SUPERVISOR';
@@ -162,7 +162,7 @@ export function DocumentList({
                     {formatBytes(doc.sizeBytes)}
                   </TableCell>
                   <TableCell className="hidden text-sm text-muted-foreground lg:table-cell">
-                    {doc.uploadedBy.name || doc.uploadedBy.email}
+                    {doc.uploadedBy?.name || doc.uploadedBy?.email}
                   </TableCell>
                   <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
                     {formatDate(doc.createdAt)}

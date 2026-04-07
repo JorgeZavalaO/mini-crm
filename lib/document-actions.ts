@@ -230,8 +230,8 @@ export type DocumentRow = {
   mimeType: string;
   sizeBytes: number;
   createdAt: Date;
-  uploadedById: string;
-  uploadedBy: { name: string | null; email: string };
+  uploadedById: string | null;
+  uploadedBy: { name: string | null; email: string } | null;
   leadId: string | null;
   leadName: string | null;
 };

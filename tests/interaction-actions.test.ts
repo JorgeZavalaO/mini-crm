@@ -330,7 +330,7 @@ describe('deleteInteractionAction', () => {
       leadId: LEAD_ID,
       authorId: USER_ID,
     });
-    dbMock.interaction.update.mockResolvedValue({});
+    dbMock.interaction.delete.mockResolvedValue({});
   });
 
   it('lanza AppError 400 con datos inválidos', async () => {
@@ -360,7 +360,7 @@ describe('deleteInteractionAction', () => {
   it('el autor puede eliminar su propia interacción', async () => {
     const result = await deleteInteractionAction(VALID_DELETE_INPUT);
     expect(result).toEqual({ success: true });
-    expect(dbMock.interaction.update).toHaveBeenCalledWith(
+    expect(dbMock.interaction.delete).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: INTERACTION_ID, tenantId: TENANT_ID } }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);

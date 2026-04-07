@@ -14,7 +14,7 @@ type PortalToken = {
   expiresAt: Date | null;
   lastAccessedAt: Date | null;
   createdAt: Date;
-  createdBy: { name: string | null; email: string };
+  createdBy: { name: string | null; email: string } | null;
 };
 
 type Props = {
@@ -180,7 +180,9 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                         </Badge>
                       </div>
                       <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>Creado por {t.createdBy.name || t.createdBy.email || 'Usuario'}</span>
+                        <span>
+                          Creado por {t.createdBy?.name || t.createdBy?.email || 'Usuario'}
+                        </span>
                         <span>.</span>
                         <span>Creado {new Date(t.createdAt).toLocaleDateString('es-PE')}</span>
                         {t.expiresAt && (
@@ -233,7 +235,7 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                       </Badge>
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>Creado por {t.createdBy.name || t.createdBy.email || 'Usuario'}</span>
+                      <span>Creado por {t.createdBy?.name || t.createdBy?.email || 'Usuario'}</span>
                       <span>.</span>
                       <span>Creado {new Date(t.createdAt).toLocaleDateString('es-PE')}</span>
                     </div>

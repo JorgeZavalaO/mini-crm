@@ -380,8 +380,9 @@ export type QuoteRow = {
   taxRate: number;
   leadId: string;
   leadName: string;
-  createdBy: { name: string | null; email: string };
+  createdBy: { name: string | null; email: string } | null;
   createdById: string | null;
+  createdAt: Date;
   updatedAt: Date;
   validUntil: Date | null;
 };

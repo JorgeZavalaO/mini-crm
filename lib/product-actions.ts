@@ -44,7 +44,7 @@ export type ProductRow = {
   unitPrice: number;
   currency: 'PEN' | 'USD';
   isActive: boolean;
-  createdById: string;
+  createdById: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

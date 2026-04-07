@@ -59,7 +59,10 @@ export function canUploadDocument(ctx: LeadPermissionContext): boolean {
   return ctx.isActiveMember;
 }
 
-export function canDeleteDocument(ctx: LeadPermissionContext, uploadedById: string): boolean {
+export function canDeleteDocument(
+  ctx: LeadPermissionContext,
+  uploadedById: string | null,
+): boolean {
   if (ctx.isSuperAdmin) return true;
   if (!ctx.isActiveMember) return false;
   if (ctx.userId === uploadedById) return true;

@@ -1,7 +1,17 @@
-import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
+import {
+  randomBytes,
+  scrypt as scryptCallback,
+  timingSafeEqual,
+  type ScryptOptions,
+} from 'node:crypto';
 import { promisify } from 'node:util';
 
-const scrypt = promisify(scryptCallback);
+const scrypt = promisify(scryptCallback) as (
+  password: string,
+  salt: string,
+  keylen: number,
+  options: ScryptOptions,
+) => Promise<Buffer>;
 
 /** Maximum accepted password length to prevent DoS via scrypt CPU exhaustion. */
 const MAX_PASSWORD_LENGTH = 1024;

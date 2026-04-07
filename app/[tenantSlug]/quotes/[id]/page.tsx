@@ -165,7 +165,7 @@ export default async function QuoteDetailPage({
           <CardContent className="space-y-2 text-sm">
             <p className="flex items-center gap-2">
               <UserRound className="size-4 text-muted-foreground" />
-              {quote.createdBy.name || quote.createdBy.email}
+              {quote.createdBy?.name || quote.createdBy?.email}
             </p>
             {quote.notes && (
               <p className="flex items-start gap-2">

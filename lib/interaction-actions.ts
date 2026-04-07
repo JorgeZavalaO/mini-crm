@@ -224,9 +224,8 @@ export async function deleteInteractionAction(input: unknown) {
     throw new AppError('No autorizado para eliminar esta interacción', 403);
   }
 
-  await db.interaction.update({
+  await db.interaction.delete({
     where: { id: interactionId, tenantId: ctx.tenantId },
-    data: { deletedAt: new Date() },
   });
 
   revalidateLeadViews(tenantSlug, existing.leadId);

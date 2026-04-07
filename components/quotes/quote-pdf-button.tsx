@@ -113,7 +113,7 @@ export function QuotePdfButton({
       if (quote.validUntil) {
         detailPairs.push(['Válida hasta', new Date(quote.validUntil).toLocaleDateString('es-PE')]);
       }
-      detailPairs.push(['Elaborado por', quote.createdBy.name || quote.createdBy.email]);
+      detailPairs.push(['Elaborado por', quote.createdBy?.name || quote.createdBy?.email || '']);
 
       for (const [label, value] of detailPairs) {
         doc.setFont('helvetica', 'bold');

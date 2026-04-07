@@ -409,7 +409,7 @@ export async function importLeadsAction(input: unknown) {
   const { tenantSlug, rows } = await getImportRequestPlan(input);
 
   const readyRows = rows.filter(
-    (row): row is typeof row & { createData: Prisma.LeadCreateInput } =>
+    (row): row is typeof row & { createData: Prisma.LeadUncheckedCreateInput } =>
       row.outcome === 'READY' && row.createData !== undefined,
   );
   const skippedRows = rows.filter((row) => row.outcome !== 'READY');
