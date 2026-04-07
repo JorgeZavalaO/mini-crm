@@ -35,7 +35,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ tenant
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Tipo de cuenta:</span>
             {user.isSuperAdmin ? (
-              <Badge variant="destructive">Super Admin</Badge>
+              <Badge variant="destructive">Superadministrador</Badge>
             ) : (
               <Badge variant="secondary">Usuario</Badge>
             )}

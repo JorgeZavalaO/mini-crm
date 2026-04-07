@@ -80,7 +80,7 @@ export function NewMemberForm({ tenant }: { tenant: TenantSummary }) {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Correo electrónico</Label>
               <Input id="email" name="email" type="email" placeholder="juan@empresa.com" required />
             </div>
 
@@ -91,7 +91,7 @@ export function NewMemberForm({ tenant }: { tenant: TenantSummary }) {
                   <SelectValue placeholder="Selecciona un rol" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="ADMIN">Administrador</SelectItem>
                   <SelectItem value="SUPERVISOR">Supervisor</SelectItem>
                   <SelectItem value="VENDEDOR">Vendedor</SelectItem>
                   <SelectItem value="FREELANCE">Freelance</SelectItem>

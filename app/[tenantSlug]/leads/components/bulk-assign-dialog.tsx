@@ -30,6 +30,14 @@ type LeadOwnerOption = {
   role: string;
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Administrador',
+  SUPERVISOR: 'Supervisor',
+  VENDEDOR: 'Vendedor',
+  FREELANCE: 'Freelance',
+  PASANTE: 'Pasante',
+};
+
 interface BulkAssignDialogProps {
   tenantSlug: string;
   owners: LeadOwnerOption[];
@@ -41,7 +49,7 @@ export function BulkAssignDialog({
   tenantSlug,
   owners,
   leadIds,
-  triggerLabel = 'Asignacion masiva',
+  triggerLabel = 'Asignación masiva',
 }: BulkAssignDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -84,24 +92,24 @@ export function BulkAssignDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Asignacion masiva</DialogTitle>
+          <DialogTitle>Asignación masiva</DialogTitle>
           <DialogDescription>
             {count === 0
               ? 'Selecciona al menos un lead para asignar.'
-              : `Asignaras ${count} lead(s) a un owner.`}
+              : `Asignarás ${count} lead(s) a un responsable.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
-          <Label>Owner destino</Label>
+          <Label>Responsable destino</Label>
           <Select value={ownerId} onValueChange={setOwnerId}>
             <SelectTrigger>
-              <SelectValue placeholder="Selecciona un owner" />
+              <SelectValue placeholder="Selecciona un responsable" />
             </SelectTrigger>
             <SelectContent>
               {owners.map((owner) => (
                 <SelectItem key={owner.id} value={owner.id}>
-                  {owner.name || owner.email} ({owner.role})
+                  {owner.name || owner.email} ({ROLE_LABEL[owner.role] ?? owner.role})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -113,7 +121,7 @@ export function BulkAssignDialog({
             Cancelar
           </Button>
           <Button onClick={onConfirm} disabled={isPending || disabled || !ownerId}>
-            {isPending ? 'Asignando...' : 'Confirmar asignacion'}
+            {isPending ? 'Asignando...' : 'Confirmar asignación'}
           </Button>
         </DialogFooter>
       </DialogContent>

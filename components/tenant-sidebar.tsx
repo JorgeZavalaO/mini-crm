@@ -52,7 +52,7 @@ export function TenantSidebar({
 
   const navItems = [
     ...(enabledFeatures.DASHBOARD
-      ? [{ href: `/${tenantSlug}/dashboard`, label: 'Dashboard', icon: LayoutDashboard }]
+      ? [{ href: `/${tenantSlug}/dashboard`, label: 'Tablero', icon: LayoutDashboard }]
       : []),
     ...(enabledFeatures.CRM_LEADS
       ? [{ href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target }]

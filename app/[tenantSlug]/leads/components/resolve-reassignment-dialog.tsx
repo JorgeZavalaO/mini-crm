@@ -31,6 +31,14 @@ type LeadOwnerOption = {
   role: string;
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Administrador',
+  SUPERVISOR: 'Supervisor',
+  VENDEDOR: 'Vendedor',
+  FREELANCE: 'Freelance',
+  PASANTE: 'Pasante',
+};
+
 const NO_OWNER = '__NO_OWNER__';
 
 export function ResolveReassignmentDialog({
@@ -96,7 +104,7 @@ export function ResolveReassignmentDialog({
           </DialogTitle>
           <DialogDescription>
             {status === 'APPROVED'
-              ? 'Confirma el owner final del lead y, si hace falta, agrega una nota de resolución.'
+              ? 'Confirma el responsable final del lead y, si hace falta, agrega una nota de resolución.'
               : 'Rechaza la solicitud y agrega una nota opcional para dejar contexto al equipo.'}
           </DialogDescription>
         </DialogHeader>
@@ -104,16 +112,16 @@ export function ResolveReassignmentDialog({
         <div className="space-y-4">
           {requiresOwner && (
             <div className="space-y-2">
-              <Label>Owner final</Label>
+              <Label>Responsable final</Label>
               <Select value={ownerId} onValueChange={setOwnerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un owner" />
+                  <SelectValue placeholder="Selecciona un responsable" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_OWNER}>Selecciona un owner</SelectItem>
+                  <SelectItem value={NO_OWNER}>Selecciona un responsable</SelectItem>
                   {owners.map((owner) => (
                     <SelectItem key={owner.id} value={owner.id}>
-                      {owner.name || owner.email} ({owner.role})
+                      {owner.name || owner.email} ({ROLE_LABEL[owner.role] ?? owner.role})
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -31,6 +31,14 @@ type LeadOwnerOption = {
   role: string;
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Administrador',
+  SUPERVISOR: 'Supervisor',
+  VENDEDOR: 'Vendedor',
+  FREELANCE: 'Freelance',
+  PASANTE: 'Pasante',
+};
+
 interface ReassignRequestDialogProps {
   tenantSlug: string;
   leadId: string;
@@ -86,13 +94,14 @@ export function ReassignRequestDialog({
         <DialogHeader>
           <DialogTitle>Solicitud de reasignacion</DialogTitle>
           <DialogDescription>
-            Describe por que este lead deberia cambiar de owner. Un supervisor/admin debe aprobar.
+            Describe por qué este lead debería cambiar de responsable. Un supervisor/administrador
+            debe aprobar.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label>Owner sugerido (opcional)</Label>
+            <Label>Responsable sugerido (opcional)</Label>
             <Select value={requestedOwnerId} onValueChange={setRequestedOwnerId}>
               <SelectTrigger>
                 <SelectValue placeholder="Sin sugerencia" />
@@ -101,7 +110,7 @@ export function ReassignRequestDialog({
                 <SelectItem value={NO_SUGGESTION}>Sin sugerencia</SelectItem>
                 {owners.map((owner) => (
                   <SelectItem key={owner.id} value={owner.id}>
-                    {owner.name || owner.email} ({owner.role})
+                    {owner.name || owner.email} ({ROLE_LABEL[owner.role] ?? owner.role})
                   </SelectItem>
                 ))}
               </SelectContent>

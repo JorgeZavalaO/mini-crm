@@ -306,7 +306,9 @@ export default async function DashboardPage({
         {isManager && (
           <Card className={cn(unassignedLeads > 0 && 'border-amber-200 dark:border-amber-800')}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Sin owner</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Sin responsable
+              </CardTitle>
               <div
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-lg',
@@ -552,7 +554,7 @@ export default async function DashboardPage({
               <ul className="divide-y">
                 {recentLeads.map((lead) => {
                   const Icon = STATUS_ICON[lead.status as keyof typeof STATUS_ICON];
-                  const ownerLabel = lead.owner?.name || lead.owner?.email || 'Sin owner';
+                  const ownerLabel = lead.owner?.name || lead.owner?.email || 'Sin responsable';
                   return (
                     <li key={lead.id}>
                       <Link

@@ -410,7 +410,7 @@ export default async function LeadDetailPage({
               ) : (
                 <>
                   <UserIcon className="size-3.5" />
-                  <span className="italic">Sin owner asignado</span>
+                  <span className="italic">Sin responsable asignado</span>
                 </>
               )}
             </div>
@@ -719,7 +719,7 @@ export default async function LeadDetailPage({
                               {request.requestedBy.name || request.requestedBy.email}
                             </p>
                             <p>
-                              <span className="font-medium">Owner sugerido:</span>{' '}
+                              <span className="font-medium">Responsable sugerido:</span>{' '}
                               {request.requestedOwner
                                 ? request.requestedOwner.name || request.requestedOwner.email
                                 : 'Sin sugerencia'}

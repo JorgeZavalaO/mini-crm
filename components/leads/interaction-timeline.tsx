@@ -70,7 +70,7 @@ const TYPE_ICON: Record<InteractionType, React.ReactNode> = {
 
 const TYPE_LABEL: Record<InteractionType, string> = {
   CALL: 'Llamada',
-  EMAIL: 'Email',
+  EMAIL: 'Correo',
   NOTE: 'Nota',
   VISIT: 'Visita',
   WHATSAPP: 'WhatsApp',

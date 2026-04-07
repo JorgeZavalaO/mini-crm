@@ -42,6 +42,14 @@ type LeadOwnerOption = {
   role: string;
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Administrador',
+  SUPERVISOR: 'Supervisor',
+  VENDEDOR: 'Vendedor',
+  FREELANCE: 'Freelance',
+  PASANTE: 'Pasante',
+};
+
 type EditableLead = {
   id: string;
   businessName: string;
@@ -283,16 +291,16 @@ export function LeadFormDialog({
 
           {canAssign && (
             <div className="space-y-2">
-              <Label>Owner</Label>
+              <Label>Responsable</Label>
               <Select value={ownerValue} onValueChange={setOwnerValue}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sin owner" />
+                  <SelectValue placeholder="Sin responsable" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UNASSIGNED}>Sin owner</SelectItem>
+                  <SelectItem value={UNASSIGNED}>Sin responsable</SelectItem>
                   {owners.map((owner) => (
                     <SelectItem key={owner.id} value={owner.id}>
-                      {owner.name || owner.email} ({owner.role})
+                      {owner.name || owner.email} ({ROLE_LABEL[owner.role] ?? owner.role})
                     </SelectItem>
                   ))}
                 </SelectContent>

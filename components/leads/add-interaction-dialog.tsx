@@ -41,7 +41,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 const TYPE_OPTIONS: Array<{ value: InteractionType; label: string; icon: React.ReactNode }> = [
   { value: 'CALL', label: 'Llamada', icon: <Phone className="size-3.5" /> },
-  { value: 'EMAIL', label: 'Email', icon: <Mail className="size-3.5" /> },
+  { value: 'EMAIL', label: 'Correo', icon: <Mail className="size-3.5" /> },
   { value: 'NOTE', label: 'Nota', icon: <MessageSquare className="size-3.5" /> },
   { value: 'VISIT', label: 'Visita', icon: <Users className="size-3.5" /> },
   { value: 'WHATSAPP', label: 'WhatsApp', icon: <MessageCircle className="size-3.5" /> },

@@ -47,7 +47,7 @@ export default async function SuperadminProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="destructive">Super Admin</Badge>
+              <Badge variant="destructive">Superadministrador</Badge>
               <Badge variant="outline">
                 {activeMemberships.length} membresía{activeMemberships.length === 1 ? '' : 's'}{' '}
                 activa

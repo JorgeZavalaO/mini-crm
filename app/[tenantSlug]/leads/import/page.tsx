@@ -225,7 +225,7 @@ export default async function LeadImportPage({
           {assignableOwnerEmails.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm">Owners asignables</CardTitle>
+                <CardTitle className="text-sm">Responsables asignables</CardTitle>
                 <CardDescription className="text-xs">
                   Usa estos correos en la columna{' '}
                   <code className="rounded bg-muted px-1 text-xs font-mono">ownerEmail</code>.

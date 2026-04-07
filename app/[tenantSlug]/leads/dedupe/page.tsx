@@ -167,7 +167,7 @@ export default async function LeadDedupePage({
                             <TableRow>
                               <TableHead>Lead</TableHead>
                               <TableHead>Estado</TableHead>
-                              <TableHead>Owner</TableHead>
+                              <TableHead>Responsable</TableHead>
                               <TableHead>Ubicación</TableHead>
                               <TableHead>Contacto</TableHead>
                               <TableHead className="text-right">Detalle</TableHead>
@@ -192,7 +192,7 @@ export default async function LeadDedupePage({
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  {lead.owner?.name || lead.owner?.email || 'Sin owner'}
+                                  {lead.owner?.name || lead.owner?.email || 'Sin responsable'}
                                 </TableCell>
                                 <TableCell>
                                   {[lead.city, lead.country].filter(Boolean).join(', ') || '—'}

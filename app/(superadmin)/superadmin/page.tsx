@@ -94,7 +94,7 @@ export default async function SuperadminPage({
   return (
     <div className="min-w-0 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Panel Super Admin</h1>
+        <h1 className="text-3xl font-bold">Panel Superadministrador</h1>
         <p className="text-muted-foreground">Centro de control de tenants, planes y modulos.</p>
       </div>
 

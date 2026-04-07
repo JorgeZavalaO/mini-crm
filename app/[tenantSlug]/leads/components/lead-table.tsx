@@ -61,6 +61,14 @@ type LeadOwnerOption = {
   role: string;
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: 'Administrador',
+  SUPERVISOR: 'Supervisor',
+  VENDEDOR: 'Vendedor',
+  FREELANCE: 'Freelance',
+  PASANTE: 'Pasante',
+};
+
 type LeadRequestHistory = {
   id: string;
   status: ReassignmentStatus;
@@ -161,17 +169,17 @@ function AssignLeadDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Asignar lead</DialogTitle>
-          <DialogDescription>Selecciona el owner responsable del lead.</DialogDescription>
+          <DialogDescription>Selecciona el responsable del lead.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           <Select value={ownerId} onValueChange={setOwnerId}>
             <SelectTrigger>
-              <SelectValue placeholder="Selecciona un owner" />
+              <SelectValue placeholder="Selecciona un responsable" />
             </SelectTrigger>
             <SelectContent>
               {owners.map((owner) => (
                 <SelectItem key={owner.id} value={owner.id}>
-                  {owner.name || owner.email} ({owner.role})
+                  {owner.name || owner.email} ({ROLE_LABEL[owner.role] ?? owner.role})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -310,7 +318,7 @@ export function LeadTable({
               )}
               <TableHead>Prospecto</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Owner</TableHead>
+              <TableHead>Responsable</TableHead>
               <TableHead>Fuente / Ciudad</TableHead>
               <TableHead>Actualizado</TableHead>
               <TableHead>Solicitudes</TableHead>
@@ -358,7 +366,7 @@ export function LeadTable({
                         <p className="text-xs text-muted-foreground">{lead.owner.email}</p>
                       </div>
                     ) : (
-                      <Badge variant="outline">Sin owner</Badge>
+                      <Badge variant="outline">Sin responsable</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">

@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 
 const TYPE_LABEL: Record<InteractionType, string> = {
   CALL: 'llamada',
-  EMAIL: 'email',
+  EMAIL: 'correo',
   NOTE: 'nota',
   VISIT: 'visita',
   WHATSAPP: 'WhatsApp',

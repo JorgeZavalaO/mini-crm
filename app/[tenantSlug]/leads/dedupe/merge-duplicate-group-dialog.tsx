@@ -128,7 +128,7 @@ export function MergeDuplicateGroupDialog({
               <p className="text-sm font-medium">Lead principal</p>
               <p className="mt-2 font-semibold">{primaryLead?.businessName ?? 'Sin selección'}</p>
               <p className="text-xs text-muted-foreground">
-                {primaryLead?.statusLabel ?? '—'} · {primaryLead?.ownerLabel ?? 'Sin owner'}
+                {primaryLead?.statusLabel ?? '—'} · {primaryLead?.ownerLabel ?? 'Sin responsable'}
               </p>
             </div>
 

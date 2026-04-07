@@ -41,7 +41,7 @@ export function SuperadminSidebar({ userName, userEmail }: SuperadminSidebarProp
                   <Settings2 className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Super Admin</span>
+                  <span className="truncate font-semibold">Superadministrador</span>
                   <span className="truncate text-xs text-sidebar-foreground/70">
                     Panel de control
                   </span>
@@ -85,7 +85,7 @@ export function SuperadminSidebar({ userName, userEmail }: SuperadminSidebarProp
               userEmail={userEmail}
               profileHref="/superadmin/profile"
               profileLabel="Mi perfil"
-              badgeLabel="ADMIN"
+              badgeLabel="Administrador"
               avatarFallbackClassName="rounded-lg bg-primary text-primary-foreground"
             />
           </SidebarMenuItem>

@@ -87,7 +87,7 @@ const FEATURE_COLOR: Record<FeatureKey, string> = {
 };
 
 const ROLE_LABEL: Record<string, string> = {
-  ADMIN: 'Admin',
+  ADMIN: 'Administrador',
   SUPERVISOR: 'Supervisor',
   VENDEDOR: 'Vendedor',
   FREELANCE: 'Freelance',
