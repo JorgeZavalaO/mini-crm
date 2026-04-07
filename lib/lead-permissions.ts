@@ -73,7 +73,7 @@ export function canCreateQuote(ctx: LeadPermissionContext): boolean {
 
 export function canEditQuote(
   ctx: LeadPermissionContext,
-  ownership: { createdById: string; status: QuoteStatus },
+  ownership: { createdById: string | null; status: QuoteStatus },
 ): boolean {
   if (ctx.isSuperAdmin) return true;
   if (!ctx.isActiveMember) return false;
@@ -84,7 +84,7 @@ export function canEditQuote(
 
 export function canDeleteQuote(
   ctx: LeadPermissionContext,
-  ownership: { createdById: string; status: QuoteStatus },
+  ownership: { createdById: string | null; status: QuoteStatus },
 ): boolean {
   return canEditQuote(ctx, ownership);
 }
@@ -104,7 +104,7 @@ export function canCreateTask(ctx: LeadPermissionContext): boolean {
 
 export function canEditTask(
   ctx: LeadPermissionContext,
-  ownership: { createdById: string; assignedToId: string | null },
+  ownership: { createdById: string | null; assignedToId: string | null },
 ): boolean {
   if (ctx.isSuperAdmin) return true;
   if (!ctx.isActiveMember) return false;
@@ -115,7 +115,7 @@ export function canEditTask(
 
 export function canDeleteTask(
   ctx: LeadPermissionContext,
-  ownership: { createdById: string; assignedToId: string | null },
+  ownership: { createdById: string | null; assignedToId: string | null },
 ): boolean {
   if (ctx.isSuperAdmin) return true;
   if (!ctx.isActiveMember) return false;
@@ -125,7 +125,7 @@ export function canDeleteTask(
 
 export function canCompleteTask(
   ctx: LeadPermissionContext,
-  ownership: { createdById: string; assignedToId: string | null },
+  ownership: { createdById: string | null; assignedToId: string | null },
 ): boolean {
   return canEditTask(ctx, ownership);
 }

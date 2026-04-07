@@ -55,6 +55,35 @@ async function ensureUserSlotAvailable(tenantId: string) {
   }
 }
 
+type TxClient = Parameters<Parameters<typeof db.$transaction>[0]>[0];
+
+async function ensureUserSlotAvailableTx(tx: TxClient, tenantId: string) {
+  const now = new Date();
+  const [tenant, activeMembers, pendingInvitations] = await Promise.all([
+    tx.tenant.findUnique({
+      where: { id: tenantId },
+      select: { maxUsers: true, deletedAt: true },
+    }),
+    tx.membership.count({ where: { tenantId, isActive: true } }),
+    tx.teamInvitation.count({
+      where: {
+        tenantId,
+        acceptedAt: null,
+        canceledAt: null,
+        expiresAt: { gt: now },
+      },
+    }),
+  ]);
+
+  if (!tenant || tenant.deletedAt) {
+    throw new Error('Tenant no disponible');
+  }
+
+  if (tenant.maxUsers && activeMembers + pendingInvitations >= tenant.maxUsers) {
+    throw new Error('Limite de usuarios alcanzado para este tenant');
+  }
+}
+
 async function ensureAdminCoverage(
   tenantId: string,
   membership: { id: string; role: Role; isActive: boolean },
@@ -98,8 +127,8 @@ export async function createMemberAction(
     return { error: 'Todos los campos son requeridos' };
   }
 
-  if (password.length < 6) {
-    return { error: 'La contraseña debe tener al menos 6 caracteres' };
+  if (password.length < 8) {
+    return { error: 'La contraseña debe tener al menos 8 caracteres' };
   }
 
   if (!ROLES.includes(role as Role)) {
@@ -119,37 +148,38 @@ export async function createMemberAction(
       return { error: 'Este usuario ya es miembro de esta empresa' };
     }
 
-    // Add membership to existing user
+    // Add membership inside a transaction to make the slot check atomic
     try {
-      await ensureUserSlotAvailable(tenantId);
+      await db.$transaction(async (tx) => {
+        await ensureUserSlotAvailableTx(tx, tenantId);
+        await tx.membership.create({
+          data: { userId: user.id, tenantId, role: role as Role },
+        });
+      });
     } catch (error) {
       if (error instanceof Error) return { error: error.message };
       return { error: 'No se pudo validar el limite de usuarios' };
     }
-
-    await db.membership.create({
-      data: { userId: user.id, tenantId, role: role as Role },
-    });
   } else {
-    // Create new user + membership
+    // Create new user + membership inside a single transaction so the slot check is atomic
     const hashed = await hashPassword(password);
 
     try {
-      await ensureUserSlotAvailable(tenantId);
+      await db.$transaction(async (tx) => {
+        await ensureUserSlotAvailableTx(tx, tenantId);
+
+        const newUser = await tx.user.create({
+          data: { name, email, password: hashed },
+        });
+
+        await tx.membership.create({
+          data: { userId: newUser.id, tenantId, role: role as Role },
+        });
+      });
     } catch (error) {
       if (error instanceof Error) return { error: error.message };
-      return { error: 'No se pudo validar el limite de usuarios' };
+      return { error: 'No se pudo crear el usuario' };
     }
-
-    await db.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
-        data: { name, email, password: hashed },
-      });
-
-      await tx.membership.create({
-        data: { userId: newUser.id, tenantId, role: role as Role },
-      });
-    });
   }
 
   redirect(`/${tenantSlug}/team`);

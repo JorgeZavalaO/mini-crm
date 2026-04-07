@@ -218,7 +218,7 @@ describe('deleteDocumentAction', () => {
     await deleteDocumentAction({ tenantSlug: TENANT_SLUG, documentId: DOC_ID });
 
     expect(dbMock.document.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: DOC_ID } }),
+      expect.objectContaining({ where: { id: DOC_ID, tenantId: TENANT_ID } }),
     );
     expect(delMock).toHaveBeenCalledWith(existingDoc.blobPathname);
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/documents`);

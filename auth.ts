@@ -10,6 +10,13 @@ import { verifyPassword } from '@/lib/password';
 const SUPERADMIN_SLUG = 'superadmin';
 const appEnv = getEnv();
 
+/**
+ * Dummy hash used to ensure constant-time response when the user is not found.
+ * Prevents email enumeration via timing difference (A-02).
+ * Format: scrypt$<32-hex-salt>$<128-hex-key>
+ */
+const DUMMY_HASH = `scrypt$${'0'.repeat(32)}$${'0'.repeat(128)}`;
+
 function maskEmail(email: string) {
   const [localPart, domainPart] = email.split('@');
   if (!localPart || !domainPart) {
@@ -81,7 +88,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         try {
           const user = await db.user.findUnique({ where: { email } });
-          if (!user) return rejectAuthorizationAttempt(attemptContext, 'user_not_found');
+          if (!user) {
+            // Run scrypt anyway to prevent email enumeration via timing (A-02)
+            await verifyPassword(password, DUMMY_HASH);
+            return rejectAuthorizationAttempt(attemptContext, 'user_not_found');
+          }
 
           const valid = await verifyPassword(password, user.password);
           if (!valid) return rejectAuthorizationAttempt(attemptContext, 'invalid_password');
@@ -162,10 +173,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       // Programmatic session update (e.g. tenant switch)
+      // Only allow non-sensitive fields to be updated from the client.
+      // Privileged claims (role, isSuperAdmin) are ignored from the client
+      // and must be refreshed by signing out and back in.
       if (trigger === 'update' && session) {
         if (session.tenantId !== undefined) token.tenantId = session.tenantId;
         if (session.tenantSlug !== undefined) token.tenantSlug = session.tenantSlug;
-        if (session.role !== undefined) token.role = session.role;
+        // Do NOT accept role or isSuperAdmin from client to prevent privilege escalation
       }
 
       return token;

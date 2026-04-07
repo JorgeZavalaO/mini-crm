@@ -192,7 +192,7 @@ describe('getPortalDataByToken', () => {
     dbMock.portalToken.findUnique.mockResolvedValue({
       id: TOKEN_ID,
       isActive: true,
-      expiresAt: null,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       tenantId: TENANT_ID,
       leadId: LEAD_ID,
       tenant: { name: 'Acme Corp' },

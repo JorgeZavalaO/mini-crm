@@ -1,5 +1,6 @@
 import { get } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import { getTenantActionContextById, assertTenantFeatureById } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
@@ -42,6 +43,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const { id } = await context.params;
     const download = request.nextUrl.searchParams.get('download') === '1';
     const ifNoneMatch = request.headers.get('if-none-match') ?? undefined;
+
+    // Verify authentication before any DB query to prevent document ID enumeration
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
 
     const document = await db.document.findFirst({
       where: { id, deletedAt: null },

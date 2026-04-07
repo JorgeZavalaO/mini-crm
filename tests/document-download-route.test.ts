@@ -28,6 +28,9 @@ const dbMock = vi.hoisted(() => ({
 
 vi.mock('@/lib/db', () => ({ db: dbMock }));
 
+const { authMock } = vi.hoisted(() => ({ authMock: vi.fn() }));
+vi.mock('@/auth', () => ({ auth: authMock }));
+
 import { GET } from '@/app/api/documents/[id]/route';
 
 const TENANT_ID = 'tenant-1';
@@ -44,6 +47,7 @@ function createBlobStream() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  authMock.mockResolvedValue({ user: { id: 'user-1', isSuperAdmin: false } });
   dbMock.document.findFirst.mockResolvedValue({
     id: DOC_ID,
     tenantId: TENANT_ID,

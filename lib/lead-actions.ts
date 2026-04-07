@@ -213,7 +213,7 @@ export async function updateLeadAction(input: unknown) {
 
   try {
     await db.lead.update({
-      where: { id: payload.leadId },
+      where: { id: payload.leadId, tenantId: ctx.tenantId },
       data: {
         businessName: payload.businessName.trim(),
         ruc: payload.ruc?.trim() ?? null,
@@ -259,7 +259,7 @@ export async function archiveLeadAction(input: unknown) {
   }
 
   await db.lead.update({
-    where: { id: lead.id },
+    where: { id: lead.id, tenantId: ctx.tenantId },
     data: { deletedAt: new Date() },
   });
 
@@ -290,7 +290,7 @@ export async function assignLeadAction(input: unknown) {
   }
 
   await db.lead.update({
-    where: { id: parsed.data.leadId },
+    where: { id: lead.id, tenantId: ctx.tenantId },
     data: { ownerId: parsed.data.ownerId },
   });
 

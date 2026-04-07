@@ -122,7 +122,7 @@ async function generateQuoteNumber(
 
 function assertAllowedStatusTransition(current: QuoteStatus, next: QuoteStatus) {
   const transitions: Record<QuoteStatus, QuoteStatus[]> = {
-    BORRADOR: [QuoteStatus.ENVIADA, QuoteStatus.RECHAZADA],
+    BORRADOR: [QuoteStatus.ENVIADA],
     ENVIADA: [QuoteStatus.ACEPTADA, QuoteStatus.RECHAZADA],
     ACEPTADA: [],
     RECHAZADA: [],
@@ -312,7 +312,7 @@ export async function changeQuoteStatusAction(input: unknown) {
   assertAllowedStatusTransition(existing.status, status);
 
   await db.quote.update({
-    where: { id: quoteId },
+    where: { id: quoteId, tenantId: ctx.tenantId },
     data: {
       status,
       issuedAt: status === QuoteStatus.ENVIADA ? new Date() : undefined,
@@ -361,7 +361,7 @@ export async function deleteQuoteAction(input: unknown) {
   }
 
   await db.quote.update({
-    where: { id: quoteId },
+    where: { id: quoteId, tenantId: ctx.tenantId },
     data: { deletedAt: new Date() },
   });
 
@@ -381,8 +381,7 @@ export type QuoteRow = {
   leadId: string;
   leadName: string;
   createdBy: { name: string | null; email: string };
-  createdById: string;
-  createdAt: Date;
+  createdById: string | null;
   updatedAt: Date;
   validUntil: Date | null;
 };
@@ -688,6 +687,14 @@ export async function sendQuoteEmailAction(input: unknown) {
 
   if (!quote) throw new AppError('Cotización no encontrada', 404);
 
+  // Bloquear reenvío para cotizaciones en estado terminal (L-4)
+  if (quote.status === QuoteStatus.RECHAZADA || quote.status === QuoteStatus.ACEPTADA) {
+    throw new AppError(
+      `No se puede enviar una cotización con estado ${quote.status.toLowerCase()}`,
+      400,
+    );
+  }
+
   const sender = await db.user.findUnique({
     where: { id: ctx.userId },
     select: { name: true },
@@ -717,7 +724,7 @@ export async function sendQuoteEmailAction(input: unknown) {
   // Transicionar a ENVIADA si estaba en BORRADOR
   if (quote.status === QuoteStatus.BORRADOR) {
     await db.quote.update({
-      where: { id: quoteId },
+      where: { id: quoteId, tenantId: ctx.tenantId },
       data: { status: QuoteStatus.ENVIADA, issuedAt: new Date() },
     });
   }

@@ -119,6 +119,8 @@ model Tenant {
   notifications            Notification[]
   portalTokens             PortalToken[]
   plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([isActive, deletedAt])
 }
 
 model Plan {
@@ -280,13 +282,13 @@ model Quote {
   issuedAt    DateTime?
   validUntil  DateTime?
   notes       String?
-  createdById String
+  createdById String?
   deletedAt   DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lead        Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  createdBy   User         @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy   User?        @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
   items       QuoteItem[]
 
   @@unique([tenantId, quoteNumber])
@@ -332,6 +334,7 @@ model LeadReassignmentRequest {
 
   @@index([tenantId, status])
   @@index([leadId, status])
+  @@index([tenantId, leadId])
 }
 
 model Interaction {
@@ -359,7 +362,7 @@ model Document {
   id           String    @id @default(cuid())
   tenantId     String
   leadId       String?
-  uploadedById String
+  uploadedById String?
   name         String
   blobUrl      String
   blobPathname String
@@ -370,7 +373,7 @@ model Document {
   updatedAt    DateTime  @updatedAt
   tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lead         Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  uploadedBy   User      @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  uploadedBy   User?     @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, leadId])
@@ -383,7 +386,7 @@ model Task {
   id           String       @id @default(cuid())
   tenantId     String
   leadId       String?
-  createdById  String
+  createdById  String?
   assignedToId String?
   title        String
   description  String?
@@ -397,7 +400,7 @@ model Task {
 
   tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lead       Lead?  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  createdBy  User   @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy  User?  @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
   assignedTo User?  @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, deletedAt])
@@ -416,13 +419,13 @@ model Product {
   unitPrice   Decimal      @db.Decimal(12, 4)
   currency    CurrencyCode @default(PEN)
   isActive    Boolean      @default(true)
-  createdById String
+  createdById String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   deletedAt   DateTime?
 
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, isActive, deletedAt])
   @@index([tenantId, deletedAt])
@@ -460,13 +463,13 @@ model PortalToken {
   isActive       Boolean   @default(true)
   expiresAt      DateTime?
   lastAccessedAt DateTime?
-  createdById    String
+  createdById    String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   lead      Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  createdBy User   @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdBy User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([tenantId, leadId])
 }

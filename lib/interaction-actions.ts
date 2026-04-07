@@ -190,7 +190,7 @@ export async function updateInteractionAction(input: unknown) {
   }
 
   await db.interaction.update({
-    where: { id: interactionId },
+    where: { id: interactionId, tenantId: ctx.tenantId },
     data: {
       type,
       subject: subject ?? null,
@@ -224,7 +224,10 @@ export async function deleteInteractionAction(input: unknown) {
     throw new AppError('No autorizado para eliminar esta interacción', 403);
   }
 
-  await db.interaction.delete({ where: { id: interactionId } });
+  await db.interaction.update({
+    where: { id: interactionId, tenantId: ctx.tenantId },
+    data: { deletedAt: new Date() },
+  });
 
   revalidateLeadViews(tenantSlug, existing.leadId);
   return { success: true };

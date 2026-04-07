@@ -17,6 +17,8 @@ import {
 } from '@/lib/lead-normalization';
 import { importCsvSchema, importLeadRowSchema } from '@/lib/validators';
 
+const MAX_IMPORT_ROWS = 2000;
+
 type LeadActorContext = {
   tenantId: string;
   tenantSlug: string;
@@ -239,6 +241,13 @@ async function buildImportExecutionPlan(
   );
 
   const csvRecords = parseImportCsvRecords(csvText);
+
+  if (csvRecords.length > MAX_IMPORT_ROWS) {
+    throw new AppError(
+      `El archivo supera el límite de ${MAX_IMPORT_ROWS} filas por importación`,
+      400,
+    );
+  }
   const preparedRows: PreparedImportRow[] = [];
   const planRows: ImportExecutionPlanRow[] = [];
 
@@ -398,44 +407,45 @@ export async function previewImportLeadsAction(input: unknown) {
 
 export async function importLeadsAction(input: unknown) {
   const { tenantSlug, rows } = await getImportRequestPlan(input);
+
+  const readyRows = rows.filter(
+    (row): row is typeof row & { createData: Prisma.LeadCreateInput } =>
+      row.outcome === 'READY' && row.createData !== undefined,
+  );
+  const skippedRows = rows.filter((row) => row.outcome !== 'READY');
+
   const results: Array<
     Omit<ImportRowResult, 'outcome'> & { outcome: 'CREATED' | 'SKIPPED' | 'ERROR' }
   > = [];
 
-  for (const row of rows) {
-    if (row.outcome !== 'READY' || !row.createData) {
-      results.push({
-        rowNumber: row.rowNumber,
-        businessName: row.businessName,
-        ruc: row.ruc,
-        outcome: row.outcome === 'READY' ? 'ERROR' : row.outcome,
-        message: row.outcome === 'READY' ? 'La fila no pudo prepararse para importar' : row.message,
-      });
-      continue;
-    }
-
-    try {
-      await db.lead.create({ data: row.createData });
-      results.push({
-        rowNumber: row.rowNumber,
-        businessName: row.businessName,
-        ruc: row.ruc,
-        outcome: 'CREATED',
-        message: 'Lead importado correctamente',
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo importar la fila';
-      results.push({
-        rowNumber: row.rowNumber,
-        businessName: row.businessName,
-        ruc: row.ruc,
-        outcome: 'ERROR',
-        message,
-      });
-    }
+  // Create all ready leads in a single atomic transaction
+  if (readyRows.length > 0) {
+    await db.$transaction(readyRows.map((row) => db.lead.create({ data: row.createData })));
   }
 
-  const createdCount = results.filter((result) => result.outcome === 'CREATED').length;
+  for (const row of readyRows) {
+    results.push({
+      rowNumber: row.rowNumber,
+      businessName: row.businessName,
+      ruc: row.ruc,
+      outcome: 'CREATED',
+      message: 'Lead importado correctamente',
+    });
+  }
+
+  for (const row of skippedRows) {
+    results.push({
+      rowNumber: row.rowNumber,
+      businessName: row.businessName,
+      ruc: row.ruc,
+      outcome: row.outcome === 'READY' ? 'ERROR' : row.outcome,
+      message: row.message,
+    });
+  }
+
+  results.sort((a, b) => a.rowNumber - b.rowNumber);
+
+  const createdCount = readyRows.length;
   const skippedCount = results.filter((result) => result.outcome === 'SKIPPED').length;
   const errorCount = results.filter((result) => result.outcome === 'ERROR').length;
 

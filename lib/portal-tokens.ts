@@ -26,6 +26,7 @@ export function getPortalTokenExpiresAt(from = new Date()) {
 
 export function isPortalTokenActive(portalToken: PortalTokenLike, now = new Date()) {
   if (!portalToken.isActive) return false;
-  if (!portalToken.expiresAt) return true;
+  // Tokens without an expiry date are considered invalid (expired/unsafe)
+  if (!portalToken.expiresAt) return false;
   return portalToken.expiresAt.getTime() > now.getTime();
 }

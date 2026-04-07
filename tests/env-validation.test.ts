@@ -18,7 +18,7 @@ describe('env validation', () => {
 
     expect(result.AUTH_SECRET.length).toBeGreaterThanOrEqual(32);
     expect(result.LOG_LEVEL).toBe('debug');
-    expect(result.AUTH_TRUST_HOST).toBe(true);
+    expect(result.AUTH_TRUST_HOST).toBe(false);
     expect(result.AUTH_RATE_LIMIT_WINDOW_MS).toBe(600000);
     expect(result.AUTH_RATE_LIMIT_MAX_ATTEMPTS).toBe(5);
     expect(result.AUTH_RATE_LIMIT_BLOCK_MS).toBe(900000);

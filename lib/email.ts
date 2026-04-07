@@ -153,8 +153,9 @@ export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void>
 </body>
 </html>`;
 
+  const { EMAIL_FROM } = getEnv();
   const result = await resend.emails.send({
-    from: 'cotizaciones@resend.dev',
+    from: EMAIL_FROM ?? 'cotizaciones@resend.dev',
     to: opts.to,
     subject: sanitizeEmailSubject(`Cotización ${opts.quoteNumber} - ${opts.clientName}`),
     html,

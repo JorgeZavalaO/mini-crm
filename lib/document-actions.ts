@@ -158,18 +158,28 @@ export async function uploadDocumentAction(formData: FormData) {
     addRandomSuffix: false,
   });
 
-  await db.document.create({
-    data: {
-      tenantId: ctx.tenantId,
-      leadId: leadId ?? null,
-      uploadedById: ctx.userId,
-      name: file.name,
-      blobUrl: blob.url,
-      blobPathname: blob.pathname,
-      mimeType: file.type,
-      sizeBytes: file.size,
-    },
-  });
+  try {
+    await db.document.create({
+      data: {
+        tenantId: ctx.tenantId,
+        leadId: leadId ?? null,
+        uploadedById: ctx.userId,
+        name: file.name,
+        blobUrl: blob.url,
+        blobPathname: blob.pathname,
+        mimeType: file.type,
+        sizeBytes: file.size,
+      },
+    });
+  } catch (dbError) {
+    // Clean up the orphaned blob if DB insert fails
+    try {
+      await del(blob.pathname);
+    } catch {
+      // best-effort cleanup
+    }
+    throw dbError;
+  }
 
   revalidateDocumentViews(tenantSlug, leadId);
 }
@@ -198,7 +208,7 @@ export async function deleteDocumentAction(input: unknown) {
   }
 
   await db.document.update({
-    where: { id: documentId },
+    where: { id: documentId, tenantId: ctx.tenantId },
     data: { deletedAt: new Date() },
   });
 

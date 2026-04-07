@@ -355,7 +355,7 @@ describe('restoreTenantAction', () => {
     await expect(restoreTenantAction('nonexistent')).rejects.toThrow('Tenant no encontrado');
   });
 
-  it('restaura el tenant limpiando deletedAt y poniendo isActive en false', async () => {
+  it('restaura el tenant limpiando deletedAt y activando isActive en true', async () => {
     dbMock.tenant.findUnique
       .mockResolvedValueOnce({ id: 'tenant-1', deletedAt: new Date() })
       .mockResolvedValue(null);
@@ -365,7 +365,7 @@ describe('restoreTenantAction', () => {
     expect(result.success).toBe(true);
     expect(dbMock.tenant.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ deletedAt: null, isActive: false }),
+        data: expect.objectContaining({ deletedAt: null, isActive: true }),
       }),
     );
   });

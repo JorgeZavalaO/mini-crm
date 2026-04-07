@@ -185,8 +185,8 @@ export async function createTenantAction(
   if (!companyName || !slug || !adminName || !adminEmail || !adminPassword || !planId) {
     return { error: 'Todos los campos son requeridos' };
   }
-  if (adminPassword.length < 6) {
-    return { error: 'La contrasena debe tener al menos 6 caracteres' };
+  if (adminPassword.length < 8) {
+    return { error: 'La contrasena debe tener al menos 8 caracteres' };
   }
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     return { error: 'Slug invalido. Usa minusculas, numeros y guiones' };
@@ -211,44 +211,54 @@ export async function createTenantAction(
 
   const hashed = await hashPassword(adminPassword);
 
-  await db.$transaction(async (tx) => {
-    const tenant = await tx.tenant.create({
-      data: {
-        name: companyName,
-        slug,
-        planId: plan.id,
-        maxUsers: plan.maxUsers,
-        maxStorageGb: plan.maxStorageGb,
-        retentionDays: plan.retentionDays,
-      },
-    });
-
-    const user = await tx.user.create({
-      data: { name: adminName, email: adminEmail, password: hashed },
-    });
-
-    await tx.membership.create({
-      data: { userId: user.id, tenantId: tenant.id, role: 'ADMIN' },
-    });
-
-    const planFeatures = await tx.planFeature.findMany({
-      where: { planId: plan.id },
-      select: { featureKey: true, enabled: true, config: true },
-    });
-    const featureMap = new Map(planFeatures.map((f) => [f.featureKey, f]));
-
-    for (const featureKey of FEATURE_KEYS) {
-      const feature = featureMap.get(featureKey);
-      await tx.tenantFeature.create({
+  try {
+    await db.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
         data: {
-          tenantId: tenant.id,
-          featureKey,
-          enabled: feature?.enabled ?? false,
-          config: feature?.config ?? Prisma.JsonNull,
+          name: companyName,
+          slug,
+          planId: plan.id,
+          maxUsers: plan.maxUsers,
+          maxStorageGb: plan.maxStorageGb,
+          retentionDays: plan.retentionDays,
         },
       });
+
+      const user = await tx.user.create({
+        data: { name: adminName, email: adminEmail, password: hashed },
+      });
+
+      await tx.membership.create({
+        data: { userId: user.id, tenantId: tenant.id, role: 'ADMIN' },
+      });
+
+      const planFeatures = await tx.planFeature.findMany({
+        where: { planId: plan.id },
+        select: { featureKey: true, enabled: true, config: true },
+      });
+      const featureMap = new Map(planFeatures.map((f) => [f.featureKey, f]));
+
+      for (const featureKey of FEATURE_KEYS) {
+        const feature = featureMap.get(featureKey);
+        await tx.tenantFeature.create({
+          data: {
+            tenantId: tenant.id,
+            featureKey,
+            enabled: feature?.enabled ?? false,
+            config: feature?.config ?? Prisma.JsonNull,
+          },
+        });
+      }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const target = (error.meta?.target as string[] | undefined)?.join(', ');
+      if (target?.includes('slug')) return { error: 'Ya existe una empresa con ese slug' };
+      if (target?.includes('email')) return { error: 'Ya existe un usuario con ese email' };
+      return { error: 'Conflicto de datos únicos. Verifica slug y email.' };
     }
-  });
+    throw error;
+  }
 
   revalidatePath('/superadmin');
   return { success: 'Empresa creada correctamente' };
@@ -367,7 +377,7 @@ export async function restoreTenantAction(tenantId: string) {
     where: { id: tenantId },
     data: {
       deletedAt: null,
-      isActive: false,
+      isActive: true,
     },
   });
 

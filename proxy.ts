@@ -84,7 +84,9 @@ export const proxy = auth(async (req) => {
 
     if (!isLoggedIn) {
       const loginUrl = new URL('/login', req.nextUrl);
-      loginUrl.searchParams.set('callbackUrl', pathname);
+      // Guard against protocol-relative or absolute URLs injected into the path (B-01)
+      const safePath = /^\/[^/]/.test(pathname) ? pathname : '/';
+      loginUrl.searchParams.set('callbackUrl', safePath);
       return finalizeResponse(req, NextResponse.redirect(loginUrl), requestId);
     }
 

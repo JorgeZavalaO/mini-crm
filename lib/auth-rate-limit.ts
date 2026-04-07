@@ -35,10 +35,33 @@ type GlobalRateLimitStore = typeof globalThis & {
   __miniCrmAuthRateLimitStore?: Map<string, AttemptRecord>;
 };
 
+const MAX_STORE_ENTRIES = 100_000;
+
 function getDefaultStore() {
   const scope = globalThis as GlobalRateLimitStore;
   scope.__miniCrmAuthRateLimitStore ??= new Map<string, AttemptRecord>();
   return scope.__miniCrmAuthRateLimitStore;
+}
+
+function evictExpiredIfNeeded(store: Map<string, AttemptRecord>, now: number, windowMs: number) {
+  if (store.size < MAX_STORE_ENTRIES) return;
+  for (const [key, record] of store) {
+    if (
+      (record.blockedUntil > 0 && record.blockedUntil <= now) ||
+      now - record.windowStartedAt >= windowMs
+    ) {
+      store.delete(key);
+    }
+  }
+  // Hard-evict oldest entries if still over limit
+  if (store.size >= MAX_STORE_ENTRIES) {
+    const excess = store.size - MAX_STORE_ENTRIES + 1;
+    let evicted = 0;
+    for (const key of store.keys()) {
+      store.delete(key);
+      if (++evicted >= excess) break;
+    }
+  }
 }
 
 function hashKey(value: string) {
@@ -165,6 +188,7 @@ export function createAuthRateLimiter(
     const normalized = normalizeContext(context);
     const config = resolveConfig(overrides);
     const now = config.now();
+    evictExpiredIfNeeded(store, now, config.windowMs);
 
     for (const key of getRateKeys(normalized, config)) {
       const record = getActiveRecord(store, key.key, now, config.windowMs) ?? {

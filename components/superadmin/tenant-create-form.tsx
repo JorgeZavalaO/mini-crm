@@ -147,7 +147,7 @@ export function TenantCreateForm({
           id="adminPassword"
           name="adminPassword"
           type="password"
-          placeholder="Minimo 6 caracteres"
+          placeholder="Minimo 8 caracteres"
           required
           minLength={6}
         />

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Check, Copy, Globe, Loader2, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { createPortalTokenAction, revokePortalTokenAction } from '@/lib/portal-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,8 +67,8 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
           ]);
           setSummary((prev) => ({ ...prev, active: prev.active + 1 }));
         }
-      } catch {
-        /* ignore */
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Error al generar el enlace');
       }
     });
   }, [tenantSlug, leadId]);
@@ -75,15 +76,22 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
   const handleRevoke = useCallback(
     (tokenId: string) => {
       startTransition(async () => {
+        // Optimistically update UI
+        setTokens((prev) => prev.map((t) => (t.id === tokenId ? { ...t, isActive: false } : t)));
+        setSummary((prev) => ({
+          active: Math.max(0, prev.active - 1),
+          inactive: prev.inactive + 1,
+        }));
         try {
           await revokePortalTokenAction({ tenantSlug, tokenId });
-          setTokens((prev) => prev.map((t) => (t.id === tokenId ? { ...t, isActive: false } : t)));
+        } catch (err) {
+          // Revert optimistic update on failure
+          setTokens((prev) => prev.map((t) => (t.id === tokenId ? { ...t, isActive: true } : t)));
           setSummary((prev) => ({
-            active: Math.max(0, prev.active - 1),
-            inactive: prev.inactive + 1,
+            active: prev.active + 1,
+            inactive: Math.max(0, prev.inactive - 1),
           }));
-        } catch {
-          /* ignore */
+          toast.error(err instanceof Error ? err.message : 'Error al revocar el enlace');
         }
       });
     },

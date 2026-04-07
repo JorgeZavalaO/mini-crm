@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import {
   CheckCircle2,
@@ -103,6 +104,7 @@ export function QuoteList({
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function canModerate() {
     if (isSuperAdmin) return true;
@@ -137,6 +139,7 @@ export function QuoteList({
     startTransition(async () => {
       try {
         await changeQuoteStatusAction({ tenantSlug, quoteId, status });
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo cambiar el estado');
       } finally {
@@ -151,6 +154,7 @@ export function QuoteList({
     startTransition(async () => {
       try {
         await deleteQuoteAction({ tenantSlug, quoteId });
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'No se pudo eliminar la cotización');
       } finally {

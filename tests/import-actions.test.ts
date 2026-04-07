@@ -29,6 +29,7 @@ vi.mock('@/lib/import-utils', () => ({
 const dbMock = vi.hoisted(() => ({
   lead: { findMany: vi.fn(), create: vi.fn() },
   membership: { findUnique: vi.fn(), findMany: vi.fn() },
+  $transaction: vi.fn().mockImplementation((ops: Promise<unknown>[]) => Promise.all(ops)),
 }));
 
 vi.mock('@/lib/db', () => ({ db: dbMock }));
@@ -162,12 +163,12 @@ describe('importLeadsAction', () => {
     expect(revalidatePathMock).toHaveBeenCalled();
   });
 
-  it('reporta ERROR en fila cuando db.lead.create lanza', async () => {
+  it('lanza cuando la transacción de creación falla', async () => {
     dbMock.lead.create.mockRejectedValue(new Error('DB error'));
+    dbMock.$transaction.mockRejectedValue(new Error('DB error'));
 
-    const result = await importLeadsAction({ tenantSlug: TENANT_SLUG, csvText: VALID_CSV });
-
-    expect(result.errorCount).toBeGreaterThan(0);
-    expect(result.createdCount).toBe(0);
+    await expect(
+      importLeadsAction({ tenantSlug: TENANT_SLUG, csvText: VALID_CSV }),
+    ).rejects.toThrow('DB error');
   });
 });

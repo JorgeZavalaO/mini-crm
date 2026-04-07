@@ -35,7 +35,7 @@ export type TaskRow = {
   createdAt: Date;
   leadId: string | null;
   leadName: string | null;
-  createdById: string;
+  createdById: string | null;
   createdByName: string | null;
   assignedToId: string | null;
   assignedToName: string | null;
@@ -197,7 +197,7 @@ export async function updateTaskAction(input: unknown) {
   }
 
   await db.task.update({
-    where: { id: taskId },
+    where: { id: taskId, tenantId: ctx.tenantId },
     data: {
       leadId: leadId ?? null,
       assignedToId: assignedToId ?? null,
@@ -240,7 +240,7 @@ export async function changeTaskStatusAction(input: unknown) {
   }
 
   await db.task.update({
-    where: { id: taskId },
+    where: { id: taskId, tenantId: ctx.tenantId },
     data: {
       status,
       completedAt: status === 'DONE' ? new Date() : null,
@@ -276,7 +276,7 @@ export async function deleteTaskAction(input: unknown) {
   }
 
   await db.task.update({
-    where: { id: taskId },
+    where: { id: taskId, tenantId: ctx.tenantId },
     data: { deletedAt: new Date() },
   });
 

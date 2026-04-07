@@ -471,7 +471,7 @@ describe('deleteTaskAction', () => {
     expect(result).toEqual({ success: true });
     expect(dbMock.task.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: TASK_ID },
+        where: { id: TASK_ID, tenantId: TENANT_ID },
         data: expect.objectContaining({ deletedAt: expect.any(Date) }),
       }),
     );

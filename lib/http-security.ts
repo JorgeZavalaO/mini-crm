@@ -38,6 +38,10 @@ export function buildSecurityHeaders({ isHttps = false, requestId }: SecurityHea
     'cross-origin-opener-policy': 'same-origin',
     'cross-origin-resource-policy': 'same-origin',
     'x-dns-prefetch-control': 'off',
+    // Defense against XSS: restrict script sources to self only.
+    // Update this policy if you add third-party script CDNs.
+    'content-security-policy':
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
   };
 
   if (requestId) {

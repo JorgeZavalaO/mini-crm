@@ -108,7 +108,7 @@ describe('createMemberAction', () => {
 
     const result = await createMemberAction(undefined, fd);
 
-    expect(result).toEqual({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    expect(result).toEqual({ error: 'La contraseña debe tener al menos 8 caracteres' });
   });
 
   it('retorna error cuando el rol es inválido', async () => {

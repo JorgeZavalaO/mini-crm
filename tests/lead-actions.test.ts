@@ -200,7 +200,7 @@ describe('archiveLeadAction', () => {
     expect(result).toEqual({ success: true });
     expect(dbMock.lead.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: LEAD_ID },
+        where: { id: LEAD_ID, tenantId: TENANT_ID },
         data: expect.objectContaining({ deletedAt: expect.any(Date) }),
       }),
     );
@@ -258,7 +258,7 @@ describe('assignLeadAction', () => {
     expect(result).toEqual({ success: true });
     expect(dbMock.lead.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: LEAD_ID },
+        where: { id: LEAD_ID, tenantId: TENANT_ID },
         data: { ownerId: OWNER_ID },
       }),
     );

@@ -281,7 +281,7 @@ describe('updateInteractionAction', () => {
     const result = await updateInteractionAction(VALID_UPDATE_INPUT);
     expect(result).toEqual({ success: true });
     expect(dbMock.interaction.update).toHaveBeenCalledWith({
-      where: { id: INTERACTION_ID },
+      where: { id: INTERACTION_ID, tenantId: TENANT_ID },
       data: expect.not.objectContaining({
         leadId: expect.anything(),
       }),
@@ -308,7 +308,7 @@ describe('updateInteractionAction', () => {
     });
 
     expect(dbMock.interaction.update).toHaveBeenCalledWith({
-      where: { id: INTERACTION_ID },
+      where: { id: INTERACTION_ID, tenantId: TENANT_ID },
       data: expect.not.objectContaining({
         leadId: 'lead-ajeno',
       }),
@@ -330,7 +330,7 @@ describe('deleteInteractionAction', () => {
       leadId: LEAD_ID,
       authorId: USER_ID,
     });
-    dbMock.interaction.delete.mockResolvedValue({});
+    dbMock.interaction.update.mockResolvedValue({});
   });
 
   it('lanza AppError 400 con datos inválidos', async () => {
@@ -360,8 +360,8 @@ describe('deleteInteractionAction', () => {
   it('el autor puede eliminar su propia interacción', async () => {
     const result = await deleteInteractionAction(VALID_DELETE_INPUT);
     expect(result).toEqual({ success: true });
-    expect(dbMock.interaction.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: INTERACTION_ID } }),
+    expect(dbMock.interaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: INTERACTION_ID, tenantId: TENANT_ID } }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
   });

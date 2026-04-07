@@ -51,8 +51,8 @@ export const acceptTeamInvitationSchema = z
   .object({
     token: z.string().trim().min(20, 'Invitación inválida').max(255),
     name: z.string().trim().min(2, 'Ingresa tu nombre').max(120),
-    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(100),
-    confirmPassword: z.string().min(6, 'Confirma la contraseña').max(100),
+    password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(100),
+    confirmPassword: z.string().min(8, 'Confirma la contraseña').max(100),
   })
   .refine((value) => value.password === value.confirmPassword, {
     message: 'Las contraseñas no coinciden',
