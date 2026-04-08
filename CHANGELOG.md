@@ -40,6 +40,7 @@ Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 - Corrección de comparaciones de contraseña inseguras por comparación de longitud y timing-safe en `password.ts`.
 - Email de cotización ya no es vulnerable a inyección de etiquetas HTML en el nombre del cliente.
 - `LeadFormDialog` ahora consume wrappers seguros (`createLeadSafeAction`/`updateLeadSafeAction`) para mostrar errores de negocio (p. ej. RUC duplicado) sin exponer el mensaje genérico de Server Components en producción.
+- `LeadFormDialog`: se corrigió el payload de campos opcionales (`gerente`, `contactName`, `contactPhone`) para no enviar `null` cuando están vacíos y evitar el error de validación `Expected string, received null` en creación/edición.
 
 ### Tests
 

@@ -170,9 +170,9 @@ export function LeadFormDialog({
       notes,
       phones: parseDelimitedList(phonesText),
       emails: parseDelimitedList(emailsText),
-      gerente: gerente || null,
-      contactName: contactName || null,
-      contactPhone: contactPhone || null,
+      gerente,
+      contactName,
+      contactPhone,
       status,
       ...(canAssign ? { ownerId: ownerValue === UNASSIGNED ? null : ownerValue } : {}),
     };
