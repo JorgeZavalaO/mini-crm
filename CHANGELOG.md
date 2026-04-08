@@ -28,6 +28,7 @@ Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 - **`app/api/documents/[id]/route.ts`**: headers de seguridad (`Content-Disposition`, `X-Content-Type-Options`) añadidos a la descarga de documentos.
 - **`lib/lead-permissions.ts`**: ajustes para permitir `createdById` nulo en modelos relacionados; nueva función de control de acceso para historial de propietarios.
 - **`prisma/schema.prisma`**: FK de `User` en múltiples modelos cambiadas a `onDelete: SetNull` para proteger integridad ante borrado de usuarios; nuevos índices de rendimiento.
+- **Importación de leads**: plantilla Excel, mapeo CSV, validación y persistencia alineadas para soportar `gerente`, `contactName` y `contactPhone` en cargas masivas.
 - **Internacionalización de la UI**: etiquetas de roles, estados y textos de interfaz traducidos/homogeneizados al español en 23+ archivos del lado cliente y servidor.
 - `app/[tenantSlug]/leads/[id]/page.tsx`: pestaña de historial de propietarios integrada con `OwnerHistoryTimeline`.
 - `lib/interaction-actions.ts`: schema de interacción actualizado (`tenantSlug`, `type`, `subject`, `notes`, `occurredAt`).

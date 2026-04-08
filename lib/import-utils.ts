@@ -8,6 +8,9 @@ export const IMPORT_TEMPLATE_HEADERS = [
   'city',
   'industry',
   'source',
+  'gerente',
+  'contactName',
+  'contactPhone',
   'notes',
   'phones',
   'emails',
@@ -21,8 +24,8 @@ type RawCsvRecord = Record<string, string>;
 
 export const IMPORT_SAMPLE_CSV = [
   IMPORT_TEMPLATE_HEADERS.join(','),
-  'Acme Logistics SAC,20123456789,Peru,Lima,Logistica,Web,"Cliente demo",+51 999 111 222,ventas@acme.com,NEW,admin@acme.com',
-  'Importadora Norte,,Peru,Piura,Comercio exterior,Referido,"Requiere seguimiento",+51 955 123 456,comercial@norte.com,CONTACTED,',
+  'Acme Logistics SAC,20123456789,Peru,Lima,Logistica,Web,Ana Gerente,Lucia Torres,+51 988 111 222,"Cliente demo",+51 999 111 222,ventas@acme.com,NEW,admin@acme.com',
+  'Importadora Norte,,Peru,Piura,Comercio exterior,Referido,Carlos Ruiz,Mario Quispe,+51 944 222 333,"Requiere seguimiento",+51 955 123 456,comercial@norte.com,CONTACTED,',
 ].join('\n');
 
 const COLUMN_ALIASES: Record<string, ImportColumn> = {
@@ -39,6 +42,16 @@ const COLUMN_ALIASES: Record<string, ImportColumn> = {
   rubro: 'industry',
   source: 'source',
   fuente: 'source',
+  gerente: 'gerente',
+  responsable: 'gerente',
+  contactname: 'contactName',
+  contact_name: 'contactName',
+  personacontacto: 'contactName',
+  persona_contacto: 'contactName',
+  contactphone: 'contactPhone',
+  contact_phone: 'contactPhone',
+  telefonocontacto: 'contactPhone',
+  telefono_contacto: 'contactPhone',
   notes: 'notes',
   notas: 'notes',
   phones: 'phones',
@@ -167,6 +180,9 @@ export function mapCsvRecordToImportRow(record: RawCsvRecord) {
     city: record.city || undefined,
     industry: record.industry || undefined,
     source: record.source || undefined,
+    gerente: record.gerente || undefined,
+    contactName: record.contactName || undefined,
+    contactPhone: record.contactPhone || undefined,
     notes: record.notes || undefined,
     phones: parseDelimitedList(record.phones),
     emails: parseDelimitedList(record.emails),

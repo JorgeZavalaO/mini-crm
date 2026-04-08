@@ -19,7 +19,7 @@ describe('import utils', () => {
 
   it('acepta alias de columnas y construye records', () => {
     const records = parseImportCsvRecords(
-      'razon_social,ruc,telefonos,correos,estado\nAcme,20123456789,+51 999 111 222,ventas@acme.com,Contactado',
+      'razon_social,ruc,telefonos,correos,estado,persona_contacto,telefono_contacto\nAcme,20123456789,+51 999 111 222,ventas@acme.com,Contactado,Laura Peña,+51 944 100 200',
     );
 
     expect(records[0]).toMatchObject({
@@ -28,6 +28,8 @@ describe('import utils', () => {
       phones: '+51 999 111 222',
       emails: 'ventas@acme.com',
       status: 'Contactado',
+      contactName: 'Laura Peña',
+      contactPhone: '+51 944 100 200',
     });
   });
 
@@ -48,6 +50,9 @@ describe('import utils', () => {
       city: undefined,
       industry: undefined,
       source: undefined,
+      gerente: undefined,
+      contactName: undefined,
+      contactPhone: undefined,
       notes: undefined,
       phones: ['+51 999 111 222', '+51 955 000 111'],
       emails: ['ventas@acme.com', 'ops@acme.com'],

@@ -139,6 +139,21 @@ export default async function LeadImportPage({
                     { col: 'city', required: false, desc: 'Ciudad' },
                     { col: 'industry', required: false, desc: 'Rubro o sector' },
                     { col: 'source', required: false, desc: 'Fuente (Web, Referido…)' },
+                    {
+                      col: 'gerente',
+                      required: false,
+                      desc: 'Gerente o responsable principal de la cuenta',
+                    },
+                    {
+                      col: 'contactName',
+                      required: false,
+                      desc: 'Nombre de la persona de contacto',
+                    },
+                    {
+                      col: 'contactPhone',
+                      required: false,
+                      desc: 'Teléfono directo de la persona de contacto',
+                    },
                     { col: 'notes', required: false, desc: 'Notas internas' },
                     { col: 'phones', required: false, desc: 'Teléfonos separados por ;' },
                     { col: 'emails', required: false, desc: 'Correos separados por ;' },
