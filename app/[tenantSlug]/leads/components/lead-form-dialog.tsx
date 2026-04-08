@@ -79,6 +79,14 @@ interface LeadFormDialogProps {
 
 const UNASSIGNED = '__UNASSIGNED__';
 
+function RequiredMark() {
+  return (
+    <span className="ml-1 text-destructive" aria-label="obligatorio">
+      *
+    </span>
+  );
+}
+
 function toFormDefaults(lead?: EditableLead) {
   return {
     businessName: lead?.businessName ?? '',
@@ -218,7 +226,10 @@ export function LeadFormDialog({
 
         <div className="grid gap-4 py-1">
           <div className="space-y-2">
-            <Label htmlFor={`${lead?.id ?? 'new'}-businessName`}>Razon social</Label>
+            <Label htmlFor={`${lead?.id ?? 'new'}-businessName`}>
+              Razon social
+              <RequiredMark />
+            </Label>
             <Input
               id={`${lead?.id ?? 'new'}-businessName`}
               value={businessName}
@@ -239,7 +250,10 @@ export function LeadFormDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label>Estado</Label>
+              <Label>
+                Estado
+                <RequiredMark />
+              </Label>
               <Select value={status} onValueChange={(value) => setStatus(value as LeadStatus)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Estado" />
@@ -378,7 +392,7 @@ export function LeadFormDialog({
               id={`${lead?.id ?? 'new'}-notes`}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="min-h-[120px]"
+              className="min-h-30"
               placeholder="Contexto comercial, comentarios y acuerdos..."
             />
           </div>
