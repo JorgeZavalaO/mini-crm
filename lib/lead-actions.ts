@@ -34,6 +34,33 @@ type LeadActorContext = {
   isActiveMember: boolean;
 };
 
+type LeadMutationResult =
+  | { success: true; leadId?: string }
+  | { success: false; message: string; code?: string; status?: number };
+
+function toLeadMutationError(error: unknown): { message: string; code?: string; status?: number } {
+  if (error instanceof AppError) {
+    return {
+      message: error.message,
+      code: error.code,
+      status: error.status,
+    };
+  }
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    return {
+      message: 'Ya existe un lead activo con ese RUC',
+      code: 'LEAD_DUPLICATE_RUC',
+      status: 409,
+    };
+  }
+
+  return {
+    message: 'No se pudo guardar el lead. Inténtalo nuevamente.',
+    status: 500,
+  };
+}
+
 function toLeadActorContext(
   ctx: Awaited<ReturnType<typeof getTenantActionContextBySlug>>,
 ): LeadActorContext {
@@ -185,6 +212,21 @@ export async function createLeadAction(input: unknown) {
   }
 }
 
+export async function createLeadSafeAction(input: unknown): Promise<LeadMutationResult> {
+  try {
+    const result = await createLeadAction(input);
+    return result;
+  } catch (error) {
+    const mapped = toLeadMutationError(error);
+    return {
+      success: false,
+      message: mapped.message,
+      code: mapped.code,
+      status: mapped.status,
+    };
+  }
+}
+
 export async function updateLeadAction(input: unknown) {
   const payload = parseUpdatePayload(input);
   const ctx = await getLeadContext(payload.tenantSlug);
@@ -258,6 +300,21 @@ export async function updateLeadAction(input: unknown) {
       throw new AppError('Ya existe un lead activo con ese RUC', 409, 'LEAD_DUPLICATE_RUC');
     }
     throw error;
+  }
+}
+
+export async function updateLeadSafeAction(input: unknown): Promise<LeadMutationResult> {
+  try {
+    const result = await updateLeadAction(input);
+    return result;
+  } catch (error) {
+    const mapped = toLeadMutationError(error);
+    return {
+      success: false,
+      message: mapped.message,
+      code: mapped.code,
+      status: mapped.status,
+    };
   }
 }
 

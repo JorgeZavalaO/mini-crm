@@ -68,9 +68,11 @@ import {
   assignLeadAction,
   bulkAssignLeadsAction,
   createLeadAction,
+  createLeadSafeAction,
   requestLeadReassignmentAction,
   resolveLeadReassignmentAction,
   updateLeadAction,
+  updateLeadSafeAction,
 } from '@/lib/lead-actions';
 
 const TENANT_ID = 'tenant-abc';
@@ -147,6 +149,41 @@ describe('createLeadAction', () => {
     await expect(
       createLeadAction({ ...VALID_CREATE_INPUT, ownerId: OWNER_ID }),
     ).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe('createLeadSafeAction / updateLeadSafeAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    assertTenantFeatureByIdMock.mockResolvedValue(undefined);
+    dbMock.lead.findFirst.mockResolvedValue(null);
+    dbMock.lead.create.mockResolvedValue({ id: LEAD_ID });
+    dbMock.membership.findMany.mockResolvedValue([]);
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
+      fn(dbMock),
+    );
+    dbMock.lead.update.mockResolvedValue({ id: LEAD_ID });
+  });
+
+  it('retorna success=false con mensaje amigable cuando create falla por RUC duplicado', async () => {
+    dbMock.lead.findFirst.mockResolvedValue({ id: 'existing-lead', businessName: 'Duplicado' });
+
+    const result = await createLeadSafeAction({ ...VALID_CREATE_INPUT, ruc: '20123456789' });
+
+    expect(result).toMatchObject({
+      success: false,
+      code: 'LEAD_DUPLICATE_RUC',
+      status: 409,
+    });
+  });
+
+  it('retorna success=true cuando update es exitoso', async () => {
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, ownerId: null });
+
+    const result = await updateLeadSafeAction(VALID_UPDATE_INPUT);
+
+    expect(result).toEqual({ success: true });
   });
 });
 

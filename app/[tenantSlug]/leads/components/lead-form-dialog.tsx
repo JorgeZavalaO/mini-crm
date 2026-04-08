@@ -4,7 +4,7 @@ import { useState, useTransition, type ReactNode } from 'react';
 import type { LeadStatus } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { createLeadAction, updateLeadAction } from '@/lib/lead-actions';
+import { createLeadSafeAction, updateLeadSafeAction } from '@/lib/lead-actions';
 import { parseDelimitedList } from '@/lib/lead-normalization';
 import { Button } from '@/components/ui/button';
 import {
@@ -174,13 +174,21 @@ export function LeadFormDialog({
     startTransition(async () => {
       try {
         if (isEdit && lead) {
-          await updateLeadAction({
+          const result = await updateLeadSafeAction({
             ...buildPayloadBase(),
             leadId: lead.id,
           });
+          if (!result.success) {
+            toast.error(result.message);
+            return;
+          }
           toast.success('Lead actualizado');
         } else {
-          await createLeadAction(buildPayloadBase());
+          const result = await createLeadSafeAction(buildPayloadBase());
+          if (!result.success) {
+            toast.error(result.message);
+            return;
+          }
           toast.success('Lead creado');
         }
         setOpen(false);

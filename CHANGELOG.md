@@ -39,6 +39,7 @@ Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 - Operaciones de edición y archivo de leads y cotizaciones ya no son ejecutables desde un tenant que no sea el propietario del recurso.
 - Corrección de comparaciones de contraseña inseguras por comparación de longitud y timing-safe en `password.ts`.
 - Email de cotización ya no es vulnerable a inyección de etiquetas HTML en el nombre del cliente.
+- `LeadFormDialog` ahora consume wrappers seguros (`createLeadSafeAction`/`updateLeadSafeAction`) para mostrar errores de negocio (p. ej. RUC duplicado) sin exponer el mensaje genérico de Server Components en producción.
 
 ### Tests
 
