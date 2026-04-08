@@ -215,7 +215,7 @@ export async function createLeadAction(input: unknown) {
 export async function createLeadSafeAction(input: unknown): Promise<LeadMutationResult> {
   try {
     const result = await createLeadAction(input);
-    return result;
+    return { success: true, leadId: result.leadId };
   } catch (error) {
     const mapped = toLeadMutationError(error);
     return {
@@ -305,8 +305,8 @@ export async function updateLeadAction(input: unknown) {
 
 export async function updateLeadSafeAction(input: unknown): Promise<LeadMutationResult> {
   try {
-    const result = await updateLeadAction(input);
-    return result;
+    await updateLeadAction(input);
+    return { success: true };
   } catch (error) {
     const mapped = toLeadMutationError(error);
     return {
