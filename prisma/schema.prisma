@@ -465,19 +465,19 @@ model Notification {
 // ─── Lead Owner History ────────────────────────────────
 
 model LeadOwnerHistory {
-  id                    String    @id @default(cuid())
+  id                    String   @id @default(cuid())
   leadId                String
   tenantId              String
   previousOwnerId       String?
   newOwnerId            String?
   changedById           String
   reassignmentRequestId String?
-  createdAt             DateTime  @default(now())
-  lead                  Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  previousOwner         User?     @relation("OwnerHistoryPrev", fields: [previousOwnerId], references: [id], onDelete: SetNull)
-  newOwner              User?     @relation("OwnerHistoryNew", fields: [newOwnerId], references: [id], onDelete: SetNull)
-  changedBy             User      @relation("OwnerHistoryChanger", fields: [changedById], references: [id], onDelete: Cascade)
+  createdAt             DateTime @default(now())
+  lead                  Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  previousOwner         User?    @relation("OwnerHistoryPrev", fields: [previousOwnerId], references: [id], onDelete: SetNull)
+  newOwner              User?    @relation("OwnerHistoryNew", fields: [newOwnerId], references: [id], onDelete: SetNull)
+  changedBy             User     @relation("OwnerHistoryChanger", fields: [changedById], references: [id], onDelete: Cascade)
 
   @@index([leadId, createdAt])
   @@index([tenantId])

@@ -339,7 +339,7 @@ export default async function DashboardPage({
         )}
 
         {/* Reasignaciones (solo managers) */}
-        {assignmentsEnabled && isManager && (
+        {/* {assignmentsEnabled && isManager && (
           <Card
             className={cn(pendingReassignments > 0 && 'border-orange-200 dark:border-orange-800')}
           >
@@ -363,7 +363,7 @@ export default async function DashboardPage({
               <p className="mt-1 text-xs text-muted-foreground">Solicitudes pendientes</p>
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Miembros (solo managers) */}
         {isManager && (
@@ -409,7 +409,7 @@ export default async function DashboardPage({
         )}
 
         {/* Duplicados (solo managers) */}
-        {dedupeEnabled && isManager && (
+        {/* {dedupeEnabled && isManager && (
           <Card
             className={cn(
               duplicateSummary.totalGroups > 0 && 'border-rose-200 dark:border-rose-800',
@@ -446,7 +446,7 @@ export default async function DashboardPage({
               </p>
             </CardContent>
           </Card>
-        )}
+        )} */}
       </div>
 
       {/* ── Gráficos ── */}
