@@ -1,12 +1,13 @@
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { redirect } from 'next/navigation';
+import LandingPage from './landing-page';
 
 export default async function Home() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect('/login');
+    return <LandingPage />;
   }
 
   // If user has a tenantSlug in their token, go there
