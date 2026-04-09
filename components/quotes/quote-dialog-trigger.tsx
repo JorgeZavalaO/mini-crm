@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { QuoteCreateForm } from './quote-create-form';
+import { type ProductOption } from './product-selector';
 
 type LeadOption = {
   id: string;
@@ -23,9 +24,10 @@ type Props = {
   tenantSlug: string;
   leads: LeadOption[];
   defaultLeadId?: string;
+  products?: ProductOption[];
 };
 
-export function QuoteDialogTrigger({ tenantSlug, leads, defaultLeadId }: Props) {
+export function QuoteDialogTrigger({ tenantSlug, leads, defaultLeadId, products }: Props) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -47,6 +49,7 @@ export function QuoteDialogTrigger({ tenantSlug, leads, defaultLeadId }: Props) 
         <QuoteCreateForm
           tenantSlug={tenantSlug}
           leads={leads}
+          products={products}
           defaultLeadId={defaultLeadId}
           onSuccess={() => setOpen(false)}
         />

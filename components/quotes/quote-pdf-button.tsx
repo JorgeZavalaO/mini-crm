@@ -54,34 +54,63 @@ export function QuotePdfButton({
       const pageW = doc.internal.pageSize.getWidth();
       const margin = 18;
 
-      // ── Encabezado con fondo ──────────────────────────────────────────────
+      // ── Encabezado ────────────────────────────────────────────────────────
       doc.setFillColor(37, 99, 235); // blue-600
-      doc.rect(0, 0, pageW, 38, 'F');
+      doc.rect(0, 0, pageW, 52, 'F');
 
+      // Nombre de empresa (parte superior del header)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      doc.text('COTIZACIÓN', margin, 18);
+      doc.setFontSize(7.5);
+      doc.text('MINI CRM LOGISTIC', margin, 11);
 
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      doc.text(quote.quoteNumber, margin, 26);
+      // Línea divisora interior
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.2);
+      doc.line(margin, 15, pageW - margin, 15);
 
-      // Estado en esquina derecha del header
+      // Badge de estado (esquina superior derecha)
+      const STATUS_COLORS: Record<string, [number, number, number]> = {
+        BORRADOR: [148, 163, 184],
+        ENVIADA: [96, 165, 250],
+        ACEPTADA: [52, 211, 153],
+        RECHAZADA: [248, 113, 113],
+      };
+      const sColor = STATUS_COLORS[quote.status] ?? [148, 163, 184];
+      const sLabel = STATUS_LABEL[quote.status];
+      doc.setFontSize(8);
+      const sLabelW = doc.getTextWidth(sLabel) + 8;
+      doc.setFillColor(sColor[0], sColor[1], sColor[2]);
+      doc.roundedRect(pageW - margin - sLabelW, 19, sLabelW, 7.5, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.text(sLabel, pageW - margin - sLabelW / 2, 24.5, { align: 'center' });
+
+      // Título y número
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text('COTIZACIÓN', margin, 30);
+
       doc.setFontSize(10);
-      doc.text(STATUS_LABEL[quote.status], pageW - margin, 18, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.text(quote.quoteNumber, margin, 39);
+
+      // Fecha (alineada a la derecha, debajo del badge)
+      doc.setFontSize(8);
       doc.text(
         `Fecha: ${new Date(quote.createdAt).toLocaleDateString('es-PE')}`,
         pageW - margin,
-        26,
-        {
-          align: 'right',
-        },
+        39,
+        { align: 'right' },
       );
 
       // ── Sección cliente + info ────────────────────────────────────────────
       doc.setTextColor(30, 30, 40);
-      let y = 50;
+      let y = 62;
+
+      // Fondo suave para bloque de cliente
+      doc.setFillColor(248, 250, 252);
+      doc.rect(margin - 4, y - 5, pageW - margin * 2 + 8, 34, 'F');
 
       // Columna izquierda: cliente
       doc.setFont('helvetica', 'bold');
@@ -105,7 +134,7 @@ export function QuotePdfButton({
 
       // Columna derecha: detalles
       const colRight = 120;
-      let yr = 50;
+      let yr = 62;
       const detailPairs: [string, string][] = [
         ['Moneda', quote.currency === 'PEN' ? 'PEN – Sol peruano' : 'USD – Dólar americano'],
         ['IGV', `${(quote.taxRate * 100).toFixed(0)}%`],
@@ -190,11 +219,9 @@ export function QuotePdfButton({
         ty += 6;
       }
 
-      // Línea antes del total
-      doc.setDrawColor(37, 99, 235);
-      doc.setLineWidth(0.5);
-      doc.line(labelX - 2, ty - 1, valueX, ty - 1);
-      ty += 3;
+      // Caja de fondo para la línea TOTAL
+      doc.setFillColor(239, 246, 255); // blue-50
+      doc.roundedRect(labelX - 4, ty - 5, pageW - margin - labelX + 10, 11, 2, 2, 'F');
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
@@ -221,20 +248,21 @@ export function QuotePdfButton({
       const totalPages = doc.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
+        const footerY = doc.internal.pageSize.getHeight() - 13;
+        // Línea separadora
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.line(margin, footerY, pageW - margin, footerY);
+        // Texto
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(7);
         doc.setTextColor(148, 163, 184);
         doc.text(
           `Generado el ${new Date().toLocaleString('es-PE')} · Mini CRM Logistic`,
           margin,
-          doc.internal.pageSize.getHeight() - 8,
+          footerY + 5,
         );
-        doc.text(
-          `Página ${i} / ${totalPages}`,
-          pageW - margin,
-          doc.internal.pageSize.getHeight() - 8,
-          { align: 'right' },
-        );
+        doc.text(`Página ${i} / ${totalPages}`, pageW - margin, footerY + 5, { align: 'right' });
       }
 
       doc.save(`${quote.quoteNumber}.pdf`);

@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { QuoteEditForm } from './quote-edit-form';
+import { type ProductOption } from './product-selector';
 
 type QuoteItemData = {
   description: string;
@@ -40,6 +41,7 @@ type Props = {
   tenantSlug: string;
   leads: LeadOption[];
   initialData: InitialData;
+  products?: ProductOption[];
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'icon';
 };
@@ -48,6 +50,7 @@ export function QuoteEditDialog({
   tenantSlug,
   leads,
   initialData,
+  products,
   variant = 'outline',
   size = 'sm',
 }: Props) {
@@ -72,6 +75,7 @@ export function QuoteEditDialog({
         <QuoteEditForm
           tenantSlug={tenantSlug}
           leads={leads}
+          products={products}
           initialData={initialData}
           onSuccess={() => setOpen(false)}
         />

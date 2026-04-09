@@ -51,7 +51,7 @@ export default async function QuoteDetailPage({
   const { tenantSlug, id } = await params;
   const { tenant } = await requireTenantFeature(tenantSlug, 'QUOTING_BASIC');
 
-  const [quote, leads] = await Promise.all([
+  const [quote, leads, rawProducts] = await Promise.all([
     getQuoteDetailAction(id, tenantSlug).catch(() => null),
     db.lead.findMany({
       where: { tenantId: tenant.id, deletedAt: null },
@@ -59,8 +59,20 @@ export default async function QuoteDetailPage({
       take: 200,
       select: { id: true, businessName: true, ruc: true },
     }),
+    db.product.findMany({
+      where: { tenantId: tenant.id, deletedAt: null, isActive: true },
+      orderBy: { name: 'asc' },
+      take: 200,
+      select: { id: true, name: true, description: true, unitPrice: true, currency: true },
+    }),
   ]);
   if (!quote) notFound();
+
+  const products = rawProducts.map((p) => ({
+    ...p,
+    unitPrice: Number(p.unitPrice),
+    currency: p.currency as 'PEN' | 'USD',
+  }));
 
   const canEdit = quote.status === 'BORRADOR' || quote.status === 'ENVIADA';
 
@@ -82,6 +94,7 @@ export default async function QuoteDetailPage({
             <QuoteEditDialog
               tenantSlug={tenantSlug}
               leads={leads}
+              products={products}
               initialData={{
                 quoteId: quote.id,
                 quoteNumber: quote.quoteNumber,

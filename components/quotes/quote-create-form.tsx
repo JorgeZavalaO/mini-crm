@@ -6,8 +6,10 @@ import { toast } from 'sonner';
 import { createQuoteAction } from '@/lib/quote-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -18,7 +20,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { ProductSelector, type ProductOption } from '@/components/quotes/product-selector';
+import { type ProductOption } from '@/components/quotes/product-selector';
 
 type LeadOption = {
   id: string;
@@ -56,6 +58,94 @@ function formatMoney(value: number, currency: 'PEN' | 'USD') {
     currency,
     minimumFractionDigits: 2,
   }).format(value);
+}
+
+function ItemDescriptionCombobox({
+  value,
+  placeholder,
+  products,
+  onChange,
+  onProductSelect,
+  className,
+}: {
+  value: string;
+  placeholder: string;
+  products: ProductOption[];
+  onChange: (v: string) => void;
+  onProductSelect: (p: ProductOption) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (products.length === 0 || value.length > 60) return [];
+    if (value.length === 0) return products;
+    const lower = value.toLowerCase();
+    return products.filter((p) => p.name.toLowerCase().includes(lower));
+  }, [products, value]);
+
+  if (products.length === 0) {
+    return (
+      <Input
+        className={className}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+
+  return (
+    <Popover open={open && filtered.length > 0} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Input
+          className={className}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-0"
+        align="start"
+        style={{ width: 'var(--radix-popover-trigger-width)' }}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <Command>
+          <CommandList>
+            <CommandGroup>
+              {filtered.map((p) => (
+                <CommandItem
+                  key={p.id}
+                  value={p.name}
+                  onSelect={() => {
+                    onProductSelect(p);
+                    setOpen(false);
+                  }}
+                >
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="truncate">{p.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {new Intl.NumberFormat('es-PE', {
+                        style: 'currency',
+                        currency: p.currency,
+                        minimumFractionDigits: 2,
+                      }).format(p.unitPrice)}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, onSuccess }: Props) {
@@ -196,11 +286,18 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
 
         {items.map((item, index) => (
           <div key={item.id} className="grid items-center gap-2 sm:grid-cols-12">
-            <Input
+            <ItemDescriptionCombobox
               className="sm:col-span-6"
-              placeholder={`Ítem ${index + 1} — descripción`}
+              placeholder={`Ítem ${index + 1} — descripción o busca en catálogo`}
               value={item.description}
-              onChange={(e) => updateItem(item.id, { description: e.target.value })}
+              products={products ?? []}
+              onChange={(v) => updateItem(item.id, { description: v })}
+              onProductSelect={(p) =>
+                updateItem(item.id, {
+                  description: p.description ?? p.name,
+                  unitPrice: String(p.unitPrice),
+                })
+              }
             />
             <Input
               className="sm:col-span-2"
@@ -234,30 +331,11 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
           </div>
         ))}
 
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className="mt-1">
           <Button type="button" variant="outline" size="sm" onClick={addItem}>
             <Plus className="mr-1.5 size-3.5" />
             Agregar ítem
           </Button>
-          {products && products.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground shrink-0">Del catálogo:</span>
-              <ProductSelector
-                products={products}
-                onSelect={(p) =>
-                  setItems((prev) => [
-                    ...prev,
-                    {
-                      id: uid(),
-                      description: p.description ?? p.name,
-                      quantity: '1',
-                      unitPrice: String(p.unitPrice),
-                    },
-                  ])
-                }
-              />
-            </div>
-          )}
         </div>
       </div>
 

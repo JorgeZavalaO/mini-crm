@@ -1,5 +1,13 @@
 import type { Prisma } from '@prisma/client';
-import { CheckCircle2, Clock, ScrollText, SendHorizonal, XCircle } from 'lucide-react';
+import {
+  BarChart3,
+  CheckCircle2,
+  Clock,
+  ScrollText,
+  SendHorizonal,
+  TrendingUp,
+  XCircle,
+} from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
@@ -7,8 +15,15 @@ import { listTenantQuotesAction } from '@/lib/quote-actions';
 import { quoteFiltersSchema } from '@/lib/validators';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ListPagination } from '@/components/ui/list-pagination';
+import type { ProductOption } from '@/components/quotes/product-selector';
 import { QuoteDialogTrigger } from '@/components/quotes/quote-dialog-trigger';
 import { QuoteList } from '@/components/quotes/quote-list';
+
+function fmtAmt(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return n.toFixed(0);
+}
 
 export default async function QuotesPage({
   params,
@@ -54,7 +69,7 @@ export default async function QuotesPage({
       : undefined,
   };
 
-  const [quotesResult, leads, statusRows] = await Promise.all([
+  const [quotesResult, leads, statusRows, rawProducts] = await Promise.all([
     listTenantQuotesAction(filters).catch(() => ({
       quotes: [],
       total: 0,
@@ -69,6 +84,13 @@ export default async function QuotesPage({
       by: ['status'],
       where: statsWhere,
       _count: { _all: true },
+      _sum: { totalAmount: true },
+    }),
+    db.product.findMany({
+      where: { tenantId: tenant.id, deletedAt: null, isActive: true },
+      orderBy: { name: 'asc' },
+      take: 200,
+      select: { id: true, name: true, description: true, unitPrice: true, currency: true },
     }),
   ]);
 
@@ -79,17 +101,30 @@ export default async function QuotesPage({
     pageSize: filters.pageSize,
   });
 
-  const countByStatus = statusRows.reduce<Record<string, number>>((acc, row) => {
-    acc[row.status] = row._count._all;
-    return acc;
-  }, {});
+  const products: ProductOption[] = rawProducts.map((p) => ({
+    ...p,
+    unitPrice: Number(p.unitPrice),
+    currency: p.currency as 'PEN' | 'USD',
+  }));
+
+  const countByStatus: Record<string, number> = {};
+  const amountByStatus: Record<string, number> = {};
+  for (const row of statusRows) {
+    countByStatus[row.status] = row._count._all;
+    amountByStatus[row.status] = Number(row._sum.totalAmount ?? 0);
+  }
 
   const stats = {
-    borrador: countByStatus.BORRADOR ?? 0,
-    enviada: countByStatus.ENVIADA ?? 0,
-    aceptada: countByStatus.ACEPTADA ?? 0,
-    rechazada: countByStatus.RECHAZADA ?? 0,
+    borrador: { count: countByStatus.BORRADOR ?? 0, amount: amountByStatus.BORRADOR ?? 0 },
+    enviada: { count: countByStatus.ENVIADA ?? 0, amount: amountByStatus.ENVIADA ?? 0 },
+    aceptada: { count: countByStatus.ACEPTADA ?? 0, amount: amountByStatus.ACEPTADA ?? 0 },
+    rechazada: { count: countByStatus.RECHAZADA ?? 0, amount: amountByStatus.RECHAZADA ?? 0 },
   };
+
+  const pipeline = stats.borrador.count + stats.enviada.count;
+  const pipelineAmount = stats.borrador.amount + stats.enviada.amount;
+  const closed = stats.aceptada.count + stats.rechazada.count;
+  const closingRate = closed > 0 ? Math.round((stats.aceptada.count / closed) * 100) : 0;
 
   const pageHref = (page: number) =>
     buildSearchHref(
@@ -117,58 +152,131 @@ export default async function QuotesPage({
             </p>
           </div>
         </div>
-        <QuoteDialogTrigger tenantSlug={tenantSlug} leads={leads} />
+        <QuoteDialogTrigger tenantSlug={tenantSlug} leads={leads} products={products} />
       </div>
 
-      {/* Tarjetas de resumen */}
+      {/* KPI — Tarjetas de estado */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-muted-foreground/30">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Borrador
-            </CardTitle>
-            <Clock className="size-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold">{stats.borrador}</p>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Borradores
+                </p>
+                <p className="mt-1 text-3xl font-bold">{stats.borrador.count}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {fmtAmt(stats.borrador.amount)} en cartera
+                </p>
+              </div>
+              <div className="shrink-0 rounded-lg bg-muted p-2">
+                <Clock className="size-5 text-muted-foreground" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Enviadas
-            </CardTitle>
-            <SendHorizonal className="size-4 text-blue-500" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{stats.enviada}</p>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Enviadas
+                </p>
+                <p className="mt-1 text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  {stats.enviada.count}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {fmtAmt(stats.enviada.amount)} en cartera
+                </p>
+              </div>
+              <div className="shrink-0 rounded-lg bg-blue-500/10 p-2">
+                <SendHorizonal className="size-5 text-blue-500" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Aceptadas
-            </CardTitle>
-            <CheckCircle2 className="size-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-              {stats.aceptada}
-            </p>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Aceptadas
+                </p>
+                <p className="mt-1 text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                  {stats.aceptada.count}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {fmtAmt(stats.aceptada.amount)} cerrado
+                </p>
+              </div>
+              <div className="shrink-0 rounded-lg bg-emerald-500/10 p-2">
+                <CheckCircle2 className="size-5 text-emerald-500" />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Rechazadas
-            </CardTitle>
-            <XCircle className="size-4 text-red-500" />
-          </CardHeader>
-          <CardContent className="pb-4">
-            <p className="text-3xl font-bold text-red-600 dark:text-red-400">{stats.rechazada}</p>
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Rechazadas
+                </p>
+                <p className="mt-1 text-3xl font-bold text-red-600 dark:text-red-400">
+                  {stats.rechazada.count}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {fmtAmt(stats.rechazada.amount)} perdido
+                </p>
+              </div>
+              <div className="shrink-0 rounded-lg bg-red-500/10 p-2">
+                <XCircle className="size-5 text-red-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* KPI — Métricas derivadas */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Pipeline activo
+                </p>
+                <p className="mt-1 text-3xl font-bold">{pipeline}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {fmtAmt(pipelineAmount)} en negociación
+                </p>
+              </div>
+              <div className="shrink-0 rounded-lg bg-primary/10 p-2">
+                <TrendingUp className="size-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Tasa de cierre
+                </p>
+                <p className="mt-1 text-3xl font-bold">{closingRate}%</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {stats.aceptada.count} de {closed} cotizaciones cerradas
+                </p>
+              </div>
+              <div className="shrink-0 rounded-lg bg-emerald-500/10 p-2">
+                <BarChart3 className="size-5 text-emerald-500" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
