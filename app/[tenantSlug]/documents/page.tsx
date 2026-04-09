@@ -1,8 +1,9 @@
 import { FileText } from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
-import { listTenantDocumentsAction } from '@/lib/document-actions';
+import { listTenantDocumentsAction, type DocumentRow } from '@/lib/document-actions';
 import { documentFiltersSchema } from '@/lib/validators';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentList } from '@/components/documents/document-list';
 import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
@@ -37,14 +38,16 @@ export default async function DocumentsPage({
     isSuperAdmin: session.user.isSuperAdmin,
   };
 
-  const { docs: documents, total } = await listTenantDocumentsAction(
-    tenantSlug,
-    filters.page,
-    filters.pageSize,
-  ).catch(() => ({
-    docs: [],
-    total: 0,
-  }));
+  let documents: DocumentRow[] = [];
+  let total = 0;
+  let loadError = false;
+  try {
+    const result = await listTenantDocumentsAction(tenantSlug, filters.page, filters.pageSize);
+    documents = result.docs;
+    total = result.total;
+  } catch {
+    loadError = true;
+  }
 
   const pagination = getPaginationState({
     totalItems: total,
@@ -91,17 +94,29 @@ export default async function DocumentsPage({
             )}
           </CardTitle>
           <CardDescription>
-            Documentos generales del workspace, sin asociar a ningún lead.
+            Documentos del workspace. Los subidos desde un lead aparecen vinculados a él; los
+            subidos desde esta página quedan como generales.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <DocumentList
-            docs={documents}
-            tenantSlug={tenantSlug}
-            currentUserId={actor.userId}
-            currentRole={actor.role}
-            isSuperAdmin={actor.isSuperAdmin}
-          />
+          {loadError ? (
+            <div className="p-6">
+              <Alert variant="destructive">
+                <AlertDescription>
+                  No se pudieron cargar los documentos. Intenta recargar la página.
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : (
+            <DocumentList
+              docs={documents}
+              tenantSlug={tenantSlug}
+              currentUserId={actor.userId}
+              currentRole={actor.role}
+              isSuperAdmin={actor.isSuperAdmin}
+              showLeadColumn={true}
+            />
+          )}
 
           <div className="px-6 pb-4">
             <ListPagination

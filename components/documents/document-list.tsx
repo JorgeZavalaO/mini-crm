@@ -2,8 +2,18 @@
 
 import { useState, useTransition } from 'react';
 import { Download, FileText, ImageIcon, Loader2, MoreHorizontal, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { deleteDocumentAction, type DocumentRow } from '@/lib/document-actions';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -70,8 +80,8 @@ export function DocumentList({
   isSuperAdmin,
   showLeadColumn = false,
 }: Props) {
-  const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDoc, setConfirmDoc] = useState<{ id: string; name: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function canDelete(uploadedById: string | null) {
@@ -80,14 +90,15 @@ export function DocumentList({
     return currentRole === 'ADMIN' || currentRole === 'SUPERVISOR';
   }
 
-  function handleDelete(documentId: string) {
+  function executeDelete(documentId: string) {
     setDeletingId(documentId);
-    setError(null);
+    setConfirmDoc(null);
     startTransition(async () => {
       try {
         await deleteDocumentAction({ tenantSlug, documentId });
+        toast.success('Documento eliminado');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error al eliminar el documento');
+        toast.error(err instanceof Error ? err.message : 'Error al eliminar el documento');
       } finally {
         setDeletingId(null);
       }
@@ -98,19 +109,16 @@ export function DocumentList({
     return (
       <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
         <FileText className="size-10 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">No hay documentos todavía.</p>
+        <p className="text-sm text-muted-foreground">Aún no hay documentos.</p>
+        <p className="text-xs text-muted-foreground">
+          Puedes subir el primero desde la zona de arriba.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {error && (
-        <Alert variant="destructive" className="py-2">
-          <AlertDescription className="text-sm">{error}</AlertDescription>
-        </Alert>
-      )}
-
+    <>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -201,7 +209,7 @@ export function DocumentList({
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             disabled={isPending}
-                            onSelect={() => handleDelete(doc.id)}
+                            onSelect={() => setConfirmDoc({ id: doc.id, name: doc.name })}
                           >
                             <Trash2 className="size-3.5" />
                             Eliminar
@@ -216,6 +224,27 @@ export function DocumentList({
           </TableBody>
         </Table>
       </div>
-    </div>
+
+      <AlertDialog open={!!confirmDoc} onOpenChange={(open) => !open && setConfirmDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará &quot;{confirmDoc?.name}&quot;. Esta acción es permanente y no se puede
+              deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => confirmDoc && executeDelete(confirmDoc.id)}
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

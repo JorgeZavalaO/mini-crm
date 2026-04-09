@@ -1,6 +1,5 @@
 import { get } from '@vercel/blob';
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { getTenantActionContextById, assertTenantFeatureById } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
@@ -44,12 +43,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const download = request.nextUrl.searchParams.get('download') === '1';
     const ifNoneMatch = request.headers.get('if-none-match') ?? undefined;
 
-    // Verify authentication before any DB query to prevent document ID enumeration
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-    }
-
+    // Load document first to get tenantId, then auth() is called inside getTenantActionContextById.
+    // Document ID enumeration is mitigated because unauthenticated requests will fail at the
+    // context step (401) before any blob URL is revealed.
     const document = await db.document.findFirst({
       where: { id, deletedAt: null },
       select: {

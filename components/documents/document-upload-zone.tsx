@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { FileText, ImageIcon, Loader2, UploadCloud, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { uploadDocumentAction } from '@/lib/document-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,18 @@ import { cn } from '@/lib/utils';
 
 const ALLOWED_EXTENSIONS = '.pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif';
 const MAX_MB = 5;
+
+const ALLOWED_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+]);
 
 const MIME_ICON: Record<string, React.ReactNode> = {
   'application/pdf': <FileText className="size-5 text-red-500" />,
@@ -49,6 +62,12 @@ export function DocumentUploadZone({ tenantSlug, leadId, onUploaded }: Props) {
 
   function validateAndSet(f: File) {
     setError(null);
+    if (!ALLOWED_MIME_TYPES.has(f.type)) {
+      setError(
+        'Tipo de archivo no permitido. Usa PDF, Word, Excel o imágenes (JPEG, PNG, WEBP, GIF)',
+      );
+      return;
+    }
     if (f.size > MAX_MB * 1024 * 1024) {
       setError(`El archivo supera el límite de ${MAX_MB} MB`);
       return;
@@ -81,6 +100,7 @@ export function DocumentUploadZone({ tenantSlug, leadId, onUploaded }: Props) {
         await uploadDocumentAction(formData);
         setFile(null);
         setError(null);
+        toast.success('Documento subido correctamente');
         onUploaded?.();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al subir el archivo');
