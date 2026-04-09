@@ -53,12 +53,17 @@ export const proxy = auth(async (req) => {
       pathname.startsWith('/portal');
 
     if (isLoggedIn && pathname === '/login') {
-      const dest = user?.tenantSlug
-        ? `/${user.tenantSlug}/dashboard`
-        : user?.isSuperAdmin
-          ? '/superadmin'
-          : '/login';
-      return finalizeResponse(req, NextResponse.redirect(new URL(dest, req.nextUrl)), requestId);
+      if (user?.isSuperAdmin) {
+        return finalizeResponse(
+          req,
+          NextResponse.redirect(new URL('/superadmin', req.nextUrl)),
+          requestId,
+        );
+      }
+
+      // For tenant users we allow rendering /login to avoid redirect loops
+      // when tenant membership has changed and the app redirects back to /login.
+      return finalizeResponse(req, NextResponse.next(), requestId);
     }
 
     if (isPublicRoute) {
