@@ -33,6 +33,7 @@ interface TenantSidebarProps {
   role: string | null;
   showTeam: boolean;
   canManageDedupe: boolean;
+  showCompanySettings: boolean;
   userName: string | null;
   userEmail: string;
   enabledFeatures: Record<string, boolean>;
@@ -44,6 +45,7 @@ export function TenantSidebar({
   role,
   showTeam,
   canManageDedupe,
+  showCompanySettings,
   userName,
   userEmail,
   enabledFeatures,
@@ -76,6 +78,9 @@ export function TenantSidebar({
       ? [{ href: `/${tenantSlug}/notifications`, label: 'Notificaciones', icon: Bell }]
       : []),
     ...(showTeam ? [{ href: `/${tenantSlug}/team`, label: 'Equipo', icon: Users }] : []),
+    ...(showCompanySettings
+      ? [{ href: `/${tenantSlug}/company`, label: 'Empresa', icon: Building2 }]
+      : []),
   ];
 
   return (

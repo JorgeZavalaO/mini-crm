@@ -318,6 +318,24 @@ export const deleteProductSchema = z.object({
   productId: z.string().min(1),
 });
 
+// ─── Company profile ───────────────────────────────────
+
+export const updateCompanyProfileSchema = z.object({
+  tenantSlug: z.string().min(1),
+  companyName: optionalText(200),
+  companyRuc: optionalText(20),
+  companyAddress: optionalText(400),
+  companyPhone: optionalText(50),
+  companyEmail: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+    .pipe(z.string().email('Email corporativo inválido').optional()),
+  companyWebsite: optionalText(200),
+});
+
 export const productFiltersSchema = z.object({
   tenantSlug: z.string().min(1),
   q: optionalText(120),

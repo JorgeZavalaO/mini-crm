@@ -2,6 +2,43 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.4.0 · 2026-04-09] Sprint 13 — Módulo de empresa, mejoras de cotizaciones y combobox de catálogo
+
+### Added
+
+- **Módulo de configuración de empresa** (`app/[tenantSlug]/company/page.tsx`): nueva ruta protegida (`ADMIN+`) que centraliza la identidad corporativa del tenant.
+  - `lib/company-actions.ts`: 4 server actions — `getCompanyProfileAction`, `updateCompanyProfileAction`, `uploadCompanyLogoAction`, `removeCompanyLogoAction`.
+  - `components/company/company-profile-form.tsx`: formulario client con secciones "Datos fiscales" (razón social, RUC/NIF/RFC), "Contacto" (teléfono, email corporativo, sitio web) y "Domicilio" (dirección).
+  - `components/company/company-logo-upload.tsx`: uploader client con previsualización, validación MIME (JPEG/PNG/WEBP) y peso máximo (2 MB), subida a Vercel Blob con `access: 'public'`, botón de eliminación.
+  - `lib/validators.ts`: nuevo schema `updateCompanyProfileSchema` con validaciones por campo.
+  - `prisma/schema.prisma`: 8 campos nuevos en el modelo `Tenant` (`companyName`, `companyRuc`, `companyAddress`, `companyPhone`, `companyEmail`, `companyWebsite`, `companyLogoUrl`, `companyLogoPathname`). Migración `20260409171111_add_company_profile` aplicada a Neon DB.
+- **Combobox de catálogo por ítem** en cotizaciones:
+  - `ItemDescriptionCombobox` (Popover + Command) integrado per-fila en `quote-create-form.tsx` y `quote-edit-form.tsx`; al seleccionar un producto auto-rellena precio; el selector global de catálogo fue reemplazado.
+- **KPI cards rediseñadas** en `app/[tenantSlug]/quotes/page.tsx`:
+  - Tarjetas de estado con icono sobre fondo de color, conteo y monto total por estado.
+  - Tarjetas derivadas "Pipeline Activo" y "Tasa de cierre".
+  - Helper `fmtAmt()` para formateo K/M.
+  - Query DB ampliada con `_sum: { totalAmount: true }` en `groupBy`.
+
+### Changed
+
+- **`components/tenant-sidebar.tsx`**: nueva prop `showCompanySettings: boolean`; ítem "Empresa" con icono `Building2` añadido al nav, visible solo para `ADMIN+`.
+- **`app/[tenantSlug]/layout.tsx`**: calcula `showCompanySettings = isSuperAdmin || hasRole(role, 'ADMIN')` y lo pasa al sidebar.
+- **`components/quotes/quote-pdf-button.tsx`**: integración dinámica del perfil de empresa en el PDF generado:
+  - Logo de empresa como imagen base64 en la esquina superior izquierda del header.
+  - Razón social dinámica en el header (fallback a `'MINI CRM LOGISTIC'` si no configurado).
+  - RUC/NIF de empresa bajo la razón social.
+  - Footer usa la razón social configurada del tenant en lugar del texto fijo.
+  - Header rediseñado: badge de estado como `roundedRect` de color, línea divisora interior.
+  - Sección cliente con fondo `slate-50`; fila TOTAL con fondo `blue-50` y borde redondeado.
+  - Footer con línea separadora antes del texto de generación.
+
+### Tests
+
+- Validación completa tras Sprint 13:
+  - `pnpm test` ✅ (**394 / 394** tests pasando, 36 suites)
+  - `pnpm build` ✅ (exit 0)
+
 ## [v1.3.0 · 2026-04-07] Sprint 12 — Hardening de seguridad, modelo Lead enriquecido y visualizaciones
 
 ### Added

@@ -14,9 +14,11 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
 - Módulo de documentos operativo: carga, listado y eliminación con almacenamiento privado en Vercel Blob y descarga autenticada vía `GET /api/documents/[id]`.
 - Módulo de cotizaciones operativo: CRUD de cotizaciones con ítems, cálculo de subtotal/impuesto/total, estados (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y soporte de moneda (`PEN`/`USD`).
+- **KPI cards de cotizaciones rediseñadas**: tarjetas por estado con icono sobre fondo de color, monto total agregado por estado, métricas derivadas "Pipeline Activo" y "Tasa de cierre".
+- **Combobox de catálogo por ítem en cotizaciones**: selector Popover+Command per-fila en crear/editar cotización; al seleccionar un producto auto-rellena precio unitario.
 - Campanita de notificaciones en el dashboard de tenant: leads sin asignar, leads nuevos, leads ganados, cotizaciones generadas, aceptadas y rechazadas de los últimos 7 días.
 - **Notificaciones persistentes**: modelo `Notification` en DB con tipos (`UNASSIGNED_LEAD`, `LEAD_NEW`, `LEAD_WON`, `QUOTE_CREATED`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `PENDING_REASSIGNMENT`). Badge de no leídas, marcar leída individual/masiva, eliminación, página completa con tabs (Todas/No leídas/Leídas). Hooks automáticos al crear leads y cambiar estado de cotizaciones.
-- Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle.
+- Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle. Logo y razón social del tenant integrados dinámicamente.
 - **Módulo de Tareas** operativo: CRUD de tareas con prioridades (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), estados (`PENDING`, `IN_PROGRESS`, `DONE`, `CANCELLED`), asignación validada contra memberships activas, restricción de asignación a terceros para `SUPERVISOR+`, fecha límite con indicador de vencimiento y soft-delete.
 - **Catálogo de productos** operativo: CRUD de productos con nombre, descripción, precio unitario (`Decimal 12,4`), moneda (`PEN`/`USD`) y estado activo/inactivo. Solo `ADMIN`/`SUPERVISOR` pueden gestionar el catálogo.
 - **Edición de cotizaciones**: formulario de edición completo con selector de productos del catálogo, prelleno de datos y actualización en servidor.
@@ -36,6 +38,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
   - FKs de `User` cambiadas a `onDelete: SetNull` en modelos relacionados para preservar integridad ante borrado.
   - Tokens del portal almacenados siempre como hash; el valor bruto solo se expone una vez.
 - **Internacionalización de la UI**: etiquetas de roles, estados y textos de interfaz homogeneizados al español en todo el cliente.
+- **Módulo de configuración de empresa** (`/{tenantSlug}/company`): identidad corporativa del tenant — razón social, RUC/NIF/RFC, teléfono, email corporativo, sitio web, dirección y logo. Solo editable por `ADMIN+`. Logo almacenado públicamente en Vercel Blob y embebido en PDFs de cotizaciones. Acceso controlado mediante prop `showCompanySettings` en el sidebar.
 - Dashboard tenant operativo con pipeline por estado y actividad reciente.
 - Dashboard tenant con señales operativas de importación y duplicados.
 - Lead detail page con vista comercial, contacto e historial de reasignaciones.
@@ -74,6 +77,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 11.1   | Paginación transversal y estandarización UX                       | ✅ Completado |
 | 11.2   | Hardening de navegación y límites Server/Client                   | ✅ Completado |
 | 12     | Hardening de seguridad, modelo Lead enriquecido y visualizaciones | ✅ Completado |
+| 13     | Módulo de empresa, KPI cotizaciones y combobox de catálogo        | ✅ Completado |
 
 ## Stack
 

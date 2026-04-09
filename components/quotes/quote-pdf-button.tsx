@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getQuoteDetailAction } from '@/lib/quote-actions';
+import { getCompanyProfileAction } from '@/lib/company-actions';
 import { Button } from '@/components/ui/button';
 
 type Props = {
@@ -42,7 +43,33 @@ export function QuotePdfButton({
   async function handleDownload() {
     setLoading(true);
     try {
-      const quote = await getQuoteDetailAction(quoteId, tenantSlug);
+      const [quote, company] = await Promise.all([
+        getQuoteDetailAction(quoteId, tenantSlug),
+        getCompanyProfileAction(tenantSlug).catch(() => null),
+      ]);
+
+      // Resolve logo as base64 (if available)
+      let logoBase64: string | null = null;
+      let logoType: 'JPEG' | 'PNG' | 'WEBP' = 'JPEG';
+      if (company?.companyLogoUrl) {
+        try {
+          const resp = await fetch(company.companyLogoUrl);
+          const blob = await resp.blob();
+          const mime = blob.type;
+          if (mime === 'image/png') logoType = 'PNG';
+          else if (mime === 'image/webp') logoType = 'WEBP';
+          logoBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          // Non-fatal — skip logo if fetch fails
+        }
+      }
+
+      const displayName = company?.companyName ?? 'MINI CRM LOGISTIC';
 
       // Dynamic import — no aumenta el bundle inicial
       const [{ jsPDF }, { default: autoTable }] = await Promise.all([
@@ -58,11 +85,25 @@ export function QuotePdfButton({
       doc.setFillColor(37, 99, 235); // blue-600
       doc.rect(0, 0, pageW, 52, 'F');
 
+      // Logo (si existe)
+      if (logoBase64) {
+        doc.addImage(logoBase64, logoType, margin - 2, 3, 17, 11);
+      }
+
       // Nombre de empresa (parte superior del header)
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
-      doc.text('MINI CRM LOGISTIC', margin, 11);
+      const nameX = logoBase64 ? margin + 18 : margin;
+      doc.text(displayName.toUpperCase(), nameX, 9);
+
+      // RUC de empresa (si existe)
+      if (company?.companyRuc) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(219, 234, 254); // blue-100
+        doc.text(`RUC: ${company.companyRuc}`, nameX, 13.5);
+      }
 
       // Línea divisora interior
       doc.setDrawColor(255, 255, 255);
@@ -258,7 +299,7 @@ export function QuotePdfButton({
         doc.setFontSize(7);
         doc.setTextColor(148, 163, 184);
         doc.text(
-          `Generado el ${new Date().toLocaleString('es-PE')} · Mini CRM Logistic`,
+          `Generado el ${new Date().toLocaleString('es-PE')} · ${displayName}`,
           margin,
           footerY + 5,
         );

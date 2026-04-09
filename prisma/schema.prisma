@@ -103,6 +103,15 @@ model Tenant {
   maxStorageGb             Int?
   retentionDays            Int?
   quoteSequence            Int                       @default(0)
+  // Company profile / corporate identity
+  companyName              String?                   @db.VarChar(200)
+  companyRuc               String?                   @db.VarChar(20)
+  companyAddress           String?                   @db.VarChar(400)
+  companyPhone             String?                   @db.VarChar(50)
+  companyEmail             String?                   @db.VarChar(200)
+  companyWebsite           String?                   @db.VarChar(200)
+  companyLogoUrl           String?
+  companyLogoPathname      String?
   deletedAt                DateTime?
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
