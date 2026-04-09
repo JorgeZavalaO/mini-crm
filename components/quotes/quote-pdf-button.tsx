@@ -48,26 +48,11 @@ export function QuotePdfButton({
         getCompanyProfileAction(tenantSlug).catch(() => null),
       ]);
 
-      // Resolve logo as base64 (if available)
-      let logoBase64: string | null = null;
+      // companyLogoUrl is already a base64 data URL resolved server-side — no client fetch needed
+      const logoBase64 = company?.companyLogoUrl ?? null;
       let logoType: 'JPEG' | 'PNG' | 'WEBP' = 'JPEG';
-      if (company?.companyLogoUrl) {
-        try {
-          const resp = await fetch(company.companyLogoUrl);
-          const blob = await resp.blob();
-          const mime = blob.type;
-          if (mime === 'image/png') logoType = 'PNG';
-          else if (mime === 'image/webp') logoType = 'WEBP';
-          logoBase64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        } catch {
-          // Non-fatal — skip logo if fetch fails
-        }
-      }
+      if (logoBase64?.includes('image/png')) logoType = 'PNG';
+      else if (logoBase64?.includes('image/webp')) logoType = 'WEBP';
 
       const displayName = company?.companyName ?? 'MINI CRM LOGISTIC';
 

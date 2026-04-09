@@ -1,6 +1,6 @@
 'use server';
 
-import { del, put } from '@vercel/blob';
+import { del, get, put } from '@vercel/blob';
 import { revalidatePath } from 'next/cache';
 import { getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
@@ -19,8 +19,7 @@ export type CompanyProfile = {
   companyPhone: string | null;
   companyEmail: string | null;
   companyWebsite: string | null;
-  companyLogoUrl: string | null;
-  companyLogoPathname: string | null;
+  companyLogoUrl: string | null; // base64 data URL resolved server-side
 };
 
 // ─── Permission helper ────────────────────────────────────────────────────────
@@ -58,13 +57,36 @@ export async function getCompanyProfileAction(tenantSlug: string): Promise<Compa
       companyPhone: true,
       companyEmail: true,
       companyWebsite: true,
-      companyLogoUrl: true,
       companyLogoPathname: true,
     },
   });
 
   if (!tenant) throw new AppError('Tenant no encontrado', 404);
-  return tenant;
+
+  // Resolve logo as a base64 data URL server-side (private blob — raw URL never leaves the server)
+  let companyLogoUrl: string | null = null;
+  if (tenant.companyLogoPathname) {
+    try {
+      const result = await get(tenant.companyLogoPathname, { access: 'private' });
+      if (result) {
+        const ab = await new Response(result.stream).arrayBuffer();
+        const base64 = Buffer.from(ab).toString('base64');
+        companyLogoUrl = `data:${result.blob.contentType ?? 'image/jpeg'};base64,${base64}`;
+      }
+    } catch {
+      // Non-fatal: logo fetch failed, profile returned without logo
+    }
+  }
+
+  return {
+    companyName: tenant.companyName,
+    companyRuc: tenant.companyRuc,
+    companyAddress: tenant.companyAddress,
+    companyPhone: tenant.companyPhone,
+    companyEmail: tenant.companyEmail,
+    companyWebsite: tenant.companyWebsite,
+    companyLogoUrl,
+  };
 }
 
 // ─── Update text fields ───────────────────────────────────────────────────────
@@ -123,9 +145,14 @@ export async function uploadCompanyLogoAction(
   const ext = file.type === 'image/png' ? '.png' : file.type === 'image/webp' ? '.webp' : '.jpg';
   const pathname = `company-logos/${ctx.tenant.id}/logo${ext}`;
 
-  // Upload to Vercel Blob (public — logo is embedded in PDFs sent to clients)
+  // Build data URL from the file buffer before uploading so we can return it immediately
+  const arrayBuffer = await file.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString('base64');
+  const logoDataUrl = `data:${file.type};base64,${base64}`;
+
+  // Upload to Vercel Blob with private access (store is configured as private)
   const blob = await put(pathname, file, {
-    access: 'public',
+    access: 'private',
     contentType: file.type,
     addRandomSuffix: false,
   });
@@ -148,7 +175,7 @@ export async function uploadCompanyLogoAction(
   });
 
   revalidateCompanyViews(tenantSlug);
-  return { logoUrl: blob.url };
+  return { logoUrl: logoDataUrl };
 }
 
 // ─── Remove logo ──────────────────────────────────────────────────────────────
