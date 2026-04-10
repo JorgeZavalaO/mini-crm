@@ -84,7 +84,11 @@ function ItemDescriptionCombobox({
     if (products.length === 0 || value.length > 60) return [];
     if (value.length === 0) return products;
     const lower = value.toLowerCase();
-    return products.filter((p) => p.name.toLowerCase().includes(lower));
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(lower) ||
+        (p.description?.toLowerCase().includes(lower) ?? false),
+    );
   }, [products, value]);
 
   if (products.length === 0) {
@@ -118,6 +122,7 @@ function ItemDescriptionCombobox({
         align="start"
         style={{ width: 'var(--radix-popover-trigger-width)' }}
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onMouseDown={(e) => e.preventDefault()}
       >
         <Command>
           <CommandList>
@@ -132,7 +137,14 @@ function ItemDescriptionCombobox({
                   }}
                 >
                   <div className="flex w-full items-center justify-between gap-2">
-                    <span className="truncate">{p.name}</span>
+                    <div className="min-w-0">
+                      <span className="block truncate font-medium">{p.name}</span>
+                      {p.description && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {p.description}
+                        </span>
+                      )}
+                    </div>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {new Intl.NumberFormat('es-PE', {
                         style: 'currency',
@@ -304,7 +316,7 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
               onChange={(v) => updateItem(item.id, { description: v })}
               onProductSelect={(p) =>
                 updateItem(item.id, {
-                  description: p.description ?? p.name,
+                  description: p.description ? `${p.name} - ${p.description}` : p.name,
                   unitPrice: String(p.unitPrice),
                   taxExempt: p.taxExempt,
                 })
