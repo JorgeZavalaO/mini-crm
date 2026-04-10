@@ -20,6 +20,7 @@ export type CompanyProfile = {
   companyEmail: string | null;
   companyWebsite: string | null;
   companyLogoUrl: string | null; // base64 data URL resolved server-side
+  companyTimezone: string;
 };
 
 // ─── Permission helper ────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ export async function getCompanyProfileAction(tenantSlug: string): Promise<Compa
       companyEmail: true,
       companyWebsite: true,
       companyLogoPathname: true,
+      companyTimezone: true,
     },
   });
 
@@ -86,6 +88,7 @@ export async function getCompanyProfileAction(tenantSlug: string): Promise<Compa
     companyEmail: tenant.companyEmail,
     companyWebsite: tenant.companyWebsite,
     companyLogoUrl,
+    companyTimezone: tenant.companyTimezone,
   };
 }
 
@@ -109,6 +112,7 @@ export async function updateCompanyProfileAction(input: unknown): Promise<void> 
       companyPhone: fields.companyPhone ?? null,
       companyEmail: fields.companyEmail ?? null,
       companyWebsite: fields.companyWebsite ?? null,
+      companyTimezone: fields.companyTimezone,
     },
   });
 

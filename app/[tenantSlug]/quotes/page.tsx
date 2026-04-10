@@ -90,7 +90,14 @@ export default async function QuotesPage({
       where: { tenantId: tenant.id, deletedAt: null, isActive: true },
       orderBy: { name: 'asc' },
       take: 200,
-      select: { id: true, name: true, description: true, unitPrice: true, currency: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        unitPrice: true,
+        currency: true,
+        taxExempt: true,
+      },
     }),
   ]);
 
@@ -105,6 +112,7 @@ export default async function QuotesPage({
     ...p,
     unitPrice: Number(p.unitPrice),
     currency: p.currency as 'PEN' | 'USD',
+    taxExempt: p.taxExempt,
   }));
 
   const countByStatus: Record<string, number> = {};

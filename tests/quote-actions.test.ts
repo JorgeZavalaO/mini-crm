@@ -64,6 +64,9 @@ const dbMock = vi.hoisted(() => ({
   user: {
     findUnique: vi.fn(),
   },
+  tenant: {
+    findUnique: vi.fn(),
+  },
   $transaction: vi.fn(),
 }));
 
@@ -102,6 +105,7 @@ beforeEach(() => {
   sendQuoteEmailMock.mockResolvedValue(undefined);
   dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
   dbMock.user.findUnique.mockResolvedValue({ name: 'Jorge' });
+  dbMock.tenant.findUnique.mockResolvedValue({ companyTimezone: 'America/Lima' });
   dbMock.$transaction.mockImplementation(async (cb: (tx: typeof txMock) => unknown) => cb(txMock));
   txMock.tenant.update.mockResolvedValue({ quoteSequence: 1 });
   txMock.quote.create.mockResolvedValue({ id: 'quote-1', quoteNumber: 'Q-2026-000001' });
@@ -445,5 +449,74 @@ describe('sendQuoteEmailAction', () => {
     dbMock.quote.findFirst.mockResolvedValue(BASE_QUOTE);
 
     await expect(sendQuoteEmailAction(BASE_INPUT)).rejects.toThrow('No autorizado');
+  });
+});
+
+describe('taxExempt en cotizaciones', () => {
+  it('createQuoteAction: item taxExempt=true excluye su subtotal del taxAmount', async () => {
+    let capturedCreateCall: Record<string, unknown> | undefined;
+    txMock.quote.create.mockImplementation((args: unknown) => {
+      capturedCreateCall = args as Record<string, unknown>;
+      return { id: 'q-tax', quoteNumber: 'Q-2026-000002' };
+    });
+
+    await createQuoteAction({
+      tenantSlug: TENANT_SLUG,
+      leadId: LEAD_ID,
+      currency: 'PEN',
+      taxRate: 0.18,
+      items: [
+        { description: 'Servicio gravado', quantity: 1, unitPrice: 100 },
+        { description: 'Exonerado', quantity: 1, unitPrice: 50, taxExempt: true },
+      ],
+    });
+
+    // subtotal = 100 + 50 = 150; taxable = 100; taxAmount = 100 * 0.18 = 18; total = 150 + 18 = 168
+    const data = capturedCreateCall?.data as Record<string, unknown>;
+    expect(Number(data?.subtotal)).toBe(150);
+    expect(Number(data?.taxAmount)).toBe(18);
+    expect(Number(data?.totalAmount)).toBe(168);
+  });
+
+  it('createQuoteAction: todos los items taxExempt=true produce taxAmount=0', async () => {
+    let capturedCreateCall: Record<string, unknown> | undefined;
+    txMock.quote.create.mockImplementation((args: unknown) => {
+      capturedCreateCall = args as Record<string, unknown>;
+      return { id: 'q-zero-tax', quoteNumber: 'Q-2026-000003' };
+    });
+
+    await createQuoteAction({
+      tenantSlug: TENANT_SLUG,
+      leadId: LEAD_ID,
+      currency: 'PEN',
+      taxRate: 0.18,
+      items: [{ description: 'Exonerado total', quantity: 2, unitPrice: 100, taxExempt: true }],
+    });
+
+    const data = capturedCreateCall?.data as Record<string, unknown>;
+    expect(Number(data?.subtotal)).toBe(200);
+    expect(Number(data?.taxAmount)).toBe(0);
+    expect(Number(data?.totalAmount)).toBe(200);
+  });
+
+  it('createQuoteAction: sin taxExempt el cálculo original se mantiene', async () => {
+    let capturedCreateCall: Record<string, unknown> | undefined;
+    txMock.quote.create.mockImplementation((args: unknown) => {
+      capturedCreateCall = args as Record<string, unknown>;
+      return { id: 'q-normal', quoteNumber: 'Q-2026-000004' };
+    });
+
+    await createQuoteAction({
+      tenantSlug: TENANT_SLUG,
+      leadId: LEAD_ID,
+      currency: 'PEN',
+      taxRate: 0.18,
+      items: [{ description: 'Servicio gravado', quantity: 1, unitPrice: 100 }],
+    });
+
+    const data = capturedCreateCall?.data as Record<string, unknown>;
+    expect(Number(data?.subtotal)).toBe(100);
+    expect(Number(data?.taxAmount)).toBe(18);
+    expect(Number(data?.totalAmount)).toBe(118);
   });
 });

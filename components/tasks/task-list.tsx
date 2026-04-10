@@ -17,6 +17,8 @@ import {
 import { toast } from 'sonner';
 import { hasRole } from '@/lib/rbac';
 import { changeTaskStatusAction, deleteTaskAction, type TaskRow } from '@/lib/task-actions';
+import { formatDate } from '@/lib/date-utils';
+import { useTenant } from '@/lib/tenant-context';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,15 +42,6 @@ import {
 import { TaskFormDialog } from './task-form-dialog';
 
 // ─── Helpers ─────────────────────────────────────────────
-
-function formatDate(value: Date | string | null) {
-  if (!value) return null;
-  return new Date(value).toLocaleDateString('es-PE', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  });
-}
 
 function isOverdue(dueDate: Date | null, status: TaskRow['status']) {
   if (!dueDate || status === 'DONE' || status === 'CANCELLED') return false;
@@ -126,6 +119,7 @@ function TaskItem({
 }: TaskItemProps) {
   const [busyStatus, setBusyStatus] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { tenant } = useTenant();
 
   const overdue = isOverdue(task.dueDate, task.status);
   const statusCfg = STATUS_CONFIG[task.status];
@@ -217,7 +211,7 @@ function TaskItem({
           {task.dueDate && (
             <span className="flex items-center gap-1">
               <Calendar className="size-3" />
-              {formatDate(task.dueDate)}
+              {formatDate(task.dueDate, tenant.timezone)}
             </span>
           )}
           {task.assignedToName && (

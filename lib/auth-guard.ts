@@ -9,7 +9,7 @@ import type { Session } from 'next-auth';
 
 export interface TenantContext {
   session: Session;
-  tenant: { id: string; name: string; slug: string; isActive: boolean };
+  tenant: { id: string; name: string; slug: string; isActive: boolean; companyTimezone: string };
   membership: { id: string; role: string; isActive: boolean } | null;
 }
 
@@ -19,7 +19,7 @@ export async function getTenantActionContextBySlug(tenantSlug: string): Promise<
 
   const tenant = await db.tenant.findFirst({
     where: { slug: tenantSlug, deletedAt: null },
-    select: { id: true, name: true, slug: true, isActive: true },
+    select: { id: true, name: true, slug: true, isActive: true, companyTimezone: true },
   });
   if (!tenant || !tenant.isActive) {
     throw new AppError('Tenant no disponible', 404);
@@ -56,7 +56,7 @@ export async function getTenantActionContextById(tenantId: string): Promise<Tena
 
   const tenant = await db.tenant.findFirst({
     where: { id: tenantId, deletedAt: null },
-    select: { id: true, name: true, slug: true, isActive: true },
+    select: { id: true, name: true, slug: true, isActive: true, companyTimezone: true },
   });
   if (!tenant || !tenant.isActive) {
     throw new AppError('Tenant no disponible', 404);
@@ -98,7 +98,7 @@ export async function requireTenantAccess(tenantSlug: string): Promise<TenantCon
 
   const tenant = await db.tenant.findFirst({
     where: { slug: tenantSlug, deletedAt: null },
-    select: { id: true, name: true, slug: true, isActive: true },
+    select: { id: true, name: true, slug: true, isActive: true, companyTimezone: true },
   });
 
   if (!tenant || !tenant.isActive) {

@@ -5,6 +5,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createQuoteAction } from '@/lib/quote-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ type ItemDraft = {
   description: string;
   quantity: string;
   unitPrice: string;
+  taxExempt: boolean;
 };
 
 type Props = {
@@ -50,6 +52,7 @@ const EMPTY_ITEM = (): ItemDraft => ({
   description: '',
   quantity: '1',
   unitPrice: '0',
+  taxExempt: false,
 });
 
 function formatMoney(value: number, currency: 'PEN' | 'USD') {
@@ -164,8 +167,14 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
       const p = Math.max(0, Number(item.unitPrice || 0));
       return sum + q * p;
     }, 0);
+    const taxableSub = items.reduce((sum, item) => {
+      if (item.taxExempt) return sum;
+      const q = Math.max(0, Number(item.quantity || 0));
+      const p = Math.max(0, Number(item.unitPrice || 0));
+      return sum + q * p;
+    }, 0);
     const tax = Number(taxRate || 0);
-    return { subtotal: sub, taxAmount: sub * tax, total: sub + sub * tax };
+    return { subtotal: sub, taxAmount: taxableSub * tax, total: sub + taxableSub * tax };
   }, [items, taxRate]);
 
   function updateItem(id: string, patch: Partial<ItemDraft>) {
@@ -203,6 +212,7 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
             description: item.description,
             quantity: Number(item.quantity),
             unitPrice: Number(item.unitPrice),
+            taxExempt: item.taxExempt,
           })),
         });
         toast.success('Cotización creada');
@@ -296,6 +306,7 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
                 updateItem(item.id, {
                   description: p.description ?? p.name,
                   unitPrice: String(p.unitPrice),
+                  taxExempt: p.taxExempt,
                 })
               }
             />
@@ -328,6 +339,13 @@ export function QuoteCreateForm({ tenantSlug, leads, products, defaultLeadId, on
             >
               <Trash2 className="size-4" />
             </Button>
+            {item.taxExempt && (
+              <div className="sm:col-start-1 sm:col-span-6 flex items-center">
+                <Badge variant="outline" className="text-xs h-5">
+                  Sin IGV
+                </Badge>
+              </div>
+            )}
           </div>
         ))}
 

@@ -36,6 +36,7 @@ type QuoteItemInput = {
   description: string;
   quantity: number;
   unitPrice: number;
+  taxExempt?: boolean;
 };
 
 type QuoteTransactionClient = Prisma.TransactionClient;
@@ -87,11 +88,17 @@ function buildQuoteTotals(items: QuoteItemInput[], taxRate: number) {
       quantity,
       unitPrice,
       lineSubtotal,
+      taxExempt: item.taxExempt ?? false,
     };
   });
 
   const subtotal = roundMoney(normalizedItems.reduce((acc, item) => acc + item.lineSubtotal, 0));
-  const taxAmount = roundMoney(subtotal * taxRate);
+  const taxableSubtotal = roundMoney(
+    normalizedItems
+      .filter((item) => !item.taxExempt)
+      .reduce((acc, item) => acc + item.lineSubtotal, 0),
+  );
+  const taxAmount = roundMoney(taxableSubtotal * taxRate);
   const totalAmount = roundMoney(subtotal + taxAmount);
 
   return {
@@ -179,6 +186,7 @@ export async function createQuoteAction(input: unknown) {
             quantity: new Prisma.Decimal(item.quantity),
             unitPrice: new Prisma.Decimal(item.unitPrice),
             lineSubtotal: new Prisma.Decimal(item.lineSubtotal),
+            taxExempt: item.taxExempt,
           })),
         },
       },
@@ -279,6 +287,7 @@ export async function updateQuoteAction(input: unknown) {
         quantity: new Prisma.Decimal(item.quantity),
         unitPrice: new Prisma.Decimal(item.unitPrice),
         lineSubtotal: new Prisma.Decimal(item.lineSubtotal),
+        taxExempt: item.taxExempt,
       })),
     });
   });
@@ -621,6 +630,7 @@ export async function getQuoteDetailAction(quoteId: string, tenantSlug: string) 
           quantity: true,
           unitPrice: true,
           lineSubtotal: true,
+          taxExempt: true,
         },
       },
     },
@@ -641,6 +651,7 @@ export async function getQuoteDetailAction(quoteId: string, tenantSlug: string) 
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
       lineSubtotal: Number(item.lineSubtotal),
+      taxExempt: item.taxExempt,
     })),
   };
 }
@@ -696,10 +707,10 @@ export async function sendQuoteEmailAction(input: unknown) {
     );
   }
 
-  const sender = await db.user.findUnique({
-    where: { id: ctx.userId },
-    select: { name: true },
-  });
+  const [sender, tenant] = await Promise.all([
+    db.user.findUnique({ where: { id: ctx.userId }, select: { name: true } }),
+    db.tenant.findUnique({ where: { id: ctx.tenantId }, select: { companyTimezone: true } }),
+  ]);
 
   await sendQuoteEmail({
     to: recipientEmail,
@@ -713,6 +724,7 @@ export async function sendQuoteEmailAction(input: unknown) {
     validUntil: quote.validUntil,
     notes: quote.notes,
     senderName: sender?.name ?? 'Mini CRM',
+    tenantTimezone: tenant?.companyTimezone,
     items: quote.items.map((item) => ({
       lineNumber: item.lineNumber,
       description: item.description,

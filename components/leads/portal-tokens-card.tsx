@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import { Check, Copy, Globe, Loader2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { createPortalTokenAction, revokePortalTokenAction } from '@/lib/portal-actions';
+import { formatDate } from '@/lib/date-utils';
+import { useTenant } from '@/lib/tenant-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +30,7 @@ type Props = {
 };
 
 export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, counts }: Props) {
+  const { tenant } = useTenant();
   const [tokens, setTokens] = useState(initialTokens);
   const [newToken, setNewToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -184,19 +187,17 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                           Creado por {t.createdBy?.name || t.createdBy?.email || 'Usuario'}
                         </span>
                         <span>.</span>
-                        <span>Creado {new Date(t.createdAt).toLocaleDateString('es-PE')}</span>
+                        <span>Creado {formatDate(t.createdAt, tenant.timezone)}</span>
                         {t.expiresAt && (
                           <>
                             <span>.</span>
-                            <span>Expira {new Date(t.expiresAt).toLocaleDateString('es-PE')}</span>
+                            <span>Expira {formatDate(t.expiresAt, tenant.timezone)}</span>
                           </>
                         )}
                         {t.lastAccessedAt && (
                           <>
                             <span>.</span>
-                            <span>
-                              Visto {new Date(t.lastAccessedAt).toLocaleDateString('es-PE')}
-                            </span>
+                            <span>Visto {formatDate(t.lastAccessedAt, tenant.timezone)}</span>
                           </>
                         )}
                       </div>
@@ -237,7 +238,7 @@ export function PortalTokensCard({ tenantSlug, leadId, tokens: initialTokens, co
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                       <span>Creado por {t.createdBy?.name || t.createdBy?.email || 'Usuario'}</span>
                       <span>.</span>
-                      <span>Creado {new Date(t.createdAt).toLocaleDateString('es-PE')}</span>
+                      <span>Creado {formatDate(t.createdAt, tenant.timezone)}</span>
                     </div>
                   </div>
                 </li>

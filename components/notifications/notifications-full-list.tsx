@@ -21,22 +21,12 @@ import {
   markNotificationReadAction,
   type NotificationItem,
 } from '@/lib/notifications-actions';
+import { formatRelativeTime } from '@/lib/date-utils';
 import { buildSearchHref } from '@/lib/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ListPagination } from '@/components/ui/list-pagination';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-function timeAgo(date: Date): string {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'ahora';
-  if (mins < 60) return `hace ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `hace ${hrs} h`;
-  const days = Math.floor(hrs / 24);
-  return `hace ${days} d`;
-}
 
 const TYPE_CONFIG: Record<
   NotificationItem['type'],
@@ -264,7 +254,7 @@ export function NotificationsFullList({
                     {item.description}
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground/60">
-                    {timeAgo(item.createdAt)}
+                    {formatRelativeTime(item.createdAt)}
                   </p>
                 </Link>
 

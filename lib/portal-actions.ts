@@ -178,6 +178,7 @@ export async function listLeadPortalTokensPageAction(input: unknown): Promise<{
 
 export type PortalData = {
   tenantName: string;
+  tenantTimezone: string;
   leadName: string;
   leadEmail: string | null;
   quotes: Array<{
@@ -207,7 +208,7 @@ export async function getPortalDataByToken(token: string): Promise<PortalData | 
       expiresAt: true,
       tenantId: true,
       leadId: true,
-      tenant: { select: { name: true } },
+      tenant: { select: { name: true, companyTimezone: true } },
       lead: {
         select: {
           businessName: true,
@@ -257,6 +258,7 @@ export async function getPortalDataByToken(token: string): Promise<PortalData | 
 
   return {
     tenantName: portalToken.tenant.name,
+    tenantTimezone: portalToken.tenant.companyTimezone,
     leadName: portalToken.lead.businessName,
     leadEmail: portalToken.lead.emails[0] ?? null,
     quotes: quotes.map((quote) => ({
@@ -285,7 +287,7 @@ export async function getPortalQuotesPageByToken(
       expiresAt: true,
       tenantId: true,
       leadId: true,
-      tenant: { select: { name: true } },
+      tenant: { select: { name: true, companyTimezone: true } },
       lead: {
         select: {
           businessName: true,
@@ -342,6 +344,7 @@ export async function getPortalQuotesPageByToken(
 
   return {
     tenantName: portalToken.tenant.name,
+    tenantTimezone: portalToken.tenant.companyTimezone,
     leadName: portalToken.lead.businessName,
     leadEmail: portalToken.lead.emails[0] ?? null,
     total,

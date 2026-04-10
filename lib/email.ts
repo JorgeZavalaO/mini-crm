@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { getEnv } from '@/lib/env';
+import { formatDate, DEFAULT_TIMEZONE } from '@/lib/date-utils';
 
 let resendClient: Resend | null = null;
 
@@ -58,6 +59,7 @@ export type SendQuoteEmailOptions = {
     lineSubtotal: number;
   }[];
   senderName: string;
+  tenantTimezone?: string;
 };
 
 export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void> {
@@ -80,7 +82,7 @@ export async function sendQuoteEmail(opts: SendQuoteEmailOptions): Promise<void>
     .join('');
 
   const validUntilText = opts.validUntil
-    ? new Date(opts.validUntil).toLocaleDateString('es-PE', {
+    ? formatDate(opts.validUntil, opts.tenantTimezone ?? DEFAULT_TIMEZONE, {
         day: '2-digit',
         month: 'long',
         year: 'numeric',

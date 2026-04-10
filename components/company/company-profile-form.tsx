@@ -7,8 +7,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { updateCompanyProfileAction } from '@/lib/company-actions';
 import type { CompanyProfile } from '@/lib/company-actions';
+
+// Curated list of IANA timezones — Americas first, then rest
+const TIMEZONE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'America/Lima', label: 'Lima, Bogotá, Quito (UTC-5)' },
+  { value: 'America/Bogota', label: 'Bogotá (UTC-5)' },
+  { value: 'America/Guayaquil', label: 'Guayaquil (UTC-5)' },
+  { value: 'America/Santiago', label: 'Santiago (UTC-4/-3)' },
+  { value: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (UTC-3)' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo (UTC-3)' },
+  { value: 'America/Caracas', label: 'Caracas (UTC-4)' },
+  { value: 'America/La_Paz', label: 'La Paz (UTC-4)' },
+  { value: 'America/Asuncion', label: 'Asunción (UTC-4/-3)' },
+  { value: 'America/Montevideo', label: 'Montevideo (UTC-3)' },
+  { value: 'America/Guyana', label: 'Georgetown (UTC-4)' },
+  { value: 'America/Paramaribo', label: 'Paramaribo (UTC-3)' },
+  { value: 'America/Mexico_City', label: 'Ciudad de México (UTC-6/-5)' },
+  { value: 'America/Monterrey', label: 'Monterrey (UTC-6/-5)' },
+  { value: 'America/Tijuana', label: 'Tijuana (UTC-8/-7)' },
+  { value: 'America/New_York', label: 'Nueva York (UTC-5/-4)' },
+  { value: 'America/Chicago', label: 'Chicago (UTC-6/-5)' },
+  { value: 'America/Denver', label: 'Denver (UTC-7/-6)' },
+  { value: 'America/Los_Angeles', label: 'Los Ángeles (UTC-8/-7)' },
+  { value: 'America/Toronto', label: 'Toronto (UTC-5/-4)' },
+  { value: 'America/Vancouver', label: 'Vancouver (UTC-8/-7)' },
+  { value: 'Europe/Madrid', label: 'Madrid (UTC+1/+2)' },
+  { value: 'Europe/London', label: 'Londres (UTC+0/+1)' },
+  { value: 'Europe/Paris', label: 'París (UTC+1/+2)' },
+  { value: 'UTC', label: 'UTC (UTC+0)' },
+];
 
 interface CompanyProfileFormProps {
   tenantSlug: string;
@@ -22,6 +58,9 @@ export function CompanyProfileForm({ tenantSlug, initialData }: CompanyProfileFo
   const [companyPhone, setCompanyPhone] = useState(initialData.companyPhone ?? '');
   const [companyEmail, setCompanyEmail] = useState(initialData.companyEmail ?? '');
   const [companyWebsite, setCompanyWebsite] = useState(initialData.companyWebsite ?? '');
+  const [companyTimezone, setCompanyTimezone] = useState(
+    initialData.companyTimezone ?? 'America/Lima',
+  );
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
@@ -36,6 +75,7 @@ export function CompanyProfileForm({ tenantSlug, initialData }: CompanyProfileFo
           companyPhone: companyPhone || undefined,
           companyEmail: companyEmail || undefined,
           companyWebsite: companyWebsite || undefined,
+          companyTimezone,
         });
         toast.success('Perfil de empresa guardado');
       } catch (err) {
@@ -140,6 +180,33 @@ export function CompanyProfileForm({ tenantSlug, initialData }: CompanyProfileFo
             rows={2}
             disabled={isPending}
           />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Configuración regional */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground">Configuración regional</h3>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="companyTimezone">Zona horaria</Label>
+          <Select value={companyTimezone} onValueChange={setCompanyTimezone} disabled={isPending}>
+            <SelectTrigger id="companyTimezone" className="w-full sm:max-w-xs">
+              <SelectValue placeholder="Selecciona una zona horaria" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEZONE_OPTIONS.map((tz) => (
+                <SelectItem key={tz.value} value={tz.value}>
+                  {tz.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Todas las fechas y horas del sistema se mostrarán en esta zona horaria.
+          </p>
         </div>
       </div>
 

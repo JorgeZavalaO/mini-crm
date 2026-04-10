@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
+import { formatDateTime } from '@/lib/date-utils';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { getAssignableLeadOwnerOptions, type LeadOwnerMembership } from '@/lib/lead-owner';
 import { listLeadInteractionsAction } from '@/lib/interaction-actions';
@@ -60,16 +61,6 @@ import { LeadFormDialog } from '../components/lead-form-dialog';
 import { ReassignRequestDialog } from '../components/reassign-request-dialog';
 import { ResolveReassignmentDialog } from '../components/resolve-reassignment-dialog';
 import { PortalTokensCard } from '@/components/leads/portal-tokens-card';
-
-function formatDate(value: Date) {
-  return value.toLocaleString('es-PE', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 function getInitials(name: string): string {
   return name
@@ -460,9 +451,9 @@ export default async function LeadDetailPage({
             <div className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="size-3" />
-                Actualizado {formatDate(lead.updatedAt)}
+                Actualizado {formatDateTime(lead.updatedAt, tenant.companyTimezone)}
               </span>
-              <span>Creado {formatDate(lead.createdAt)}</span>
+              <span>Creado {formatDateTime(lead.createdAt, tenant.companyTimezone)}</span>
             </div>
           </div>
         </div>
@@ -779,7 +770,7 @@ export default async function LeadDetailPage({
                               {REASSIGNMENT_STATUS_LABEL[request.status]}
                             </Badge>
                             <p className="text-xs text-muted-foreground">
-                              {formatDate(request.createdAt)}
+                              {formatDateTime(request.createdAt, tenant.companyTimezone)}
                             </p>
                           </div>
 
@@ -810,7 +801,7 @@ export default async function LeadDetailPage({
                             <p className="text-xs text-muted-foreground">
                               Resuelto por{' '}
                               {request.resolvedBy?.name || request.resolvedBy?.email || '—'} el{' '}
-                              {formatDate(request.resolvedAt)}
+                              {formatDateTime(request.resolvedAt, tenant.companyTimezone)}
                             </p>
                           )}
 

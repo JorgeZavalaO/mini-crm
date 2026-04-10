@@ -1,40 +1,14 @@
 import type { InteractionType, LeadStatus } from '@prisma/client';
 import { Mail, MessageCircle, MessageSquare, Phone, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDateTime, formatRelativeTime } from '@/lib/date-utils';
+import { useTenant } from '@/lib/tenant-context';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AddInteractionDialog } from '@/components/leads/add-interaction-dialog';
 import { DeleteInteractionButton } from '@/components/leads/delete-interaction-button';
 import { EditInteractionDialog } from '@/components/leads/edit-interaction-dialog';
-
-function formatRelative(date: Date): string {
-  const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
-  const diffMs = date.getTime() - Date.now();
-  const diffSec = Math.round(diffMs / 1000);
-  const diffMin = Math.round(diffSec / 60);
-  const diffHour = Math.round(diffMin / 60);
-  const diffDay = Math.round(diffHour / 24);
-  const diffMonth = Math.round(diffDay / 30);
-  const diffYear = Math.round(diffDay / 365);
-
-  if (Math.abs(diffSec) < 60) return rtf.format(diffSec, 'second');
-  if (Math.abs(diffMin) < 60) return rtf.format(diffMin, 'minute');
-  if (Math.abs(diffHour) < 24) return rtf.format(diffHour, 'hour');
-  if (Math.abs(diffDay) < 30) return rtf.format(diffDay, 'day');
-  if (Math.abs(diffMonth) < 12) return rtf.format(diffMonth, 'month');
-  return rtf.format(diffYear, 'year');
-}
-
-function formatAbsolute(date: Date): string {
-  return date.toLocaleString('es-PE', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 export type InteractionItem = {
   id: string;
@@ -123,6 +97,7 @@ export function InteractionTimeline({
   currentStatus,
   totalCount,
 }: InteractionTimelineProps) {
+  const { tenant } = useTenant();
   const sorted = [...interactions].sort(
     (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
   );
@@ -223,11 +198,11 @@ export function InteractionTimeline({
                                 dateTime={new Date(item.occurredAt).toISOString()}
                                 className="cursor-default text-xs text-muted-foreground"
                               >
-                                {formatRelative(new Date(item.occurredAt))}
+                                {formatRelativeTime(new Date(item.occurredAt))}
                               </time>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {formatAbsolute(new Date(item.occurredAt))}
+                              {formatDateTime(new Date(item.occurredAt), tenant.timezone)}
                             </TooltipContent>
                           </Tooltip>
                         </div>

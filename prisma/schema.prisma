@@ -112,6 +112,7 @@ model Tenant {
   companyWebsite           String?                   @db.VarChar(200)
   companyLogoUrl           String?
   companyLogoPathname      String?
+  companyTimezone          String                    @default("America/Lima") @db.VarChar(60)
   deletedAt                DateTime?
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
@@ -322,6 +323,7 @@ model QuoteItem {
   quantity     Decimal  @db.Decimal(12, 3)
   unitPrice    Decimal  @db.Decimal(14, 2)
   lineSubtotal Decimal  @db.Decimal(14, 2)
+  taxExempt    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
@@ -437,6 +439,7 @@ model Product {
   unitPrice   Decimal      @db.Decimal(12, 4)
   currency    CurrencyCode @default(PEN)
   isActive    Boolean      @default(true)
+  taxExempt   Boolean      @default(false)
   createdById String?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

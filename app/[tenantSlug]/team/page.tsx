@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { requireTenantRole } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
+import { formatDateTime } from '@/lib/date-utils';
 import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { mapTeamInvitationListItem } from '@/lib/team-invite-service';
 import { hasRole } from '@/lib/rbac';
@@ -22,15 +23,6 @@ import { ToggleMemberButton } from './toggle-member-button';
 
 function invitationVariant(status: 'PENDING' | 'EXPIRED') {
   return status === 'PENDING' ? 'default' : 'outline';
-}
-
-function formatDate(value: Date) {
-  return value.toLocaleString('es-PE', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function parsePage(value: string | string[] | undefined) {
@@ -271,10 +263,10 @@ export default async function TeamPage({
                     </TableCell>
                     <TableCell>{invite.invitedBy.name || invite.invitedBy.email}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(invite.createdAt)}
+                      {formatDateTime(invite.createdAt, tenant.companyTimezone)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(invite.expiresAt)}
+                      {formatDateTime(invite.expiresAt, tenant.companyTimezone)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">

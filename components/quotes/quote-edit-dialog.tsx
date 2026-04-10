@@ -18,6 +18,7 @@ type QuoteItemData = {
   description: string;
   quantity: number;
   unitPrice: number;
+  taxExempt?: boolean;
 };
 
 type LeadOption = {

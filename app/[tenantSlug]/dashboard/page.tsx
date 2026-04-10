@@ -19,6 +19,7 @@ import {
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { buildDuplicateGroupsByCriterion, summarizeDuplicateGroups } from '@/lib/dedupe-utils';
+import { formatDateTime } from '@/lib/date-utils';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { buildLeadStatusBuckets, LEAD_STATUS_LABEL } from '@/lib/lead-status';
 import { hasRole } from '@/lib/rbac';
@@ -28,15 +29,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeadsTrendChart, type MonthlyDataPoint } from '@/components/dashboard/leads-trend-chart';
 import { PipelineBarChart } from '@/components/dashboard/pipeline-bar-chart';
-
-function formatDate(value: Date) {
-  return value.toLocaleString('es-PE', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 const STATUS_ICON = {
   NEW: Inbox,
@@ -201,11 +193,19 @@ export default async function DashboardPage({
   const monthlyMap = new Map<string, number>();
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = d.toLocaleDateString('es-PE', { month: 'short', year: '2-digit' });
+    const key = d.toLocaleDateString('es-PE', {
+      month: 'short',
+      year: '2-digit',
+      timeZone: tenant.companyTimezone,
+    });
     monthlyMap.set(key, 0);
   }
   for (const lead of leadsByMonth) {
-    const key = lead.createdAt.toLocaleDateString('es-PE', { month: 'short', year: '2-digit' });
+    const key = lead.createdAt.toLocaleDateString('es-PE', {
+      month: 'short',
+      year: '2-digit',
+      timeZone: tenant.companyTimezone,
+    });
     if (monthlyMap.has(key)) monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + 1);
   }
   const trendData: MonthlyDataPoint[] = Array.from(monthlyMap.entries()).map(([month, leads]) => ({
@@ -583,7 +583,7 @@ export default async function DashboardPage({
                             {LEAD_STATUS_LABEL[lead.status]}
                           </Badge>
                           <span className="text-xs text-muted-foreground">
-                            {formatDate(lead.updatedAt)}
+                            {formatDateTime(lead.updatedAt, tenant.companyTimezone)}
                           </span>
                           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                         </div>

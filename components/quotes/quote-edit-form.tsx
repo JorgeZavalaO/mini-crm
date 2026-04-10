@@ -5,6 +5,7 @@ import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateQuoteAction } from '@/lib/quote-actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ type ItemDraft = {
   description: string;
   quantity: string;
   unitPrice: string;
+  taxExempt: boolean;
 };
 
 type InitialData = {
@@ -43,7 +45,7 @@ type InitialData = {
   taxRate: number;
   validUntil: Date | null;
   notes: string | null;
-  items: { description: string; quantity: number; unitPrice: number }[];
+  items: { description: string; quantity: number; unitPrice: number; taxExempt?: boolean }[];
 };
 
 type Props = {
@@ -174,8 +176,9 @@ export function QuoteEditForm({ tenantSlug, leads, products, initialData, onSucc
           description: item.description,
           quantity: String(item.quantity),
           unitPrice: String(item.unitPrice),
+          taxExempt: item.taxExempt ?? false,
         }))
-      : [{ id: uid(), description: '', quantity: '1', unitPrice: '0' }],
+      : [{ id: uid(), description: '', quantity: '1', unitPrice: '0', taxExempt: false }],
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -186,8 +189,14 @@ export function QuoteEditForm({ tenantSlug, leads, products, initialData, onSucc
       const p = Math.max(0, Number(item.unitPrice || 0));
       return sum + q * p;
     }, 0);
+    const taxableSub = items.reduce((sum, item) => {
+      if (item.taxExempt) return sum;
+      const q = Math.max(0, Number(item.quantity || 0));
+      const p = Math.max(0, Number(item.unitPrice || 0));
+      return sum + q * p;
+    }, 0);
     const tax = Number(taxRate || 0);
-    return { subtotal: sub, taxAmount: sub * tax, total: sub + sub * tax };
+    return { subtotal: sub, taxAmount: taxableSub * tax, total: sub + taxableSub * tax };
   }, [items, taxRate]);
 
   function updateItem(id: string, patch: Partial<ItemDraft>) {
@@ -199,7 +208,10 @@ export function QuoteEditForm({ tenantSlug, leads, products, initialData, onSucc
   }
 
   function addItem() {
-    setItems((prev) => [...prev, { id: uid(), description: '', quantity: '1', unitPrice: '0' }]);
+    setItems((prev) => [
+      ...prev,
+      { id: uid(), description: '', quantity: '1', unitPrice: '0', taxExempt: false },
+    ]);
   }
 
   function handleSubmit() {
@@ -218,6 +230,7 @@ export function QuoteEditForm({ tenantSlug, leads, products, initialData, onSucc
             description: item.description,
             quantity: Number(item.quantity),
             unitPrice: Number(item.unitPrice),
+            taxExempt: item.taxExempt,
           })),
         });
         toast.success('Cotización actualizada');
@@ -310,6 +323,7 @@ export function QuoteEditForm({ tenantSlug, leads, products, initialData, onSucc
                 updateItem(item.id, {
                   description: p.description ?? p.name,
                   unitPrice: String(p.unitPrice),
+                  taxExempt: p.taxExempt,
                 })
               }
             />
@@ -342,6 +356,13 @@ export function QuoteEditForm({ tenantSlug, leads, products, initialData, onSucc
             >
               <Trash2 className="size-4" />
             </Button>
+            {item.taxExempt && (
+              <div className="sm:col-start-1 sm:col-span-6 flex items-center">
+                <Badge variant="outline" className="text-xs h-5">
+                  Sin IGV
+                </Badge>
+              </div>
+            )}
           </div>
         ))}
 

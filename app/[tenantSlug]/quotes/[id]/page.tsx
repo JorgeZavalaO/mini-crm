@@ -3,6 +3,7 @@ import { ArrowLeft, CalendarDays, FileText, ScrollText, UserRound } from 'lucide
 import { notFound } from 'next/navigation';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
+import { formatDate, formatDateTime } from '@/lib/date-utils';
 import { getQuoteDetailAction } from '@/lib/quote-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -63,7 +64,14 @@ export default async function QuoteDetailPage({
       where: { tenantId: tenant.id, deletedAt: null, isActive: true },
       orderBy: { name: 'asc' },
       take: 200,
-      select: { id: true, name: true, description: true, unitPrice: true, currency: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        unitPrice: true,
+        currency: true,
+        taxExempt: true,
+      },
     }),
   ]);
   if (!quote) notFound();
@@ -72,6 +80,7 @@ export default async function QuoteDetailPage({
     ...p,
     unitPrice: Number(p.unitPrice),
     currency: p.currency as 'PEN' | 'USD',
+    taxExempt: p.taxExempt,
   }));
 
   const canEdit = quote.status === 'BORRADOR' || quote.status === 'ENVIADA';
@@ -107,6 +116,7 @@ export default async function QuoteDetailPage({
                   description: item.description,
                   quantity: item.quantity,
                   unitPrice: item.unitPrice,
+                  taxExempt: item.taxExempt,
                 })),
               }}
             />
@@ -161,12 +171,12 @@ export default async function QuoteDetailPage({
           <CardContent className="space-y-2 text-sm">
             <p className="flex items-center gap-2">
               <CalendarDays className="size-4 text-muted-foreground" />
-              Creada: {new Date(quote.createdAt).toLocaleString('es-PE')}
+              Creada: {formatDateTime(quote.createdAt, tenant.companyTimezone)}
             </p>
             <p className="flex items-center gap-2">
               <CalendarDays className="size-4 text-muted-foreground" />
               Vigencia:{' '}
-              {quote.validUntil ? new Date(quote.validUntil).toLocaleDateString('es-PE') : '—'}
+              {quote.validUntil ? formatDate(quote.validUntil, tenant.companyTimezone) : '—'}
             </p>
           </CardContent>
         </Card>

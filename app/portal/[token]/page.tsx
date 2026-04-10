@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { FileText, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { getPortalQuotesPageByToken } from '@/lib/portal-actions';
+import { formatDate } from '@/lib/date-utils';
 import { buildSearchHref, firstSearchParam, getPaginationState } from '@/lib/pagination';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -107,13 +108,13 @@ export default async function PortalPage({
                       </span>
                       <span>
                         {quote.issuedAt
-                          ? new Date(quote.issuedAt).toLocaleDateString('es-PE')
-                          : new Date(quote.createdAt).toLocaleDateString('es-PE')}
+                          ? formatDate(quote.issuedAt, data.tenantTimezone)
+                          : formatDate(quote.createdAt, data.tenantTimezone)}
                       </span>
                     </div>
                     {quote.validUntil && (
                       <p className="mt-1 text-xs text-muted-foreground/60">
-                        Válida hasta {new Date(quote.validUntil).toLocaleDateString('es-PE')}
+                        Válida hasta {formatDate(quote.validUntil, data.tenantTimezone)}
                       </p>
                     )}
                   </CardContent>

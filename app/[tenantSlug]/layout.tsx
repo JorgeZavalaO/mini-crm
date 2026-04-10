@@ -25,7 +25,12 @@ export default async function TenantLayout({
 
   return (
     <TenantProvider
-      tenant={{ id: tenant.id, name: tenant.name, slug: tenant.slug }}
+      tenant={{
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        timezone: tenant.companyTimezone,
+      }}
       role={membership?.role ?? null}
       isSuperAdmin={session.user.isSuperAdmin}
     >

@@ -155,6 +155,7 @@ export function ProductList({ products, tenantSlug, canManage }: ProductListProp
             <TableHead>Nombre</TableHead>
             <TableHead className="hidden sm:table-cell">Descripción</TableHead>
             <TableHead className="text-right">Precio unitario</TableHead>
+            <TableHead className="text-center hidden md:table-cell">IGV</TableHead>
             <TableHead className="text-center">Estado</TableHead>
             {canManage && <TableHead className="w-12" />}
           </TableRow>
@@ -168,6 +169,15 @@ export function ProductList({ products, tenantSlug, canManage }: ProductListProp
               </TableCell>
               <TableCell className="text-right font-mono text-sm">
                 {formatMoney(product.unitPrice, product.currency)}
+              </TableCell>
+              <TableCell className="text-center hidden md:table-cell">
+                {product.taxExempt ? (
+                  <Badge variant="outline" className="text-xs">
+                    Sin IGV
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground">18%</span>
+                )}
               </TableCell>
               <TableCell className="text-center">
                 <Badge variant={product.isActive ? 'default' : 'secondary'}>

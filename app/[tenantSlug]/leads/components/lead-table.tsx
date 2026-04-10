@@ -6,6 +6,8 @@ import type { LeadStatus, ReassignmentStatus } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { archiveLeadAction, assignLeadAction } from '@/lib/lead-actions';
+import { formatDateTime } from '@/lib/date-utils';
+import { useTenant } from '@/lib/tenant-context';
 import {
   getLeadStatusVariant,
   getReassignmentStatusVariant,
@@ -120,16 +122,6 @@ interface LeadTableProps {
   canAssign: boolean;
   canResolveReassignments: boolean;
   pendingReassignments: PendingReassignment[];
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleString('es-PE', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function AssignLeadDialog({
@@ -250,6 +242,7 @@ export function LeadTable({
   canResolveReassignments,
   pendingReassignments,
 }: LeadTableProps) {
+  const { tenant } = useTenant();
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
 
   const visibleLeadIdSet = useMemo(() => new Set(leads.map((lead) => lead.id)), [leads]);
@@ -374,7 +367,7 @@ export function LeadTable({
                     <p>{lead.city || lead.country || '-'}</p>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {formatDate(lead.updatedAt)}
+                    {formatDateTime(lead.updatedAt, tenant.timezone)}
                   </TableCell>
                   <TableCell className="max-w-56">
                     {latestRequest ? (
@@ -478,7 +471,7 @@ export function LeadTable({
                   <p className="font-medium">{request.leadBusinessName}</p>
                   <p className="text-xs text-muted-foreground">
                     Solicitado por {request.requestedBy.name || request.requestedBy.email} -{' '}
-                    {formatDate(request.createdAt)}
+                    {formatDateTime(request.createdAt, tenant.timezone)}
                   </p>
                   {request.requestedOwner && (
                     <p className="text-xs text-muted-foreground">

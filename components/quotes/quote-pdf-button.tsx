@@ -5,6 +5,8 @@ import { Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getQuoteDetailAction } from '@/lib/quote-actions';
 import { getCompanyProfileAction } from '@/lib/company-actions';
+import { formatDate, formatDateTime } from '@/lib/date-utils';
+import { useTenant } from '@/lib/tenant-context';
 import { Button } from '@/components/ui/button';
 
 type Props = {
@@ -38,6 +40,7 @@ export function QuotePdfButton({
   size = 'sm',
   className,
 }: Props) {
+  const { tenant } = useTenant();
   const [loading, setLoading] = useState(false);
 
   async function handleDownload() {
@@ -123,12 +126,9 @@ export function QuotePdfButton({
 
       // Fecha (alineada a la derecha, debajo del badge)
       doc.setFontSize(8);
-      doc.text(
-        `Fecha: ${new Date(quote.createdAt).toLocaleDateString('es-PE')}`,
-        pageW - margin,
-        39,
-        { align: 'right' },
-      );
+      doc.text(`Fecha: ${formatDate(quote.createdAt, tenant.timezone)}`, pageW - margin, 39, {
+        align: 'right',
+      });
 
       // ── Sección cliente + info ────────────────────────────────────────────
       doc.setTextColor(30, 30, 40);
@@ -284,7 +284,7 @@ export function QuotePdfButton({
         doc.setFontSize(7);
         doc.setTextColor(148, 163, 184);
         doc.text(
-          `Generado el ${new Date().toLocaleString('es-PE')} · ${displayName}`,
+          `Generado el ${formatDateTime(new Date(), tenant.timezone)} · ${displayName}`,
           margin,
           footerY + 5,
         );

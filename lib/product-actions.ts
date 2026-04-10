@@ -44,6 +44,7 @@ export type ProductRow = {
   unitPrice: number;
   currency: 'PEN' | 'USD';
   isActive: boolean;
+  taxExempt: boolean;
   createdById: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -55,7 +56,7 @@ export async function createProductAction(input: unknown) {
     throw new AppError(parsed.error.issues[0]?.message ?? 'Datos inválidos', 400);
   }
 
-  const { tenantSlug, name, description, unitPrice, currency } = parsed.data;
+  const { tenantSlug, name, description, unitPrice, currency, taxExempt } = parsed.data;
   const ctx = await getProductContext(tenantSlug);
 
   if (!canManageProducts(ctx)) {
@@ -69,6 +70,7 @@ export async function createProductAction(input: unknown) {
       description: description ?? null,
       unitPrice: new Prisma.Decimal(unitPrice),
       currency,
+      taxExempt,
       createdById: ctx.userId,
     },
   });
@@ -83,7 +85,8 @@ export async function updateProductAction(input: unknown) {
     throw new AppError(parsed.error.issues[0]?.message ?? 'Datos inválidos', 400);
   }
 
-  const { tenantSlug, productId, name, description, unitPrice, currency, isActive } = parsed.data;
+  const { tenantSlug, productId, name, description, unitPrice, currency, isActive, taxExempt } =
+    parsed.data;
   const ctx = await getProductContext(tenantSlug);
 
   if (!canManageProducts(ctx)) {
@@ -104,6 +107,7 @@ export async function updateProductAction(input: unknown) {
       ...(unitPrice !== undefined && { unitPrice: new Prisma.Decimal(unitPrice) }),
       ...(currency !== undefined && { currency }),
       ...(isActive !== undefined && { isActive }),
+      ...(taxExempt !== undefined && { taxExempt }),
     },
   });
 
@@ -173,6 +177,7 @@ export async function listProductsAction(
       unitPrice: true,
       currency: true,
       isActive: true,
+      taxExempt: true,
       createdById: true,
       createdAt: true,
       updatedAt: true,

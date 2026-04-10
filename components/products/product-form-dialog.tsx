@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
 interface ProductFormDialogProps {
@@ -42,6 +43,7 @@ export function ProductFormDialog({
   const [description, setDescription] = useState(product?.description ?? '');
   const [unitPrice, setUnitPrice] = useState(product ? String(product.unitPrice) : '');
   const [currency, setCurrency] = useState<'PEN' | 'USD'>(product?.currency ?? 'PEN');
+  const [taxExempt, setTaxExempt] = useState(product?.taxExempt ?? false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -51,6 +53,7 @@ export function ProductFormDialog({
       setDescription('');
       setUnitPrice('');
       setCurrency('PEN');
+      setTaxExempt(false);
     }
     setError(null);
   }
@@ -72,6 +75,7 @@ export function ProductFormDialog({
             description: description || undefined,
             unitPrice: Number(unitPrice),
             currency,
+            taxExempt,
           });
           toast.success('Producto actualizado');
         } else {
@@ -81,6 +85,7 @@ export function ProductFormDialog({
             description: description || undefined,
             unitPrice: Number(unitPrice),
             currency,
+            taxExempt,
           });
           toast.success('Producto creado');
         }
@@ -160,6 +165,18 @@ export function ProductFormDialog({
                   <SelectItem value="USD">USD – Dólar</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-md border px-3 py-2.5">
+            <Switch id="product-tax-exempt" checked={taxExempt} onCheckedChange={setTaxExempt} />
+            <div className="space-y-0.5">
+              <Label htmlFor="product-tax-exempt" className="cursor-pointer">
+                Sin IGV
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Marca este producto como exonerado de impuesto
+              </p>
             </div>
           </div>
 

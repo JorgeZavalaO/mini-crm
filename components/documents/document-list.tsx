@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react';
 import { Download, FileText, ImageIcon, Loader2, MoreHorizontal, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { deleteDocumentAction, type DocumentRow } from '@/lib/document-actions';
+import { formatDateTime } from '@/lib/date-utils';
+import { useTenant } from '@/lib/tenant-context';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,16 +37,6 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(d: Date) {
-  return new Date(d).toLocaleString('es-PE', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 function getMimeLabel(mime: string): { label: string; icon: React.ReactNode } {
@@ -83,6 +75,7 @@ export function DocumentList({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDoc, setConfirmDoc] = useState<{ id: string; name: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { tenant } = useTenant();
 
   function canDelete(uploadedById: string | null) {
     if (isSuperAdmin) return true;
@@ -173,7 +166,7 @@ export function DocumentList({
                     {doc.uploadedBy?.name || doc.uploadedBy?.email}
                   </TableCell>
                   <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
-                    {formatDate(doc.createdAt)}
+                    {formatDateTime(doc.createdAt, tenant.timezone)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>

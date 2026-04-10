@@ -8,6 +8,7 @@ export type ProductOption = {
   unitPrice: number;
   currency: 'PEN' | 'USD';
   description: string | null;
+  taxExempt: boolean;
 };
 
 type Props = {

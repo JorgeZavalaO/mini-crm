@@ -6,6 +6,7 @@ interface TenantInfo {
   id: string;
   name: string;
   slug: string;
+  timezone: string;
 }
 
 interface TenantContextValue {

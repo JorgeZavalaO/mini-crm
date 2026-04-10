@@ -62,6 +62,7 @@ const validProductRow = {
   unitPrice: { toNumber: () => 100 },
   currency: 'PEN',
   isActive: true,
+  taxExempt: false,
   createdById: USER_ID,
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -211,5 +212,50 @@ describe('listProductsAction', () => {
 
   it('throws on invalid tenantSlug', async () => {
     await expect(listProductsAction({ tenantSlug: '' })).rejects.toThrow();
+  });
+});
+
+describe('taxExempt support', () => {
+  it('creates product with taxExempt=true', async () => {
+    const result = await createProductAction({
+      tenantSlug: TENANT_SLUG,
+      name: 'Producto exonerado',
+      unitPrice: 50,
+      currency: 'PEN',
+      taxExempt: true,
+    });
+    expect(result.success).toBe(true);
+    const createCall = dbMock.product.create.mock.calls[0]?.[0];
+    expect(createCall?.data?.taxExempt).toBe(true);
+  });
+
+  it('creates product with taxExempt=false by default', async () => {
+    await createProductAction({
+      tenantSlug: TENANT_SLUG,
+      name: 'Producto normal',
+      unitPrice: 100,
+      currency: 'PEN',
+    });
+    const createCall = dbMock.product.create.mock.calls[0]?.[0];
+    expect(createCall?.data?.taxExempt).toBe(false);
+  });
+
+  it('updates taxExempt on existing product', async () => {
+    const result = await updateProductAction({
+      tenantSlug: TENANT_SLUG,
+      productId: PRODUCT_ID,
+      taxExempt: true,
+    });
+    expect(result.success).toBe(true);
+    const updateCall = dbMock.product.update.mock.calls[0]?.[0];
+    expect(updateCall?.data?.taxExempt).toBe(true);
+  });
+
+  it('listProductsAction returns taxExempt field in product rows', async () => {
+    const exemptRow = { ...validProductRow, taxExempt: true };
+    dbMock.product.count.mockResolvedValue(1);
+    dbMock.product.findMany.mockResolvedValue([exemptRow]);
+    const result = await listProductsAction({ tenantSlug: TENANT_SLUG });
+    expect(result.products[0].taxExempt).toBe(true);
   });
 });

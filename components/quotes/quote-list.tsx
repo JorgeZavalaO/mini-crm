@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { QuotePdfButton } from './quote-pdf-button';
 import { changeQuoteStatusAction, deleteQuoteAction, type QuoteRow } from '@/lib/quote-actions';
+import { formatDate } from '@/lib/date-utils';
+import { useTenant } from '@/lib/tenant-context';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,15 +52,6 @@ function formatMoney(value: number, currency: 'PEN' | 'USD') {
     currency,
     minimumFractionDigits: 2,
   }).format(value);
-}
-
-function formatDate(value: Date | string | null) {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('es-PE', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  });
 }
 
 const STATUS_LABEL: Record<QuoteRow['status'], string> = {
@@ -105,6 +98,7 @@ export function QuoteList({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { tenant } = useTenant();
 
   function canModerate() {
     if (isSuperAdmin) return true;
@@ -241,10 +235,10 @@ export function QuoteList({
                   </TableCell>
 
                   <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                    {formatDate(quote.validUntil)}
+                    {formatDate(quote.validUntil, tenant.timezone)}
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                    {formatDate(quote.createdAt)}
+                    {formatDate(quote.createdAt, tenant.timezone)}
                   </TableCell>
 
                   <TableCell className="text-right">

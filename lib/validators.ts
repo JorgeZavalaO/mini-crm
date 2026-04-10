@@ -219,6 +219,7 @@ const quoteItemSchema = z.object({
     .number()
     .nonnegative('El precio unitario no puede ser negativo')
     .max(999999999),
+  taxExempt: z.boolean().optional().default(false),
 });
 
 export const createQuoteSchema = z.object({
@@ -301,6 +302,7 @@ export const createProductSchema = z.object({
   description: optionalText(500),
   unitPrice: z.coerce.number().min(0, 'El precio debe ser mayor o igual a 0'),
   currency: z.nativeEnum(CurrencyCode).default(CurrencyCode.PEN),
+  taxExempt: z.boolean().default(false),
 });
 
 export const updateProductSchema = z.object({
@@ -311,6 +313,7 @@ export const updateProductSchema = z.object({
   unitPrice: z.coerce.number().min(0, 'El precio debe ser mayor o igual a 0').optional(),
   currency: z.nativeEnum(CurrencyCode).optional(),
   isActive: z.boolean().optional(),
+  taxExempt: z.boolean().optional(),
 });
 
 export const deleteProductSchema = z.object({
@@ -334,6 +337,23 @@ export const updateCompanyProfileSchema = z.object({
     .transform((v) => (v && v.length > 0 ? v : undefined))
     .pipe(z.string().email('Email corporativo inválido').optional()),
   companyWebsite: optionalText(200),
+  companyTimezone: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .refine(
+      (tz) => {
+        try {
+          Intl.DateTimeFormat(undefined, { timeZone: tz });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: 'Zona horaria inválida' },
+    )
+    .default('America/Lima'),
 });
 
 export const productFiltersSchema = z.object({
