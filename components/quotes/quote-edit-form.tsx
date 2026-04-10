@@ -140,7 +140,7 @@ function ItemDescriptionCombobox({
               {filtered.map((p) => (
                 <CommandItem
                   key={p.id}
-                  value={p.name}
+                  value={p.id}
                   onSelect={() => {
                     onProductSelect(p);
                     setOpen(false);
