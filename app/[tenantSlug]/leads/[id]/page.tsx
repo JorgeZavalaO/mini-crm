@@ -177,6 +177,22 @@ export default async function LeadDetailPage({
       }).catch(() => ({ quotes: [], total: 0 }))
     : Promise.resolve({ quotes: [], total: 0 });
 
+  const productsPromise = quotingEnabled
+    ? db.product.findMany({
+        where: { tenantId: tenant.id, deletedAt: null, isActive: true },
+        orderBy: { name: 'asc' },
+        take: 200,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          unitPrice: true,
+          currency: true,
+          taxExempt: true,
+        },
+      })
+    : Promise.resolve([]);
+
   const tasksPromise = tasksEnabled
     ? listLeadTasksPageAction({
         tenantSlug,
@@ -215,6 +231,7 @@ export default async function LeadDetailPage({
     interactionsResult,
     documentsResult,
     quotesResult,
+    rawProducts,
     tasksResult,
     portalTokensResult,
     reassignmentTotal,
@@ -250,6 +267,7 @@ export default async function LeadDetailPage({
     interactionsPromise,
     documentsPromise,
     quotesPromise,
+    productsPromise,
     tasksPromise,
     portalTokensPromise,
     db.leadReassignmentRequest.count({ where: reassignmentWhere }),
@@ -297,6 +315,12 @@ export default async function LeadDetailPage({
   const documentsTotal = documentsResult.total;
   const quotes = quotesResult.quotes;
   const quotesTotal = quotesResult.total;
+  const products = rawProducts.map((p) => ({
+    ...p,
+    unitPrice: Number(p.unitPrice),
+    currency: p.currency as 'PEN' | 'USD',
+    taxExempt: p.taxExempt,
+  }));
   const tasks = tasksResult.tasks;
   const tasksTotal = tasksResult.total;
   const portalTokens = portalTokensResult.tokens;
@@ -904,6 +928,7 @@ export default async function LeadDetailPage({
                     tenantSlug={tenantSlug}
                     leads={[{ id: lead.id, businessName: lead.businessName, ruc: lead.ruc }]}
                     defaultLeadId={lead.id}
+                    products={products}
                   />
                 </CardHeader>
                 <CardContent className="space-y-4 p-0 pb-4">

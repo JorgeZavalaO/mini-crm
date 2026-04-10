@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { assertTenantFeatureById, getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { createNotificationsForEvent } from '@/lib/notifications-actions';
 import { getPaginationState } from '@/lib/pagination';
 import {
   canAssignTaskToOthers,
@@ -121,6 +122,33 @@ function assertTaskAssignmentChangeAllowed(
   }
 }
 
+async function notifyTaskAssigned(params: {
+  ctx: TaskActorContext;
+  taskTitle: string;
+  leadId?: string | null;
+  assignedToId: string | null;
+}) {
+  const { ctx, taskTitle, leadId, assignedToId } = params;
+
+  if (!assignedToId || assignedToId === ctx.userId) {
+    return;
+  }
+
+  const href = leadId
+    ? `/${ctx.tenantSlug}/leads/${leadId}?tab=tareas`
+    : `/${ctx.tenantSlug}/tasks`;
+
+  await createNotificationsForEvent({
+    tenantId: ctx.tenantId,
+    tenantSlug: ctx.tenantSlug,
+    type: 'TASK_ASSIGNED',
+    title: 'Nueva tarea asignada',
+    description: taskTitle,
+    href,
+    recipientUserIds: [assignedToId],
+  });
+}
+
 // ─── Actions ─────────────────────────────────────────────
 
 export async function createTaskAction(input: unknown) {
@@ -158,6 +186,13 @@ export async function createTaskAction(input: unknown) {
       dueDate: dueDate ?? null,
     },
     select: { id: true, leadId: true },
+  });
+
+  await notifyTaskAssigned({
+    ctx,
+    taskTitle: title,
+    leadId: task.leadId,
+    assignedToId: assignedToId ?? null,
   });
 
   revalidateTaskViews(tenantSlug, task.leadId);
@@ -207,6 +242,16 @@ export async function updateTaskAction(input: unknown) {
       dueDate: dueDate ?? null,
     },
   });
+
+  const nextAssignedToId = assignedToId ?? null;
+  if (existing.assignedToId !== nextAssignedToId) {
+    await notifyTaskAssigned({
+      ctx,
+      taskTitle: title,
+      leadId: leadId ?? existing.leadId,
+      assignedToId: nextAssignedToId,
+    });
+  }
 
   revalidateTaskViews(tenantSlug, existing.leadId);
   if (leadId && leadId !== existing.leadId) {

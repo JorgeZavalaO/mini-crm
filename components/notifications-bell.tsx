@@ -6,6 +6,7 @@ import {
   Bell,
   CheckCheck,
   CheckCircle2,
+  ClipboardList,
   FileText,
   Inbox,
   Loader2,
@@ -67,6 +68,11 @@ const TYPE_CONFIG: Record<
     icon: Shuffle,
     color: 'text-orange-600 dark:text-orange-400',
     bg: 'bg-orange-100 dark:bg-orange-900/40',
+  },
+  TASK_ASSIGNED: {
+    icon: ClipboardList,
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bg: 'bg-indigo-100 dark:bg-indigo-900/40',
   },
 };
 

@@ -16,6 +16,14 @@ vi.mock('@/lib/auth-guard', () => ({
   assertTenantFeatureById: assertTenantFeatureByIdMock,
 }));
 
+const { createNotificationsForEventMock } = vi.hoisted(() => ({
+  createNotificationsForEventMock: vi.fn(),
+}));
+
+vi.mock('@/lib/notifications-actions', () => ({
+  createNotificationsForEvent: createNotificationsForEventMock,
+}));
+
 const dbMock = vi.hoisted(() => ({
   task: {
     create: vi.fn(),
@@ -137,6 +145,7 @@ const CREATED_TASK = {
 describe('createTaskAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createNotificationsForEventMock.mockResolvedValue(undefined);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
@@ -246,6 +255,35 @@ describe('createTaskAction', () => {
       }),
     ).rejects.toMatchObject({ status: 400 });
   });
+
+  it('notifica al usuario asignado cuando un supervisor asigna la tarea a otro usuario', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    dbMock.membership.findUnique.mockResolvedValue({ userId: OTHER_USER_ID, isActive: true });
+
+    await createTaskAction({
+      ...VALID_CREATE_INPUT,
+      assignedToId: OTHER_USER_ID,
+    });
+
+    expect(createNotificationsForEventMock).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      tenantSlug: TENANT_SLUG,
+      type: 'TASK_ASSIGNED',
+      title: 'Nueva tarea asignada',
+      description: 'Hacer seguimiento',
+      href: `/${TENANT_SLUG}/leads/${LEAD_ID}?tab=tareas`,
+      recipientUserIds: [OTHER_USER_ID],
+    });
+  });
+
+  it('no notifica cuando la tarea se asigna al mismo creador', async () => {
+    await createTaskAction({
+      ...VALID_CREATE_INPUT,
+      assignedToId: USER_ID,
+    });
+
+    expect(createNotificationsForEventMock).not.toHaveBeenCalled();
+  });
 });
 
 // ────────────────────────────────────────────────────────────────
@@ -255,6 +293,7 @@ describe('createTaskAction', () => {
 describe('updateTaskAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createNotificationsForEventMock.mockResolvedValue(undefined);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.task.findFirst.mockResolvedValue({
@@ -346,6 +385,32 @@ describe('updateTaskAction', () => {
 
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/lead-previo`);
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads/${LEAD_ID}`);
+  });
+
+  it('notifica al nuevo asignado cuando la tarea se reasigna a otro usuario', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    dbMock.membership.findUnique.mockResolvedValue({ userId: OTHER_USER_ID, isActive: true });
+
+    await updateTaskAction({
+      ...VALID_UPDATE_INPUT,
+      assignedToId: OTHER_USER_ID,
+    });
+
+    expect(createNotificationsForEventMock).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      tenantSlug: TENANT_SLUG,
+      type: 'TASK_ASSIGNED',
+      title: 'Nueva tarea asignada',
+      description: 'Hacer seguimiento actualizado',
+      href: `/${TENANT_SLUG}/leads/${LEAD_ID}?tab=tareas`,
+      recipientUserIds: [OTHER_USER_ID],
+    });
+  });
+
+  it('no notifica cuando no cambia el asignado', async () => {
+    await updateTaskAction(VALID_UPDATE_INPUT);
+
+    expect(createNotificationsForEventMock).not.toHaveBeenCalled();
   });
 });
 

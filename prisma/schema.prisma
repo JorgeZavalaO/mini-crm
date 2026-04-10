@@ -89,6 +89,7 @@ enum NotificationType {
   QUOTE_ACCEPTED
   QUOTE_REJECTED
   PENDING_REASSIGNMENT
+  TASK_ASSIGNED
 }
 
 // ─── Multi-tenant ───────────────────────────────────────
