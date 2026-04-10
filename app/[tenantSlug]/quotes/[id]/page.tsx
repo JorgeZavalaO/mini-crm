@@ -65,6 +65,7 @@ export default async function QuoteDetailPage({
       take: 200,
       select: {
         id: true,
+        code: true,
         name: true,
         description: true,
         unitPrice: true,

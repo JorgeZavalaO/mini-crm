@@ -184,6 +184,7 @@ export default async function LeadDetailPage({
         take: 200,
         select: {
           id: true,
+          code: true,
           name: true,
           description: true,
           unitPrice: true,
