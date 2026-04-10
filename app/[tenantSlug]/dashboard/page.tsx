@@ -69,9 +69,9 @@ export default async function DashboardPage({
 
   const isManager = session.user.isSuperAdmin || hasRole(membership?.role, 'SUPERVISOR');
 
-  // Últimos 6 meses para el gráfico de tendencia
+  // Últimos 6 meses + mes actual para el gráfico de tendencia
   const now = new Date();
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
 
   const [
     leads,
@@ -189,21 +189,21 @@ export default async function DashboardPage({
         byCriterion: { RUC: 0, EMAIL: 0, PHONE: 0, NAME: 0 },
       };
 
-  // Construir puntos de tendencia mensual (últimos 6 meses)
+  // Construir puntos de tendencia mensual (últimos 6 meses + mes actual)
   const monthlyMap = new Map<string, number>();
-  for (let i = 5; i >= 0; i--) {
+  for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = d.toLocaleDateString('es-PE', {
-      month: 'short',
-      year: '2-digit',
+      month: 'long',
+      year: 'numeric',
       timeZone: tenant.companyTimezone,
     });
     monthlyMap.set(key, 0);
   }
   for (const lead of leadsByMonth) {
     const key = lead.createdAt.toLocaleDateString('es-PE', {
-      month: 'short',
-      year: '2-digit',
+      month: 'long',
+      year: 'numeric',
       timeZone: tenant.companyTimezone,
     });
     if (monthlyMap.has(key)) monthlyMap.set(key, (monthlyMap.get(key) ?? 0) + 1);
