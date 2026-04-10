@@ -17,7 +17,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - **KPI cards de cotizaciones rediseñadas**: tarjetas por estado con icono sobre fondo de color, monto total agregado por estado, métricas derivadas "Pipeline Activo" y "Tasa de cierre".
 - **Combobox de catálogo por ítem en cotizaciones**: selector Popover+Command per-fila en crear/editar cotización; al seleccionar un producto auto-rellena precio unitario.
 - Campanita de notificaciones en el dashboard de tenant: leads sin asignar, leads nuevos, leads ganados, cotizaciones generadas, aceptadas y rechazadas de los últimos 7 días.
-- **Notificaciones persistentes**: modelo `Notification` en DB con tipos (`UNASSIGNED_LEAD`, `LEAD_NEW`, `LEAD_WON`, `QUOTE_CREATED`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `PENDING_REASSIGNMENT`). Badge de no leídas, marcar leída individual/masiva, eliminación, página completa con tabs (Todas/No leídas/Leídas). Hooks automáticos al crear leads y cambiar estado de cotizaciones.
+- **Notificaciones persistentes**: modelo `Notification` en DB con tipos (`UNASSIGNED_LEAD`, `LEAD_NEW`, `LEAD_WON`, `QUOTE_CREATED`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `PENDING_REASSIGNMENT`, `TASK_ASSIGNED`, `TASK_COMPLETED`). Badge de no leídas, marcar leída individual/masiva, eliminación, página completa con tabs (Todas/No leídas/Leídas). Hooks automáticos al crear leads, asignar/completar tareas y cambiar estado de cotizaciones.
 - Generación de PDF por cotización: `components/quotes/quote-pdf-button.tsx` con `jsPDF` + `jspdf-autotable`; descarga directa desde el listado y desde el detalle. Logo y razón social del tenant integrados dinámicamente.
 - **Módulo de Tareas** operativo: CRUD de tareas con prioridades (`LOW`, `MEDIUM`, `HIGH`, `URGENT`), estados (`PENDING`, `IN_PROGRESS`, `DONE`, `CANCELLED`), asignación validada contra memberships activas, restricción de asignación a terceros para `SUPERVISOR+`, fecha límite con indicador de vencimiento y soft-delete.
 - **Catálogo de productos** operativo: CRUD de productos con nombre, descripción, precio unitario (`Decimal 12,4`), moneda (`PEN`/`USD`) y estado activo/inactivo. Solo `ADMIN`/`SUPERVISOR` pueden gestionar el catálogo.
@@ -50,11 +50,11 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Catálogo comercial saneado: SuperAdmin solo puede activar y vender features ya soportadas por el producto.
 - Configuración de Prisma migrada a `prisma.config.ts` y runtime conectado con `@prisma/adapter-pg`.
 - Menú de cuenta en avatar para tenant y `SuperAdmin`, con acceso directo a perfil y cierre de sesión.
-- Suite inicial de pruebas unitarias con `Vitest`.
+- Suite de pruebas con `Vitest` y validación E2E inicial con `Playwright` para el módulo de notificaciones.
 
 ### Pendiente
 
-- Hardening productivo adicional: auditoría avanzada, observabilidad profunda y más tests end-to-end.
+- Hardening productivo adicional: auditoría avanzada, observabilidad profunda y ampliación de cobertura end-to-end más allá del módulo de notificaciones.
 
 ## Roadmap resumido
 
@@ -178,6 +178,9 @@ pnpm dev
 | `pnpm build`                          | Compila la aplicación                       |
 | `pnpm lint`                           | Ejecuta ESLint                              |
 | `pnpm test`                           | Corre pruebas unitarias con Vitest          |
+| `pnpm test:e2e`                       | Corre la suite E2E con Playwright           |
+| `pnpm test:e2e:ui`                    | Abre la UI interactiva de Playwright        |
+| `pnpm test:e2e:headed`                | Corre Playwright en modo headed             |
 | `pnpm test:watch`                     | Modo watch de Vitest                        |
 | `pnpm prisma:generate`                | Genera Prisma Client                        |
 | `pnpm prisma:migrate`                 | Ejecuta migraciones de desarrollo           |
@@ -352,10 +355,18 @@ pnpm dev
 - Módulo de tareas completo: CRUD con prioridades (`LOW`/`MEDIUM`/`HIGH`/`URGENT`), estados (`PENDING`/`IN_PROGRESS`/`DONE`/`CANCELLED`), asignación a miembros y soft-delete.
 - La asignación o reasignación de tareas a terceros quedó endurecida en servidor: solo `SUPERVISOR+` puede mover ownership entre miembros y toda asignación valida membership activa dentro del tenant.
 - `changeTaskStatusAction` asigna `completedAt` automáticamente al marcar como `DONE` y lo limpia en otros estados.
+- La finalización de tareas ahora genera `TASK_COMPLETED` para perfiles `ADMIN` y `SUPERVISOR` del tenant, excluyendo al actor que marcó la tarea como realizada y evitando duplicados si ya estaba completada.
 - Pestaña **Tareas** en detalle de lead con badge de tareas activas y creación en contexto.
 - Página `/{tenantSlug}/tasks` con 4 tarjetas de estadísticas y listado completo del tenant.
 - Feature `TASKS` movida de `COMING_SOON` a `SUPPORTED_FEATURE_KEYS`, habilitada en bundles `GROWTH` y `SCALE`.
 - 31 tests cubriendo flujos de creación, edición, cambio de estado, eliminación y listado.
+
+### Post Sprint 13 — Notificaciones de tareas completadas + Playwright
+
+- Nuevo tipo persistente `TASK_COMPLETED` en `NotificationType`, con migración Prisma aplicada y UI actualizada en campana + historial completo.
+- `changeTaskStatusAction` ahora dispara notificación cuando una tarea pasa a `DONE` por primera vez, dirigida a `ADMIN`/`SUPERVISOR` del tenant.
+- Se añadió `playwright.config.ts` y una spec E2E serial (`tests/e2e/notifications.spec.ts`) que valida los 6 triggers activos reales del módulo (`LEAD_NEW`, `QUOTE_CREATED`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `TASK_ASSIGNED`, `TASK_COMPLETED`), además de acciones visibles de UX (`mark read`, `mark all read`, filtros y delete) sobre `/{tenantSlug}/notifications`.
+- Validación ejecutada: `pnpm test` ✅ (**408 / 408**), `pnpm exec playwright test tests/e2e/notifications.spec.ts` ✅ (**1 / 1**), `pnpm run build` ✅.
 
 ### Sprint 9 (cierre)
 

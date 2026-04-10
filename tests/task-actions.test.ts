@@ -20,8 +20,13 @@ const { createNotificationsForEventMock } = vi.hoisted(() => ({
   createNotificationsForEventMock: vi.fn(),
 }));
 
+const { getTenantMemberIdsMock } = vi.hoisted(() => ({
+  getTenantMemberIdsMock: vi.fn(),
+}));
+
 vi.mock('@/lib/notifications-actions', () => ({
   createNotificationsForEvent: createNotificationsForEventMock,
+  getTenantMemberIds: getTenantMemberIdsMock,
 }));
 
 const dbMock = vi.hoisted(() => ({
@@ -60,7 +65,9 @@ const OTHER_USER_ID = 'user-b';
 
 function makeAdminContext(userId = USER_ID) {
   return {
-    session: { user: { id: userId, isSuperAdmin: false } },
+    session: {
+      user: { id: userId, name: userId === OTHER_USER_ID ? 'Bob' : 'Alice', isSuperAdmin: false },
+    },
     tenant: { id: TENANT_ID, name: 'Acme', slug: TENANT_SLUG, isActive: true },
     membership: { id: 'mem-1', role: 'ADMIN', isActive: true },
   };
@@ -89,7 +96,9 @@ function makeInactiveMemberContext(userId = USER_ID) {
 
 function makeSuperAdminContext(userId = USER_ID) {
   return {
-    session: { user: { id: userId, isSuperAdmin: true } },
+    session: {
+      user: { id: userId, name: userId === OTHER_USER_ID ? 'Bob' : 'Alice', isSuperAdmin: true },
+    },
     tenant: { id: TENANT_ID, name: 'Acme', slug: TENANT_SLUG, isActive: true },
     membership: null,
   };
@@ -146,6 +155,7 @@ describe('createTaskAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createNotificationsForEventMock.mockResolvedValue(undefined);
+    getTenantMemberIdsMock.mockResolvedValue([]);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID });
@@ -294,6 +304,7 @@ describe('updateTaskAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createNotificationsForEventMock.mockResolvedValue(undefined);
+    getTenantMemberIdsMock.mockResolvedValue([]);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.task.findFirst.mockResolvedValue({
@@ -421,11 +432,16 @@ describe('updateTaskAction', () => {
 describe('changeTaskStatusAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    createNotificationsForEventMock.mockResolvedValue(undefined);
+    getTenantMemberIdsMock.mockResolvedValue([OTHER_USER_ID, 'user-c']);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.task.findFirst.mockResolvedValue({
       id: TASK_ID,
       leadId: LEAD_ID,
+      title: 'Hacer seguimiento',
+      status: 'PENDING',
+      completedAt: null,
       createdById: USER_ID,
       assignedToId: null,
     });
@@ -461,6 +477,7 @@ describe('changeTaskStatusAction', () => {
         data: expect.objectContaining({ status: 'IN_PROGRESS' }),
       }),
     );
+    expect(createNotificationsForEventMock).not.toHaveBeenCalled();
   });
 
   it('asigna completedAt cuando el nuevo estado es DONE', async () => {
@@ -480,6 +497,16 @@ describe('changeTaskStatusAction', () => {
         }),
       }),
     );
+    expect(getTenantMemberIdsMock).toHaveBeenCalledWith(TENANT_ID, 'SUPERVISOR');
+    expect(createNotificationsForEventMock).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      tenantSlug: TENANT_SLUG,
+      type: 'TASK_COMPLETED',
+      title: 'Tarea completada',
+      description: 'Hacer seguimiento · completada por Alice',
+      href: `/${TENANT_SLUG}/leads/${LEAD_ID}?tab=tareas`,
+      recipientUserIds: [OTHER_USER_ID, 'user-c'],
+    });
   });
 
   it('pone completedAt a null cuando el estado no es DONE', async () => {
@@ -493,6 +520,53 @@ describe('changeTaskStatusAction', () => {
         }),
       }),
     );
+    expect(createNotificationsForEventMock).not.toHaveBeenCalled();
+  });
+
+  it('no notifica si la tarea ya estaba DONE', async () => {
+    dbMock.task.findFirst.mockResolvedValue({
+      id: TASK_ID,
+      leadId: LEAD_ID,
+      title: 'Hacer seguimiento',
+      status: 'DONE',
+      completedAt: new Date('2026-04-10T10:00:00.000Z'),
+      createdById: USER_ID,
+      assignedToId: null,
+    });
+
+    await changeTaskStatusAction({ ...VALID_CHANGE_STATUS_INPUT, status: 'DONE' });
+
+    expect(createNotificationsForEventMock).not.toHaveBeenCalled();
+  });
+
+  it('no notifica si la tarea ya tenía completedAt aunque el status previo no sea DONE', async () => {
+    dbMock.task.findFirst.mockResolvedValue({
+      id: TASK_ID,
+      leadId: LEAD_ID,
+      title: 'Hacer seguimiento',
+      status: 'IN_PROGRESS',
+      completedAt: new Date('2026-04-10T10:00:00.000Z'),
+      createdById: USER_ID,
+      assignedToId: null,
+    });
+
+    await changeTaskStatusAction({ ...VALID_CHANGE_STATUS_INPUT, status: 'DONE' });
+
+    expect(createNotificationsForEventMock).not.toHaveBeenCalled();
+  });
+
+  it('excluye al actor de los destinatarios cuando también es supervisor o admin', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext(OTHER_USER_ID));
+    getTenantMemberIdsMock.mockResolvedValue([USER_ID, OTHER_USER_ID, 'user-c']);
+
+    await changeTaskStatusAction({ ...VALID_CHANGE_STATUS_INPUT, status: 'DONE' });
+
+    expect(createNotificationsForEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserIds: [USER_ID, 'user-c'],
+        description: 'Hacer seguimiento · completada por Bob',
+      }),
+    );
   });
 });
 
@@ -503,6 +577,7 @@ describe('changeTaskStatusAction', () => {
 describe('deleteTaskAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getTenantMemberIdsMock.mockResolvedValue([]);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.task.findFirst.mockResolvedValue({
@@ -564,6 +639,7 @@ describe('deleteTaskAction', () => {
 describe('listLeadTasksAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getTenantMemberIdsMock.mockResolvedValue([]);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.task.findMany.mockResolvedValue([
@@ -648,6 +724,7 @@ describe('listLeadTasksAction', () => {
 describe('listTenantTasksAction', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getTenantMemberIdsMock.mockResolvedValue([]);
     getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.task.count.mockResolvedValue(1);

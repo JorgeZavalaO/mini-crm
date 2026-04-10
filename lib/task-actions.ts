@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { assertTenantFeatureById, getTenantActionContextBySlug } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { AppError } from '@/lib/errors';
-import { createNotificationsForEvent } from '@/lib/notifications-actions';
+import { createNotificationsForEvent, getTenantMemberIds } from '@/lib/notifications-actions';
 import { getPaginationState } from '@/lib/pagination';
 import {
   canAssignTaskToOthers,
@@ -48,6 +48,7 @@ type TaskActorContext = {
   tenantId: string;
   tenantSlug: string;
   userId: string;
+  userName: string | null;
   role: string | null;
   isSuperAdmin: boolean;
   isActiveMember: boolean;
@@ -60,6 +61,7 @@ function toActorContext(
     tenantId: ctx.tenant.id,
     tenantSlug: ctx.tenant.slug,
     userId: ctx.session.user.id,
+    userName: ctx.session.user.name ?? null,
     role: ctx.membership?.role ?? null,
     isSuperAdmin: ctx.session.user.isSuperAdmin,
     isActiveMember: ctx.session.user.isSuperAdmin || Boolean(ctx.membership?.isActive),
@@ -146,6 +148,38 @@ async function notifyTaskAssigned(params: {
     description: taskTitle,
     href,
     recipientUserIds: [assignedToId],
+  });
+}
+
+async function notifyTaskCompleted(params: {
+  ctx: TaskActorContext;
+  taskTitle: string;
+  leadId?: string | null;
+}) {
+  const { ctx, taskTitle, leadId } = params;
+
+  const recipientUserIds = (await getTenantMemberIds(ctx.tenantId, 'SUPERVISOR')).filter(
+    (userId) => userId !== ctx.userId,
+  );
+
+  if (recipientUserIds.length === 0) {
+    return;
+  }
+
+  const href = leadId
+    ? `/${ctx.tenantSlug}/leads/${leadId}?tab=tareas`
+    : `/${ctx.tenantSlug}/tasks`;
+
+  const completedByLabel = ctx.userName?.trim() || 'un miembro del equipo';
+
+  await createNotificationsForEvent({
+    tenantId: ctx.tenantId,
+    tenantSlug: ctx.tenantSlug,
+    type: 'TASK_COMPLETED',
+    title: 'Tarea completada',
+    description: `${taskTitle} · completada por ${completedByLabel}`,
+    href,
+    recipientUserIds,
   });
 }
 
@@ -271,7 +305,15 @@ export async function changeTaskStatusAction(input: unknown) {
 
   const existing = await db.task.findFirst({
     where: { id: taskId, tenantId: ctx.tenantId, deletedAt: null },
-    select: { id: true, leadId: true, createdById: true, assignedToId: true },
+    select: {
+      id: true,
+      leadId: true,
+      title: true,
+      status: true,
+      completedAt: true,
+      createdById: true,
+      assignedToId: true,
+    },
   });
   if (!existing) throw new AppError('Tarea no encontrada', 404);
 
@@ -291,6 +333,17 @@ export async function changeTaskStatusAction(input: unknown) {
       completedAt: status === 'DONE' ? new Date() : null,
     },
   });
+
+  const shouldNotifyCompletion =
+    status === 'DONE' && existing.status !== 'DONE' && existing.completedAt == null;
+
+  if (shouldNotifyCompletion) {
+    await notifyTaskCompleted({
+      ctx,
+      taskTitle: existing.title,
+      leadId: existing.leadId,
+    });
+  }
 
   revalidateTaskViews(tenantSlug, existing.leadId);
   return { success: true };

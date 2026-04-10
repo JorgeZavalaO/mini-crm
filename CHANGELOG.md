@@ -2,6 +2,28 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.4.1 · 2026-04-10] Post Sprint 13.1 — Tarea completada + validación E2E de notificaciones
+
+### Added
+
+- `prisma/schema.prisma`: enum `NotificationType` extendido con `TASK_COMPLETED`.
+- Migración `20260410054356_add` aplicada para persistir el nuevo tipo de notificación.
+- `playwright.config.ts`: configuración inicial de Playwright con Chromium, `webServer` sobre `pnpm dev` y artefactos de depuración en fallos.
+- `tests/e2e/notifications.spec.ts`: spec serial E2E que valida en navegador real los triggers activos del módulo de notificaciones (`LEAD_NEW`, `QUOTE_CREATED`, `QUOTE_ACCEPTED`, `QUOTE_REJECTED`, `TASK_ASSIGNED`, `TASK_COMPLETED`) y las acciones visibles del historial (`mark read`, `mark all read`, filtros y delete).
+
+### Changed
+
+- `lib/task-actions.ts`: nueva ruta de negocio `notifyTaskCompleted(...)`; `changeTaskStatusAction()` ahora crea notificaciones `TASK_COMPLETED` cuando la tarea pasa a `DONE` por primera vez, dirigidas a `ADMIN`/`SUPERVISOR` del tenant, excluyendo al actor y evitando duplicados si la tarea ya estaba completada.
+- `components/notifications-bell.tsx` y `components/notifications/notifications-full-list.tsx`: `TYPE_CONFIG` actualizado para renderizar `TASK_COMPLETED` con iconografía/estilo de cierre exitoso.
+- `tests/task-actions.test.ts`: cobertura ampliada para el nuevo evento de tarea completada, no duplicación y filtrado correcto de destinatarios.
+- `package.json`: scripts nuevos `test:e2e`, `test:e2e:ui` y `test:e2e:headed`.
+
+### Tests
+
+- `pnpm test` ✅ (**408 / 408** tests pasando, 36 suites)
+- `pnpm exec playwright test tests/e2e/notifications.spec.ts` ✅ (**1 / 1** spec pasando)
+- `pnpm run build` ✅
+
 ## [v1.4.0 · 2026-04-09] Sprint 13 — Módulo de empresa, mejoras de cotizaciones y combobox de catálogo
 
 ### Added

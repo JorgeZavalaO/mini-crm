@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, useTransition } from 'react';
 import {
   Bell,
   CheckCheck,
+  CheckCircle,
   CheckCircle2,
   ClipboardList,
   FileText,
@@ -72,6 +73,11 @@ const TYPE_CONFIG: Record<
     icon: ClipboardList,
     color: 'text-indigo-600 dark:text-indigo-400',
     bg: 'bg-indigo-100 dark:bg-indigo-900/40',
+  },
+  TASK_COMPLETED: {
+    icon: CheckCircle,
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-100 dark:bg-emerald-900/40',
   },
 };
 
