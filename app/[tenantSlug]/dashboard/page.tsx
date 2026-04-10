@@ -478,7 +478,7 @@ export default async function DashboardPage({
             <p className="text-xs text-muted-foreground">Leads creados en los últimos 6 meses.</p>
           </CardHeader>
           <CardContent className="pt-2">
-            <LeadsTrendChart data={trendData} />
+            <LeadsTrendChart data={trendData} lastUpdated={now} />
           </CardContent>
         </Card>
       </div>
