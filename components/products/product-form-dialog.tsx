@@ -39,6 +39,7 @@ export function ProductFormDialog({
 }: ProductFormDialogProps) {
   const isEdit = Boolean(product);
   const [open, setOpen] = useState(false);
+  const [code, setCode] = useState(product?.code ?? '');
   const [name, setName] = useState(product?.name ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [unitPrice, setUnitPrice] = useState(product ? String(product.unitPrice) : '');
@@ -49,6 +50,7 @@ export function ProductFormDialog({
 
   function resetForm() {
     if (!isEdit) {
+      setCode('');
       setName('');
       setDescription('');
       setUnitPrice('');
@@ -71,6 +73,7 @@ export function ProductFormDialog({
           await updateProductAction({
             tenantSlug,
             productId: product.id,
+            code: code.trim() || undefined,
             name,
             description: description || undefined,
             unitPrice: Number(unitPrice),
@@ -81,6 +84,7 @@ export function ProductFormDialog({
         } else {
           await createProductAction({
             tenantSlug,
+            code: code.trim() || undefined,
             name,
             description: description || undefined,
             unitPrice: Number(unitPrice),
@@ -125,6 +129,20 @@ export function ProductFormDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="Nombre del producto o servicio"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="product-code">Código</Label>
+            <Input
+              id="product-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Auto-generado si se deja vacío"
+              className="font-mono"
+            />
+            <p className="text-xs text-muted-foreground">
+              Ej: PRD-A1B2C3. Se genera automáticamente si se omite.
+            </p>
           </div>
 
           <div className="space-y-1.5">

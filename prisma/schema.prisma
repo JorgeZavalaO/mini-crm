@@ -436,6 +436,7 @@ model Task {
 model Product {
   id          String       @id @default(cuid())
   tenantId    String
+  code        String?      @db.VarChar(50)
   name        String       @db.VarChar(200)
   description String?      @db.VarChar(500)
   unitPrice   Decimal      @db.Decimal(12, 4)
@@ -450,6 +451,7 @@ model Product {
   tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdBy User?  @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@unique([tenantId, code])
   @@index([tenantId, isActive, deletedAt])
   @@index([tenantId, deletedAt])
 }

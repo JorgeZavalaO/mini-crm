@@ -4,6 +4,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 
 export type ProductOption = {
   id: string;
+  code: string | null;
   name: string;
   unitPrice: number;
   currency: 'PEN' | 'USD';
@@ -19,7 +20,7 @@ type Props = {
 export function ProductSelector({ products, onSelect }: Props) {
   const options = products.map((p) => ({
     value: p.id,
-    label: p.name,
+    label: p.code ? `[${p.code}] ${p.name}` : p.name,
     hint: new Intl.NumberFormat('es-PE', {
       style: 'currency',
       currency: p.currency,

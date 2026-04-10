@@ -37,8 +37,14 @@ function revalidateProductViews(tenantSlug: string) {
   revalidatePath(`/${tenantSlug}/quotes`);
 }
 
+function generateProductCode(): string {
+  const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
+  return `PRD-${suffix}`;
+}
+
 export type ProductRow = {
   id: string;
+  code: string | null;
   name: string;
   description: string | null;
   unitPrice: number;
@@ -56,7 +62,7 @@ export async function createProductAction(input: unknown) {
     throw new AppError(parsed.error.issues[0]?.message ?? 'Datos inválidos', 400);
   }
 
-  const { tenantSlug, name, description, unitPrice, currency, taxExempt } = parsed.data;
+  const { tenantSlug, code, name, description, unitPrice, currency, taxExempt } = parsed.data;
   const ctx = await getProductContext(tenantSlug);
 
   if (!canManageProducts(ctx)) {
@@ -66,6 +72,7 @@ export async function createProductAction(input: unknown) {
   await db.product.create({
     data: {
       tenantId: ctx.tenantId,
+      code: code ?? generateProductCode(),
       name,
       description: description ?? null,
       unitPrice: new Prisma.Decimal(unitPrice),
@@ -85,8 +92,17 @@ export async function updateProductAction(input: unknown) {
     throw new AppError(parsed.error.issues[0]?.message ?? 'Datos inválidos', 400);
   }
 
-  const { tenantSlug, productId, name, description, unitPrice, currency, isActive, taxExempt } =
-    parsed.data;
+  const {
+    tenantSlug,
+    productId,
+    code,
+    name,
+    description,
+    unitPrice,
+    currency,
+    isActive,
+    taxExempt,
+  } = parsed.data;
   const ctx = await getProductContext(tenantSlug);
 
   if (!canManageProducts(ctx)) {
@@ -102,6 +118,7 @@ export async function updateProductAction(input: unknown) {
   await db.product.update({
     where: { id: productId },
     data: {
+      ...(code !== undefined && { code }),
       ...(name !== undefined && { name }),
       ...(description !== undefined && { description: description ?? null }),
       ...(unitPrice !== undefined && { unitPrice: new Prisma.Decimal(unitPrice) }),
@@ -172,6 +189,7 @@ export async function listProductsAction(
     take: pageSize,
     select: {
       id: true,
+      code: true,
       name: true,
       description: true,
       unitPrice: true,

@@ -56,6 +56,7 @@ function makeVendedorContext() {
 
 const validProductRow = {
   id: PRODUCT_ID,
+  code: 'PRD-ABCDEF',
   tenantId: TENANT_ID,
   name: 'Servicio A',
   description: null,

@@ -152,6 +152,7 @@ export function ProductList({ products, tenantSlug, canManage }: ProductListProp
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="hidden md:table-cell font-mono text-xs w-32">Código</TableHead>
             <TableHead>Nombre</TableHead>
             <TableHead className="hidden sm:table-cell">Descripción</TableHead>
             <TableHead className="text-right">Precio unitario</TableHead>
@@ -163,6 +164,9 @@ export function ProductList({ products, tenantSlug, canManage }: ProductListProp
         <TableBody>
           {products.map((product) => (
             <TableRow key={product.id} className={!product.isActive ? 'opacity-60' : undefined}>
+              <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
+                {product.code ?? '—'}
+              </TableCell>
               <TableCell className="font-medium">{product.name}</TableCell>
               <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-xs truncate">
                 {product.description ?? '—'}

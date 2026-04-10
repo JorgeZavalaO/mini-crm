@@ -138,7 +138,14 @@ function ItemDescriptionCombobox({
                 >
                   <div className="flex w-full items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <span className="block truncate font-medium">{p.name}</span>
+                      <span className="block truncate font-medium">
+                        {p.code && (
+                          <span className="mr-1.5 font-mono text-xs text-muted-foreground">
+                            [{p.code}]
+                          </span>
+                        )}
+                        {p.name}
+                      </span>
                       {p.description && (
                         <span className="block truncate text-xs text-muted-foreground">
                           {p.description}

@@ -298,6 +298,7 @@ export const taskFiltersSchema = z.object({
 
 export const createProductSchema = z.object({
   tenantSlug: z.string().min(1),
+  code: z.string().trim().min(1).max(50).optional(),
   name: z.string().trim().min(1, 'El nombre es requerido').max(200),
   description: optionalText(500),
   unitPrice: z.coerce.number().min(0, 'El precio debe ser mayor o igual a 0'),
@@ -308,6 +309,7 @@ export const createProductSchema = z.object({
 export const updateProductSchema = z.object({
   tenantSlug: z.string().min(1),
   productId: z.string().min(1),
+  code: z.string().trim().min(1).max(50).optional(),
   name: z.string().trim().min(1, 'El nombre es requerido').max(200).optional(),
   description: optionalText(500),
   unitPrice: z.coerce.number().min(0, 'El precio debe ser mayor o igual a 0').optional(),
