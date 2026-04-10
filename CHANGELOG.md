@@ -2,6 +2,32 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.4.3 · 2026-04-10] Post Sprint 13.2 — Exportación de leads y mejoras del dashboard
+
+### Added
+
+- **Exportación de leads en múltiples formatos**:
+  - Nuevo botón "Exportar leads" en el header del módulo de leads (`/{tenantSlug}/leads`).
+  - Dropdown con dos opciones: **CSV (.csv)** y **Excel (.xlsx)**.
+  - Server action `exportLeadsAction(tenantSlug)` en `lib/lead-actions.ts` que genera datos con 16 campos en español: Empresa, RUC, Estado, País, Ciudad, Industria, Fuente, Gerente, Nombre Contacto, Teléfono Contacto, Teléfonos, Emails, Notas, Responsable, Email Responsable, Fecha Creación.
+  - Respeta visibilidad de datos: managers (`SUPERVISOR+`, `SuperAdmin`) exportan todos los leads; vendedores/freelance/pasantes exportan solo los suyos.
+  - **CSV**: descargado con BOM UTF-8 para compatibilidad con Excel en Windows/español (tildes y ñ correctos).
+  - **XLSX**: construido con librería `xlsx` (ya incluida), dinámicamente importada en cliente siguiendo el patrón del módulo de importación.
+  - Componente cliente `LeadExportButton` con UI de dropdown (icono `Download` + `ChevronDown` de lucide-react) y estado "Exportando..." durante la ejecución.
+
+### Changed
+
+- **Gráfico de tendencias de leads mejorado**:
+  - **Rango de meses ampliado**: ahora calcula `sixMonthsAgo = now.getMonth() - 6` y genera 7 períodos (últimos 6 meses + mes actual) en lugar de solo 6 meses fijos. Soluciona issue donde el gráfico se "quedaba estancado en marzo" siendo abril.
+  - El rango se recalcula dinámicamente en cada carga de página basado en `new Date()`, funcionando correctamente para todos los meses futuros sin cambios de código.
+  - **Formato de etiquetas del eje X mejorado**: cambio de `month: 'short', year: '2-digit'` a `month: 'long', year: 'numeric'`, mostrandolabeles legibles como "Octubre 2025" en lugar de "oct 25".
+  - Cambios aplicados en 2 ubicaciones del dashboard (`app/[tenantSlug]/dashboard/page.tsx`): generación inicial de `monthlyMap` y procesamiento de leads en el loop de agregación.
+
+### Tests
+
+- `pnpm test` ✅ **416 / 416** tests pasando (no hay regresiones).
+- `pnpm run build` ✅ Compilación exitosa, migraciones aplicadas, Prisma Client generado.
+
 ## [v1.4.2 · 2026-04-10] Post Sprint 13 — Política de permisos para cambio de estado de cotizaciones y mejoras UX
 
 ### Added

@@ -31,6 +31,11 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - **Modelo Lead enriquecido**: nuevos campos `gerente` (sponsor comercial), `contactName` y `contactPhone` para registrar el árbol de contactos del lead desde el formulario de alta y edición.
 - **Historial de propietarios del lead**: modelo `LeadOwnerHistory` en DB que registra cada cambio de asignación (quién reasignó, desde quién y hacia quién). Visualización en `components/leads/owner-history-timeline.tsx` integrada en el detalle del lead.
 - **Visualizaciones del dashboard**: gráfico de tendencia mensual de leads (`LeadsTrendChart`) y gráfico de barras del pipeline por estado (`PipelineBarChart`), construidos con `recharts` y el wrapper `ChartContainer` de `shadcn/ui`.
+  - **Gráfico de tendencias mejorado**: rango dinámico que incluye los últimos 6 meses + mes actual (se recalcula automáticamente cada carga sin cambios de código), etiquetas del eje X legibles ("Octubre 2025" vs "oct 25"), botón de refresco con indicador de carga y timestamp de última actualización ("Datos a: viernes 10 abr 2026 · 14:32").
+- **Exportación de leads en CSV y Excel**: botón dropdown "Exportar leads" en `/{tenantSlug}/leads` con dos opciones de descarga:
+  - **CSV (.csv)**: con BOM UTF-8 para compatibilidad con Excel en Windows/español.
+  - **Excel (.xlsx)**: construido dinámicamente con librería `xlsx`, 16 campos en español (Empresa, RUC, Estado, País, Ciudad, Industria, Fuente, Gerente, Nombre Contacto, Teléfono Contacto, Teléfonos, Emails, Notas, Responsable, Email Responsable, Fecha Creación).
+  - Visibilidad endurecida: managers (`SUPERVISOR+`, `SuperAdmin`) exportan todos los leads; resto exporta solo los suyos (mismo control que la lista).
 - **Hardening de seguridad transversal (Sprint 12)**:
   - Aislamiento de tenant endurecido en acciones de leads y cotizaciones: `tenantId` validado en todas las mutaciones.
   - Hashing de contraseñas con validación de longitud y comparaciones timing-safe (`lib/password.ts`).

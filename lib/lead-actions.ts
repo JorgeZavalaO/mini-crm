@@ -14,6 +14,8 @@ import {
   normalizeRuc,
 } from '@/lib/lead-normalization';
 import { canAssignLeads, canEditLead, canResolveReassignment } from '@/lib/lead-permissions';
+import { hasRole } from '@/lib/rbac';
+import { LEAD_STATUS_LABEL } from '@/lib/lead-status';
 import {
   archiveLeadSchema,
   assignLeadSchema,
@@ -612,4 +614,100 @@ export async function listLeadOwnerHistoryAction(input: unknown): Promise<{
   });
 
   return { items, total };
+}
+
+function csvEscape(value: string | null | undefined): string {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+export async function exportLeadsAction(tenantSlug: string): Promise<{
+  success: true;
+  csv: string;
+  rows: string[][];
+  filename: string;
+}> {
+  const ctx = await getLeadContext(tenantSlug);
+
+  if (!ctx.isActiveMember) {
+    throw new AppError('No autorizado para exportar leads', 403);
+  }
+
+  const isManager = ctx.isSuperAdmin || hasRole(ctx.role, 'SUPERVISOR');
+
+  const leads = await db.lead.findMany({
+    where: {
+      tenantId: ctx.tenantId,
+      deletedAt: null,
+      ...(!isManager ? { ownerId: ctx.userId } : {}),
+    },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      businessName: true,
+      ruc: true,
+      status: true,
+      country: true,
+      city: true,
+      industry: true,
+      source: true,
+      gerente: true,
+      contactName: true,
+      contactPhone: true,
+      phones: true,
+      emails: true,
+      notes: true,
+      createdAt: true,
+      owner: { select: { name: true, email: true } },
+    },
+  });
+
+  const headers = [
+    'Empresa',
+    'RUC',
+    'Estado',
+    'País',
+    'Ciudad',
+    'Industria',
+    'Fuente',
+    'Gerente',
+    'Nombre Contacto',
+    'Teléfono Contacto',
+    'Teléfonos',
+    'Emails',
+    'Notas',
+    'Responsable',
+    'Email Responsable',
+    'Fecha Creación',
+  ];
+
+  const dataRows = leads.map((lead) => [
+    lead.businessName ?? '',
+    lead.ruc ?? '',
+    LEAD_STATUS_LABEL[lead.status] ?? lead.status,
+    lead.country ?? '',
+    lead.city ?? '',
+    lead.industry ?? '',
+    lead.source ?? '',
+    lead.gerente ?? '',
+    lead.contactName ?? '',
+    lead.contactPhone ?? '',
+    lead.phones.join('; '),
+    lead.emails.join('; '),
+    lead.notes ?? '',
+    lead.owner?.name ?? lead.owner?.email ?? '',
+    lead.owner?.email ?? '',
+    lead.createdAt.toISOString().slice(0, 10),
+  ]);
+
+  const rows: string[][] = [headers, ...dataRows];
+  const csvRows = dataRows.map((r) => r.map(csvEscape));
+  const csv = [headers.join(','), ...csvRows.map((r) => r.join(','))].join('\n');
+  const date = new Date().toISOString().slice(0, 10);
+  const filename = `leads_${tenantSlug}_${date}`;
+
+  return { success: true, csv, rows, filename };
 }

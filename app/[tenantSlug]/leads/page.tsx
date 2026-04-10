@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/pagination';
 import { LeadFilters } from './components/lead-filters';
 import { LeadTable } from './components/lead-table';
+import { LeadExportButton } from './components/lead-export-button';
 
 function firstParam(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
@@ -242,6 +243,7 @@ export default async function LeadsPage({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <LeadExportButton tenantSlug={tenantSlug} />
           {canImport && (
             <Button variant="outline" asChild>
               <Link href={`/${tenantSlug}/leads/import`}>Importar leads</Link>
