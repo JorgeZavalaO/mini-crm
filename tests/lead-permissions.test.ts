@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   canAssignLeads,
   canAssignTaskToOthers,
+  canChangeQuoteStatus,
   canEditLead,
   canImportLeads,
   canManageDuplicateLeads,
@@ -68,5 +69,28 @@ describe('lead permissions', () => {
     expect(canAssignTaskToOthers(superAdmin)).toBe(true);
     expect(canViewAllTasks(superAdmin)).toBe(true);
     expect(canViewPortalTokens(superAdmin)).toBe(true);
+  });
+
+  it('permite cambiar estado de cotización al creador sin importar rol', () => {
+    expect(canChangeQuoteStatus(freelance, { createdById: 'freelance-1' })).toBe(true);
+  });
+
+  it('no permite cambiar estado a freelance no creador', () => {
+    expect(canChangeQuoteStatus(freelance, { createdById: 'other-user' })).toBe(false);
+  });
+
+  it('permite cambiar estado a supervisor aunque no sea creador', () => {
+    expect(canChangeQuoteStatus(supervisor, { createdById: 'other-user' })).toBe(true);
+  });
+
+  it('permite cambiar estado a superAdmin aunque no sea creador', () => {
+    const superAdmin = {
+      userId: 'sa-1',
+      role: null as string | null,
+      isSuperAdmin: true,
+      isActiveMember: true,
+    };
+
+    expect(canChangeQuoteStatus(superAdmin, { createdById: 'other-user' })).toBe(true);
   });
 });

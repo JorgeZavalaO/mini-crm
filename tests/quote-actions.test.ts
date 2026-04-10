@@ -173,6 +173,7 @@ describe('changeQuoteStatusAction', () => {
       leadId: LEAD_ID,
       status: 'BORRADOR',
       quoteNumber: 'Q-2026-000001',
+      createdById: USER_ID,
     });
     dbMock.quote.update.mockResolvedValue({});
 
@@ -189,11 +190,57 @@ describe('changeQuoteStatusAction', () => {
       leadId: LEAD_ID,
       status: 'BORRADOR',
       quoteNumber: 'Q-2026-000001',
+      createdById: USER_ID,
     });
 
     await expect(
       changeQuoteStatusAction({ tenantSlug: TENANT_SLUG, quoteId: 'q1', status: 'ACEPTADA' }),
     ).rejects.toThrow('No se puede cambiar');
+  });
+
+  it('permite cambiar estado cuando el creador es PASANTE', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeContext('PASANTE'));
+    dbMock.quote.findFirst.mockResolvedValue({
+      id: 'q1',
+      leadId: LEAD_ID,
+      status: 'BORRADOR',
+      quoteNumber: 'Q-2026-000001',
+      createdById: USER_ID,
+    });
+
+    await expect(
+      changeQuoteStatusAction({ tenantSlug: TENANT_SLUG, quoteId: 'q1', status: 'ENVIADA' }),
+    ).resolves.not.toThrow();
+  });
+
+  it('bloquea vendedor no creador para cambiar estado', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeContext('VENDEDOR'));
+    dbMock.quote.findFirst.mockResolvedValue({
+      id: 'q1',
+      leadId: LEAD_ID,
+      status: 'BORRADOR',
+      quoteNumber: 'Q-2026-000001',
+      createdById: 'otro-user',
+    });
+
+    await expect(
+      changeQuoteStatusAction({ tenantSlug: TENANT_SLUG, quoteId: 'q1', status: 'ENVIADA' }),
+    ).rejects.toThrow('No autorizado');
+  });
+
+  it('permite supervisor no creador para cambiar estado', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeContext('SUPERVISOR'));
+    dbMock.quote.findFirst.mockResolvedValue({
+      id: 'q1',
+      leadId: LEAD_ID,
+      status: 'BORRADOR',
+      quoteNumber: 'Q-2026-000001',
+      createdById: 'otro-user',
+    });
+
+    await expect(
+      changeQuoteStatusAction({ tenantSlug: TENANT_SLUG, quoteId: 'q1', status: 'ENVIADA' }),
+    ).resolves.not.toThrow();
   });
 });
 
@@ -383,6 +430,7 @@ describe('sendQuoteEmailAction', () => {
   const BASE_QUOTE = {
     id: 'q1',
     quoteNumber: 'Q-2026-000001',
+    createdById: USER_ID,
     status: 'BORRADOR',
     currency: 'PEN',
     taxRate: { toString: () => '0.18' },
@@ -446,9 +494,16 @@ describe('sendQuoteEmailAction', () => {
 
   it('lanza 403 cuando el miembro no puede cambiar estado', async () => {
     getTenantActionContextBySlugMock.mockResolvedValue(makeContext('PASANTE'));
-    dbMock.quote.findFirst.mockResolvedValue(BASE_QUOTE);
+    dbMock.quote.findFirst.mockResolvedValue({ ...BASE_QUOTE, createdById: 'otro-user' });
 
     await expect(sendQuoteEmailAction(BASE_INPUT)).rejects.toThrow('No autorizado');
+  });
+
+  it('permite enviar cotización cuando el creador es PASANTE', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeContext('PASANTE'));
+    dbMock.quote.findFirst.mockResolvedValue({ ...BASE_QUOTE, createdById: USER_ID });
+
+    await expect(sendQuoteEmailAction(BASE_INPUT)).resolves.not.toThrow();
   });
 });
 

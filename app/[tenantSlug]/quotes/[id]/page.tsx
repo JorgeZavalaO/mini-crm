@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QuoteEditDialog } from '@/components/quotes/quote-edit-dialog';
 import { QuotePdfButton } from '@/components/quotes/quote-pdf-button';
-import { QuoteSendEmailButton } from '@/components/quotes/quote-send-email-button';
 import {
   Table,
   TableBody,
@@ -124,11 +123,6 @@ export default async function QuoteDetailPage({
           <QuotePdfButton
             quoteId={quote.id}
             tenantSlug={tenantSlug}
-            quoteNumber={quote.quoteNumber}
-          />
-          <QuoteSendEmailButton
-            tenantSlug={tenantSlug}
-            quoteId={quote.id}
             quoteNumber={quote.quoteNumber}
           />
           <Button variant="outline" size="sm" asChild>

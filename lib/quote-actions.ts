@@ -306,16 +306,16 @@ export async function changeQuoteStatusAction(input: unknown) {
   const { quoteId, tenantSlug, status } = parsed.data;
   const ctx = await getQuoteContext(tenantSlug);
 
-  if (!canChangeQuoteStatus(ctx)) {
-    throw new AppError('No autorizado para cambiar estado de cotizaciones', 403);
-  }
-
   const existing = await db.quote.findFirst({
     where: { id: quoteId, tenantId: ctx.tenantId, deletedAt: null },
-    select: { id: true, leadId: true, status: true, quoteNumber: true },
+    select: { id: true, leadId: true, status: true, quoteNumber: true, createdById: true },
   });
   if (!existing) {
     throw new AppError('Cotización no encontrada', 404);
+  }
+
+  if (!canChangeQuoteStatus(ctx, { createdById: existing.createdById })) {
+    throw new AppError('No autorizado para cambiar estado de cotizaciones', 403);
   }
 
   assertAllowedStatusTransition(existing.status, status);
@@ -665,15 +665,12 @@ export async function sendQuoteEmailAction(input: unknown) {
   const { tenantSlug, quoteId, recipientEmail } = parsed.data;
   const ctx = await getQuoteContext(tenantSlug);
 
-  if (!canChangeQuoteStatus(ctx)) {
-    throw new AppError('No autorizado para enviar cotizaciones', 403);
-  }
-
   const quote = await db.quote.findFirst({
     where: { id: quoteId, tenantId: ctx.tenantId, deletedAt: null },
     select: {
       id: true,
       quoteNumber: true,
+      createdById: true,
       status: true,
       currency: true,
       taxRate: true,
@@ -698,6 +695,10 @@ export async function sendQuoteEmailAction(input: unknown) {
   });
 
   if (!quote) throw new AppError('Cotización no encontrada', 404);
+
+  if (!canChangeQuoteStatus(ctx, { createdById: quote.createdById })) {
+    throw new AppError('No autorizado para enviar cotizaciones', 403);
+  }
 
   // Bloquear reenvío para cotizaciones en estado terminal (L-4)
   if (quote.status === QuoteStatus.RECHAZADA || quote.status === QuoteStatus.ACEPTADA) {

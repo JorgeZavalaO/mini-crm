@@ -1,6 +1,6 @@
 {
   "name": "mini-crm",
-  "version": "1.4.0",
+  "version": "1.4.2",
   "private": true,
   "engines": {
     "node": ">=20.19.0"

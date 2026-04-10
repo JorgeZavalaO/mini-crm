@@ -2,6 +2,36 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.4.2 · 2026-04-10] Post Sprint 13 — Política de permisos para cambio de estado de cotizaciones y mejoras UX
+
+### Added
+
+- **Nueva política de permisos para cambio de estado de cotizaciones**:
+  - El creador de una cotización puede aceptar/rechazar sin importar su rol (`VENDEDOR`, `FREELANCE`, `PASANTE`).
+  - `SUPERVISOR`/`ADMIN` puede cambiar estado de cualquier cotización del tenant.
+  - `SuperAdmin` mantiene bypass global.
+  - Se aplica consistentemente en `changeQuoteStatusAction` y `sendQuoteEmailAction`.
+  - Validación de ownership integrada en función `canChangeQuoteStatus(ctx, ownership)` en `lib/lead-permissions.ts`.
+
+### Changed
+
+- **UI de cotizaciones mejorada**:
+  - `nextStatuses(BORRADOR)` ahora solo permite transición a `ENVIADA` (eliminada opción inválida de `RECHAZADA` desde borrador).
+  - `QuoteList`: `canModerate()` ahora valida creador o rol `SUPERVISOR+`, manteniéndose alineado con la política de backend.
+  - Copy de acciones ajustado a "Marcar como ..." para consistencia UXUX.
+
+- **Ocultamiento temporal del envío por email**:
+  - Componente `QuoteSendEmailButton` removido de la vista detalle de cotización (`app/[tenantSlug]/quotes/[id]/page.tsx`).
+  - La opción "Marcar como enviada" (cambio de estado sin email) se mantiene disponible en el listado de cotizaciones.
+  - `sendQuoteEmailAction` continúa disponible para uso futuro vía API/testing.
+
+### Tests
+
+- `tests/lead-permissions.test.ts`: nuevos casos de prueba para `canChangeQuoteStatus()` — creador sin rol permitido, supervisor no creador permitido, superadmin bypass.
+- `tests/quote-actions.test.ts`: ajuste de mocks para incluir `createdById` en fixtures; nuevos casos — PASANTE creador puede cambiar estado, VENDEDOR no creador bloqueado, SUPERVISOR no creador permitido.
+- Cobertura mantenida: `pnpm test` ✅ **416 / 416** tests pasando.
+- Build validado: `pnpm run build` ✅
+
 ## [v1.4.1 · 2026-04-10] Post Sprint 13.1 — Tarea completada + validación E2E de notificaciones
 
 ### Added

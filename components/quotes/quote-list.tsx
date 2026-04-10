@@ -100,9 +100,10 @@ export function QuoteList({
   const router = useRouter();
   const { tenant } = useTenant();
 
-  function canModerate() {
+  function canModerate(quote: QuoteRow) {
     if (isSuperAdmin) return true;
-    return currentRole === 'ADMIN' || currentRole === 'SUPERVISOR' || currentRole === 'VENDEDOR';
+    if (quote.createdById === currentUserId) return true;
+    return currentRole === 'ADMIN' || currentRole === 'SUPERVISOR';
   }
 
   function canEdit(quote: QuoteRow) {
@@ -122,7 +123,7 @@ export function QuoteList({
   }
 
   function nextStatuses(status: QuoteRow['status']) {
-    if (status === 'BORRADOR') return ['ENVIADA', 'RECHAZADA'] as const;
+    if (status === 'BORRADOR') return ['ENVIADA'] as const;
     if (status === 'ENVIADA') return ['ACEPTADA', 'RECHAZADA'] as const;
     return [] as const;
   }
@@ -287,7 +288,7 @@ export function QuoteList({
                             />
                           </DropdownMenuItem>
 
-                          {canModerate() && nexts.length > 0 && (
+                          {canModerate(quote) && nexts.length > 0 && (
                             <>
                               <DropdownMenuSeparator />
                               {nexts.map((next) => (
@@ -296,7 +297,7 @@ export function QuoteList({
                                   onClick={() => handleStatus(quote.id, next)}
                                 >
                                   {NEXT_STATUS_ICON[next]}
-                                  <span className="ml-2">Marcar {STATUS_LABEL[next]}</span>
+                                  <span className="ml-2">Marcar como {STATUS_LABEL[next]}</span>
                                 </DropdownMenuItem>
                               ))}
                             </>

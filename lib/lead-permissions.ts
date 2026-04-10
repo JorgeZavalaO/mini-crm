@@ -98,10 +98,14 @@ export function canDeleteQuote(
   return canEditQuote(ctx, ownership);
 }
 
-export function canChangeQuoteStatus(ctx: LeadPermissionContext): boolean {
+export function canChangeQuoteStatus(
+  ctx: LeadPermissionContext,
+  ownership: { createdById: string | null },
+): boolean {
   if (ctx.isSuperAdmin) return true;
   if (!ctx.isActiveMember) return false;
-  return hasRole(ctx.role, 'VENDEDOR');
+  if (ownership.createdById === ctx.userId) return true;
+  return hasRole(ctx.role, 'SUPERVISOR');
 }
 
 // ─── Task permissions ────────────────────────────────────
