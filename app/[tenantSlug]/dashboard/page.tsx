@@ -190,9 +190,11 @@ export default async function DashboardPage({
       };
 
   // Construir puntos de tendencia mensual (últimos 3 meses + mes actual)
+  // Usar mediodía (12:00:00) para evitar que la conversión a zonas UTC-N
+  // desplace medianoche UTC al día anterior y el mes quede con la clave incorrecta.
   const monthlyMap = new Map<string, number>();
   for (let i = 3; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1, 12, 0, 0);
     const key = d.toLocaleDateString('es-PE', {
       month: 'long',
       year: 'numeric',
