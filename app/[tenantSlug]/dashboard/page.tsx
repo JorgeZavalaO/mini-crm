@@ -69,9 +69,9 @@ export default async function DashboardPage({
 
   const isManager = session.user.isSuperAdmin || hasRole(membership?.role, 'SUPERVISOR');
 
-  // Últimos 6 meses + mes actual para el gráfico de tendencia
+  // Últimos 3 meses + mes actual para el gráfico de tendencia
   const now = new Date();
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
 
   const [
     leads,
@@ -156,13 +156,13 @@ export default async function DashboardPage({
           },
         })
       : Promise.resolve([]),
-    // Leads creados en los últimos 6 meses (agrupados por mes en JS)
+    // Leads creados en los últimos 3 meses + mes actual (agrupados por mes en JS)
     isManager
       ? db.lead.findMany({
           where: {
             tenantId: tenant.id,
             deletedAt: null,
-            createdAt: { gte: sixMonthsAgo },
+            createdAt: { gte: threeMonthsAgo },
           },
           select: { createdAt: true },
           orderBy: { createdAt: 'asc' },
@@ -172,7 +172,7 @@ export default async function DashboardPage({
             tenantId: tenant.id,
             deletedAt: null,
             ownerId: session.user.id,
-            createdAt: { gte: sixMonthsAgo },
+            createdAt: { gte: threeMonthsAgo },
           },
           select: { createdAt: true },
           orderBy: { createdAt: 'asc' },
@@ -189,9 +189,9 @@ export default async function DashboardPage({
         byCriterion: { RUC: 0, EMAIL: 0, PHONE: 0, NAME: 0 },
       };
 
-  // Construir puntos de tendencia mensual (últimos 6 meses + mes actual)
+  // Construir puntos de tendencia mensual (últimos 3 meses + mes actual)
   const monthlyMap = new Map<string, number>();
-  for (let i = 6; i >= 0; i--) {
+  for (let i = 3; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = d.toLocaleDateString('es-PE', {
       month: 'long',
@@ -476,7 +476,7 @@ export default async function DashboardPage({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Tendencia de leads</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Leads captados mes a mes en los últimos 7 meses.
+              Leads captados mes a mes en los últimos 4 meses.
             </p>
           </CardHeader>
           <CardContent className="pt-2">
