@@ -1,3 +1,5 @@
+'use client';
+
 import { ArrowRight, UserCheck } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';

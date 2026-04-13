@@ -1,3 +1,5 @@
+'use client';
+
 import type { InteractionType, LeadStatus } from '@prisma/client';
 import { Mail, MessageCircle, MessageSquare, Phone, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
