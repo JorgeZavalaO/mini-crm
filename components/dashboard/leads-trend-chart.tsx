@@ -68,7 +68,7 @@ export function LeadsTrendChart({
         </Button>
       </div>
       <ChartContainer config={chartConfig} className="h-56 w-full">
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 4, right: 24, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="leadsGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
@@ -76,7 +76,21 @@ export function LeadsTrendChart({
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/50" />
-          <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+          <XAxis
+            dataKey="month"
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 11 }}
+            interval={0}
+            tickFormatter={(value: string) => {
+              // "octubre de 2025" → "Oct 25"
+              const parts = value.split(' ');
+              const month = parts[0] ?? value;
+              const year = parts[2] ?? '';
+              const abbr = month.slice(0, 3);
+              return `${abbr.charAt(0).toUpperCase()}${abbr.slice(1)} ${year.slice(2)}`;
+            }}
+          />
           <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} allowDecimals={false} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ChartLegend content={<ChartLegendContent />} />
