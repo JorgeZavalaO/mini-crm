@@ -29,6 +29,19 @@ const nullableId = z.union([z.string().trim().min(1), z.null()]).optional();
 
 export const emailSchema = z.string().email();
 
+export const leadContactSchema = z
+  .object({
+    name: optionalText(200),
+    phones: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+    emails: z.array(z.string().trim().email().max(200)).max(20).default([]),
+    role: optionalText(120),
+    notes: optionalText(1000),
+    isPrimary: z.boolean().optional(),
+  })
+  .refine((value) => Boolean(value.name) || value.phones.length > 0 || value.emails.length > 0, {
+    message: 'Cada contacto debe tener nombre, telefono o email',
+  });
+
 export const loginSchema = z.object({
   slug: z.string().min(1, 'El slug es requerido'),
   email: z.string().email('Email invalido'),
@@ -73,6 +86,7 @@ export const createLeadSchema = z.object({
   gerente: optionalText(200),
   contactName: optionalText(200),
   contactPhone: optionalText(40),
+  contacts: z.array(leadContactSchema).max(20).optional(),
   status: z.nativeEnum(LeadStatus).default(LeadStatus.NEW),
   ownerId: nullableId,
 });
@@ -108,9 +122,12 @@ export const bulkAssignSchema = z.object({
   ownerId: z.string().min(1),
 });
 
+export const importModeSchema = z.enum(['CREATE', 'UPDATE_BY_RUC']);
+
 export const importCsvSchema = z.object({
   tenantSlug: z.string().min(1),
   csvText: z.string().trim().min(1, 'Pega un CSV con encabezados').max(250_000),
+  mode: importModeSchema.default('CREATE'),
 });
 
 export const importLeadRowSchema = z.object({
@@ -126,6 +143,8 @@ export const importLeadRowSchema = z.object({
   notes: optionalText(5000),
   phones: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
   emails: z.array(z.string().trim().email().max(200)).max(20).default([]),
+  contacts: z.array(leadContactSchema).max(20).default([]),
+  hasContactColumns: z.boolean().optional(),
   status: z.nativeEnum(LeadStatus).default(LeadStatus.NEW),
   ownerEmail: z
     .string()
@@ -134,6 +153,10 @@ export const importLeadRowSchema = z.object({
     .max(200)
     .optional()
     .transform((value) => (value && value.length > 0 ? value.toLowerCase() : undefined)),
+});
+
+export const importLeadUpdateRowSchema = importLeadRowSchema.extend({
+  status: z.nativeEnum(LeadStatus).optional(),
 });
 
 export const mergeDuplicateLeadsSchema = z.object({

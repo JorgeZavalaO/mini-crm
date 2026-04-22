@@ -15,6 +15,10 @@ export default defineConfig({
     // en entornos como Vercel para que `prisma migrate deploy` pueda adquirir
     // advisory locks (pg_advisory_lock). Sin ella, PgBouncer en modo transacción
     // bloquea los locks de sesión y el comando falla con P1002.
-    url: process.env.DIRECT_URL ?? appEnv.DATABASE_URL,
+    url:
+      process.env.DIRECT_URL ??
+      process.env.DATABASE_URL_UNPOOLED ??
+      process.env.POSTGRES_URL_NON_POOLING ??
+      appEnv.DATABASE_URL,
   },
 });

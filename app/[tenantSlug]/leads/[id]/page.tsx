@@ -258,6 +258,19 @@ export default async function LeadDetailPage({
         gerente: true,
         contactName: true,
         contactPhone: true,
+        contacts: {
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            name: true,
+            phones: true,
+            emails: true,
+            role: true,
+            notes: true,
+            isPrimary: true,
+            sortOrder: true,
+          },
+        },
         ownerId: true,
         createdAt: true,
         updatedAt: true,
@@ -422,6 +435,23 @@ export default async function LeadDetailPage({
 
   const ownerLabel = lead.owner?.name || lead.owner?.email;
   const locationParts = [lead.city, lead.country].filter(Boolean);
+  const leadContacts =
+    lead.contacts.length > 0
+      ? lead.contacts
+      : lead.contactName || lead.contactPhone
+        ? [
+            {
+              id: 'legacy-primary-contact',
+              name: lead.contactName,
+              phones: lead.contactPhone ? [lead.contactPhone] : [],
+              emails: [],
+              role: null,
+              notes: null,
+              isPrimary: true,
+              sortOrder: 0,
+            },
+          ]
+        : [];
 
   return (
     <div className="min-w-0 space-y-6">
@@ -592,26 +622,76 @@ export default async function LeadDetailPage({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid gap-6 sm:grid-cols-2">
-                    {(lead.contactName || lead.contactPhone) && (
-                      <div className="space-y-1 sm:col-span-2">
-                        <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                          <UserIcon className="size-3.5" />
-                          Persona de contacto
-                        </p>
-                        {lead.contactName && (
-                          <p className="text-sm font-medium">{lead.contactName}</p>
-                        )}
-                        {lead.contactPhone && (
-                          <a
-                            href={`tel:${lead.contactPhone}`}
-                            className="flex items-center gap-1.5 text-sm hover:underline"
-                          >
-                            <Phone className="size-3 text-muted-foreground" />
-                            {lead.contactPhone}
-                          </a>
-                        )}
-                      </div>
-                    )}
+                    <div className="space-y-3 sm:col-span-2">
+                      <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <UserIcon className="size-3.5" />
+                        Contactos
+                      </p>
+                      {leadContacts.length > 0 ? (
+                        <div className="grid gap-3 lg:grid-cols-2">
+                          {leadContacts.map((contact, index) => (
+                            <div key={contact.id} className="rounded-md border p-3">
+                              <div className="space-y-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <p className="text-sm font-medium">
+                                      {contact.name || `Contacto ${index + 1}`}
+                                    </p>
+                                    {contact.role && (
+                                      <p className="text-xs text-muted-foreground">
+                                        {contact.role}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {contact.isPrimary && (
+                                    <Badge variant="outline" className="shrink-0">
+                                      Principal
+                                    </Badge>
+                                  )}
+                                </div>
+                                {contact.phones.length > 0 && (
+                                  <ul className="space-y-1 pt-1">
+                                    {contact.phones.map((phone) => (
+                                      <li key={phone}>
+                                        <a
+                                          href={`tel:${phone}`}
+                                          className="flex items-center gap-1.5 text-sm hover:underline"
+                                        >
+                                          <Phone className="size-3 text-muted-foreground" />
+                                          {phone}
+                                        </a>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                                {contact.emails.length > 0 && (
+                                  <ul className="space-y-1 pt-1">
+                                    {contact.emails.map((email) => (
+                                      <li key={email}>
+                                        <a
+                                          href={`mailto:${email}`}
+                                          className="flex items-center gap-1.5 text-sm hover:underline"
+                                        >
+                                          <Mail className="size-3 text-muted-foreground" />
+                                          {email}
+                                        </a>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                                {contact.notes && (
+                                  <p className="pt-1 text-xs leading-5 text-muted-foreground">
+                                    {contact.notes}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Sin contactos registrados.</p>
+                      )}
+                    </div>
                     <div className="space-y-2">
                       <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         <Phone className="size-3.5" />

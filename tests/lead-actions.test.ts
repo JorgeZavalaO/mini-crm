@@ -24,6 +24,10 @@ const dbMock = vi.hoisted(() => ({
     update: vi.fn(),
     updateMany: vi.fn(),
   },
+  leadContact: {
+    createMany: vi.fn(),
+    deleteMany: vi.fn(),
+  },
   membership: {
     findUnique: vi.fn(),
     findMany: vi.fn(),
@@ -120,6 +124,9 @@ describe('createLeadAction', () => {
     assertTenantFeatureByIdMock.mockResolvedValue(undefined);
     dbMock.lead.findFirst.mockResolvedValue(null); // sin RUC duplicado
     dbMock.lead.create.mockResolvedValue({ id: LEAD_ID });
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
+      fn(dbMock),
+    );
     dbMock.membership.findMany.mockResolvedValue([]); // para notificaciones
   });
 
@@ -133,6 +140,54 @@ describe('createLeadAction', () => {
     expect(result).toEqual({ success: true, leadId: LEAD_ID });
     expect(dbMock.lead.create).toHaveBeenCalled();
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads`);
+  });
+
+  it('crea contactos estructurados y sincroniza campos legacy al crear', async () => {
+    await createLeadAction({
+      ...VALID_CREATE_INPUT,
+      contacts: [
+        {
+          name: 'Laura',
+          phones: ['+51 944 100 200'],
+          emails: ['laura@acme.com'],
+          isPrimary: true,
+        },
+        {
+          name: 'Mario',
+          phones: ['+51 955 200 300'],
+          emails: [],
+        },
+      ],
+    });
+
+    expect(dbMock.lead.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contactName: 'Laura',
+          contactPhone: '+51 944 100 200',
+        }),
+      }),
+    );
+    expect(dbMock.leadContact.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            tenantId: TENANT_ID,
+            leadId: LEAD_ID,
+            name: 'Laura',
+            phones: ['+51 944 100 200'],
+            emails: ['laura@acme.com'],
+            isPrimary: true,
+          }),
+          expect.objectContaining({
+            tenantId: TENANT_ID,
+            leadId: LEAD_ID,
+            name: 'Mario',
+            phones: ['+51 955 200 300'],
+          }),
+        ]),
+      }),
+    );
   });
 
   it('lanza AppError 409 cuando ya existe un lead con ese RUC', async () => {
@@ -222,6 +277,46 @@ describe('updateLeadAction', () => {
 
     expect(result).toEqual({ success: true });
     expect(dbMock.lead.update).toHaveBeenCalled();
+  });
+
+  it('reemplaza contactos estructurados al editar un lead', async () => {
+    const result = await updateLeadAction({
+      ...VALID_UPDATE_INPUT,
+      contacts: [
+        {
+          name: 'Laura',
+          phones: ['+51 944 100 200'],
+          emails: ['laura@acme.com'],
+          isPrimary: true,
+        },
+      ],
+    });
+
+    expect(result).toEqual({ success: true });
+    expect(dbMock.lead.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contactName: 'Laura',
+          contactPhone: '+51 944 100 200',
+        }),
+      }),
+    );
+    expect(dbMock.leadContact.deleteMany).toHaveBeenCalledWith({
+      where: { tenantId: TENANT_ID, leadId: LEAD_ID },
+    });
+    expect(dbMock.leadContact.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            tenantId: TENANT_ID,
+            leadId: LEAD_ID,
+            name: 'Laura',
+            phones: ['+51 944 100 200'],
+            emails: ['laura@acme.com'],
+          }),
+        ]),
+      }),
+    );
   });
 });
 

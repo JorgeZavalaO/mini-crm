@@ -121,6 +121,7 @@ model Tenant {
   memberships              Membership[]
   teamInvitations          TeamInvitation[]
   leads                    Lead[]
+  leadContacts             LeadContact[]
   leadReassignmentRequests LeadReassignmentRequest[]
   leadOwnerHistory         LeadOwnerHistory[]
   interactions             Interaction[]
@@ -280,12 +281,33 @@ model Lead {
   tasks                Task[]
   portalTokens         PortalToken[]
   ownerHistory         LeadOwnerHistory[]
+  contacts             LeadContact[]
 
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
   @@index([tenantId, ownerId])
   @@index([tenantId, source])
   @@index([tenantId, city])
+}
+
+model LeadContact {
+  id        String   @id @default(cuid())
+  tenantId  String
+  leadId    String
+  name      String?  @db.VarChar(200)
+  role      String?  @db.VarChar(120)
+  notes     String?  @db.VarChar(1000)
+  phones    String[] @default([])
+  emails    String[] @default([])
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, leadId])
+  @@index([leadId, sortOrder])
 }
 
 model Quote {

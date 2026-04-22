@@ -6,6 +6,7 @@ import {
   createTeamInvitationSchema,
   importCsvSchema,
   importLeadRowSchema,
+  leadContactSchema,
   leadFiltersSchema,
   mergeDuplicateLeadsSchema,
   resolveReassignSchema,
@@ -34,6 +35,39 @@ describe('lead validators', () => {
 
     expect(result.ownerId).toBeNull();
     expect(result.businessName).toBe('Acme Logistics SAC');
+  });
+
+  it('valida contactos multiples con telefonos y correos propios', () => {
+    const result = createLeadSchema.parse({
+      tenantSlug: 'acme-logistics',
+      businessName: 'Acme Logistics SAC',
+      contacts: [
+        {
+          name: 'Laura',
+          phones: ['+51 944 100 200'],
+          emails: ['LAURA@ACME.COM'],
+          role: 'Compras',
+          isPrimary: true,
+        },
+        {
+          name: 'Mario',
+          phones: ['+51 955 200 300', '+51 955 200 301'],
+          emails: ['mario@acme.com'],
+        },
+      ],
+    });
+
+    expect(result.contacts).toHaveLength(2);
+    expect(result.contacts?.[0]).toMatchObject({
+      name: 'Laura',
+      phones: ['+51 944 100 200'],
+      emails: ['LAURA@ACME.COM'],
+      role: 'Compras',
+    });
+  });
+
+  it('rechaza contactos sin nombre, telefono ni email', () => {
+    expect(() => leadContactSchema.parse({ role: 'Compras', phones: [], emails: [] })).toThrow();
   });
 
   it('permite resolver reasignaciones con nota opcional y owner explícito', () => {
@@ -78,6 +112,13 @@ describe('lead validators', () => {
       businessName: 'Acme Logistics',
       phones: ['+51 999 111 222'],
       emails: ['ventas@acme.com'],
+      contacts: [
+        {
+          name: 'Laura',
+          phones: ['+51 944 100 200'],
+          emails: ['laura@acme.com'],
+        },
+      ],
       status: LeadStatus.CONTACTED,
       ownerEmail: 'admin@acme.com',
     });
@@ -85,6 +126,7 @@ describe('lead validators', () => {
     expect(result.ruc).toBe('20123456789');
     expect(result.ownerEmail).toBe('admin@acme.com');
     expect(result.status).toBe(LeadStatus.CONTACTED);
+    expect(result.contacts).toHaveLength(1);
   });
 
   it('valida merges de duplicados', () => {

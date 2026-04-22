@@ -61,8 +61,8 @@ export default async function LeadImportPage({
             <h1 className="text-3xl font-bold">Importación de leads</h1>
           </div>
           <p className="text-muted-foreground">
-            Carga masiva desde Excel (.xlsx/.xls) o CSV con análisis de duplicados antes de
-            confirmar.
+            Carga masiva desde Excel (.xlsx/.xls) o CSV para crear leads o actualizar datos por RUC
+            antes de confirmar.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -97,8 +97,8 @@ export default async function LeadImportPage({
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               Usa el botón <strong className="text-foreground">Descargar plantilla</strong> del
-              formulario para obtener un Excel con las columnas correctas y 3 filas de ejemplo
-              listos para editar.
+              formulario para obtener un Excel con las columnas correctas para crear o actualizar
+              leads.
             </CardContent>
           </Card>
 
@@ -111,7 +111,7 @@ export default async function LeadImportPage({
               </div>
               <CardDescription>
                 <code className="rounded bg-muted px-1 text-xs font-mono">ruc</code> es la única
-                columna obligatoria — se usa como clave de deduplicación.
+                columna obligatoria — se usa como clave de deduplicación o actualización.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -128,7 +128,7 @@ export default async function LeadImportPage({
                     {
                       col: 'ruc',
                       required: true,
-                      desc: 'RUC u otro código único de empresa (clave de duplicados)',
+                      desc: 'RUC u otro código único de empresa (clave de duplicados/actualización)',
                     },
                     {
                       col: 'businessName',
@@ -147,12 +147,17 @@ export default async function LeadImportPage({
                     {
                       col: 'contactName',
                       required: false,
-                      desc: 'Nombre de la persona de contacto',
+                      desc: 'Nombres de contactos separados por coma: Contacto 1, Contacto 2',
                     },
                     {
                       col: 'contactPhone',
                       required: false,
-                      desc: 'Teléfono directo de la persona de contacto',
+                      desc: 'Telefonos alineados por coma: telefono contacto 1, telefono contacto 2',
+                    },
+                    {
+                      col: 'contactEmail',
+                      required: false,
+                      desc: 'Correos alineados por coma: correo contacto 1, correo contacto 2',
                     },
                     { col: 'notes', required: false, desc: 'Notas internas' },
                     { col: 'phones', required: false, desc: 'Teléfonos separados por ;' },
@@ -202,8 +207,9 @@ export default async function LeadImportPage({
                 {[
                   'Solo se lee la primera hoja del archivo Excel.',
                   'Analiza primero para validar estructura, owners y detectar duplicados.',
-                  'Confirma la importación: solo se crean las filas con estado "Listo".',
-                  'Duplicados detectados por RUC, email o teléfono son omitidos automáticamente.',
+                  'Confirma el proceso: solo se crean o actualizan las filas con estado "Listo".',
+                  'En creación, duplicados por RUC, email o teléfono son omitidos automáticamente.',
+                  'En actualización por RUC, las celdas vacías no modifican datos existentes.',
                   <>
                     Para múltiples teléfonos/emails en una celda usa{' '}
                     <code className="rounded bg-muted px-1 text-xs">;</code> como separador.

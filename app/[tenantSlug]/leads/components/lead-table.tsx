@@ -95,6 +95,16 @@ type LeadRow = {
   gerente: string | null;
   contactName: string | null;
   contactPhone: string | null;
+  contacts: Array<{
+    id: string;
+    name: string | null;
+    phones: string[];
+    emails: string[];
+    role: string | null;
+    notes: string | null;
+    isPrimary: boolean;
+    sortOrder: number;
+  }>;
   ownerId: string | null;
   owner: { id: string; name: string | null; email: string } | null;
   updatedAt: string;

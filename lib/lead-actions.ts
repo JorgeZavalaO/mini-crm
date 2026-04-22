@@ -13,6 +13,12 @@ import {
   normalizePhones,
   normalizeRuc,
 } from '@/lib/lead-normalization';
+import {
+  buildLeadContactCreateManyData,
+  getLegacyContactFields,
+  normalizeLeadContacts,
+  type LeadContactInput,
+} from '@/lib/lead-contacts';
 import { canAssignLeads, canEditLead, canResolveReassignment } from '@/lib/lead-permissions';
 import { hasRole } from '@/lib/rbac';
 import { LEAD_STATUS_LABEL } from '@/lib/lead-status';
@@ -154,6 +160,39 @@ function parseUpdatePayload(input: unknown) {
   return parsed.data;
 }
 
+function getContactMutationData(payload: {
+  contacts?: LeadContactInput[];
+  contactName?: string;
+  contactPhone?: string;
+}) {
+  const hasExplicitContacts = payload.contacts !== undefined;
+  const legacyContact =
+    !hasExplicitContacts && (payload.contactName || payload.contactPhone)
+      ? [
+          {
+            name: payload.contactName,
+            phones: payload.contactPhone ? [payload.contactPhone] : [],
+            isPrimary: true,
+          },
+        ]
+      : undefined;
+  const contacts = normalizeLeadContacts(hasExplicitContacts ? payload.contacts : legacyContact);
+  const legacyFields =
+    contacts.length > 0
+      ? getLegacyContactFields(contacts)
+      : {
+          contactName: hasExplicitContacts ? null : (payload.contactName ?? null),
+          contactPhone: hasExplicitContacts ? null : (payload.contactPhone ?? null),
+        };
+
+  return {
+    contacts,
+    shouldReplaceContacts:
+      hasExplicitContacts || Boolean(payload.contactName) || Boolean(payload.contactPhone),
+    legacyFields,
+  };
+}
+
 export async function createLeadAction(input: unknown) {
   const payload = parseCreatePayload(input);
   const ctx = await getLeadContext(payload.tenantSlug);
@@ -168,6 +207,7 @@ export async function createLeadAction(input: unknown) {
 
   const rucNormalized = normalizeRuc(payload.ruc);
   await assertUniqueRuc(ctx.tenantId, rucNormalized);
+  const contactMutation = getContactMutationData(payload);
 
   const data = {
     businessName: payload.businessName.trim(),
@@ -182,15 +222,29 @@ export async function createLeadAction(input: unknown) {
     phones: normalizePhones(payload.phones),
     emails: normalizeEmails(payload.emails),
     gerente: payload.gerente ?? null,
-    contactName: payload.contactName ?? null,
-    contactPhone: payload.contactPhone ?? null,
+    contactName: contactMutation.legacyFields.contactName,
+    contactPhone: contactMutation.legacyFields.contactPhone,
     status: payload.status,
     ownerId,
     tenantId: ctx.tenantId,
   } satisfies Prisma.LeadUncheckedCreateInput;
 
   try {
-    const lead = await db.lead.create({ data, select: { id: true } });
+    const lead = await db.$transaction(async (tx) => {
+      const createdLead = await tx.lead.create({ data, select: { id: true } });
+
+      if (contactMutation.contacts.length > 0) {
+        await tx.leadContact.createMany({
+          data: buildLeadContactCreateManyData(
+            ctx.tenantId,
+            createdLead.id,
+            contactMutation.contacts,
+          ),
+        });
+      }
+
+      return createdLead;
+    });
     revalidateTenantLeadViews(ctx.tenantSlug);
 
     // Notificación LEAD_NEW a todos los miembros
@@ -258,6 +312,7 @@ export async function updateLeadAction(input: unknown) {
 
   const rucNormalized = normalizeRuc(payload.ruc);
   await assertUniqueRuc(ctx.tenantId, rucNormalized, payload.leadId);
+  const contactMutation = getContactMutationData(payload);
 
   try {
     await db.$transaction(async (tx) => {
@@ -276,12 +331,28 @@ export async function updateLeadAction(input: unknown) {
           phones: normalizePhones(payload.phones),
           emails: normalizeEmails(payload.emails),
           gerente: payload.gerente ?? null,
-          contactName: payload.contactName ?? null,
-          contactPhone: payload.contactPhone ?? null,
+          contactName: contactMutation.legacyFields.contactName,
+          contactPhone: contactMutation.legacyFields.contactPhone,
           status: payload.status,
           ...(ownerChanged ? { ownerId: payload.ownerId ?? null } : {}),
         },
       });
+
+      if (contactMutation.shouldReplaceContacts) {
+        await tx.leadContact.deleteMany({
+          where: { tenantId: ctx.tenantId, leadId: payload.leadId },
+        });
+
+        if (contactMutation.contacts.length > 0) {
+          await tx.leadContact.createMany({
+            data: buildLeadContactCreateManyData(
+              ctx.tenantId,
+              payload.leadId,
+              contactMutation.contacts,
+            ),
+          });
+        }
+      }
 
       if (ownerChanged) {
         await tx.leadOwnerHistory.create({
@@ -657,6 +728,15 @@ export async function exportLeadsAction(tenantSlug: string): Promise<{
       gerente: true,
       contactName: true,
       contactPhone: true,
+      contacts: {
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          name: true,
+          phones: true,
+          emails: true,
+          role: true,
+        },
+      },
       phones: true,
       emails: true,
       notes: true,
@@ -665,6 +745,19 @@ export async function exportLeadsAction(tenantSlug: string): Promise<{
     },
   });
 
+  const contactRows = leads.map((lead) => {
+    if (lead.contacts.length > 0) return lead.contacts;
+    if (!lead.contactName && !lead.contactPhone) return [];
+
+    return [
+      {
+        name: lead.contactName,
+        phones: lead.contactPhone ? [lead.contactPhone] : [],
+        emails: [],
+        role: null,
+      },
+    ];
+  });
   const headers = [
     'Empresa',
     'RUC',
@@ -674,8 +767,9 @@ export async function exportLeadsAction(tenantSlug: string): Promise<{
     'Industria',
     'Fuente',
     'Gerente',
-    'Nombre Contacto',
-    'Teléfono Contacto',
+    'Contactos',
+    'Telefonos Contacto',
+    'Emails Contacto',
     'Teléfonos',
     'Emails',
     'Notas',
@@ -684,24 +778,28 @@ export async function exportLeadsAction(tenantSlug: string): Promise<{
     'Fecha Creación',
   ];
 
-  const dataRows = leads.map((lead) => [
-    lead.businessName ?? '',
-    lead.ruc ?? '',
-    LEAD_STATUS_LABEL[lead.status] ?? lead.status,
-    lead.country ?? '',
-    lead.city ?? '',
-    lead.industry ?? '',
-    lead.source ?? '',
-    lead.gerente ?? '',
-    lead.contactName ?? '',
-    lead.contactPhone ?? '',
-    lead.phones.join('; '),
-    lead.emails.join('; '),
-    lead.notes ?? '',
-    lead.owner?.name ?? lead.owner?.email ?? '',
-    lead.owner?.email ?? '',
-    lead.createdAt.toISOString().slice(0, 10),
-  ]);
+  const dataRows = leads.map((lead, leadIndex) => {
+    const leadContacts = contactRows[leadIndex];
+    return [
+      lead.businessName ?? '',
+      lead.ruc ?? '',
+      LEAD_STATUS_LABEL[lead.status] ?? lead.status,
+      lead.country ?? '',
+      lead.city ?? '',
+      lead.industry ?? '',
+      lead.source ?? '',
+      lead.gerente ?? '',
+      leadContacts.map((contact) => contact.name ?? '').join(', '),
+      leadContacts.map((contact) => contact.phones.join('; ')).join(', '),
+      leadContacts.map((contact) => contact.emails.join('; ')).join(', '),
+      lead.phones.join('; '),
+      lead.emails.join('; '),
+      lead.notes ?? '',
+      lead.owner?.name ?? lead.owner?.email ?? '',
+      lead.owner?.email ?? '',
+      lead.createdAt.toISOString().slice(0, 10),
+    ];
+  });
 
   const rows: string[][] = [headers, ...dataRows];
   const csvRows = dataRows.map((r) => r.map(csvEscape));

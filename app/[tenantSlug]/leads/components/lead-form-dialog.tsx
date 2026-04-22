@@ -64,6 +64,16 @@ type EditableLead = {
   gerente: string | null;
   contactName: string | null;
   contactPhone: string | null;
+  contacts: Array<{
+    id: string;
+    name: string | null;
+    phones: string[];
+    emails: string[];
+    role: string | null;
+    notes: string | null;
+    isPrimary: boolean;
+    sortOrder: number;
+  }>;
   status: LeadStatus;
   ownerId: string | null;
 };
@@ -79,12 +89,56 @@ interface LeadFormDialogProps {
 
 const UNASSIGNED = '__UNASSIGNED__';
 
+type ContactFormValue = {
+  name: string;
+  phonesText: string;
+  emailsText: string;
+  role: string;
+  notes: string;
+};
+
 function RequiredMark() {
   return (
     <span className="ml-1 text-destructive" aria-label="obligatorio">
       *
     </span>
   );
+}
+
+function createEmptyContact(): ContactFormValue {
+  return {
+    name: '',
+    phonesText: '',
+    emailsText: '',
+    role: '',
+    notes: '',
+  };
+}
+
+function getDefaultContacts(lead?: EditableLead): ContactFormValue[] {
+  if (lead?.contacts && lead.contacts.length > 0) {
+    return lead.contacts.map((contact) => ({
+      name: contact.name ?? '',
+      phonesText: contact.phones.join('\n'),
+      emailsText: contact.emails.join('\n'),
+      role: contact.role ?? '',
+      notes: contact.notes ?? '',
+    }));
+  }
+
+  if (lead?.contactName || lead?.contactPhone) {
+    return [
+      {
+        name: lead.contactName ?? '',
+        phonesText: lead.contactPhone ?? '',
+        emailsText: '',
+        role: '',
+        notes: '',
+      },
+    ];
+  }
+
+  return [createEmptyContact()];
 }
 
 function toFormDefaults(lead?: EditableLead) {
@@ -99,8 +153,7 @@ function toFormDefaults(lead?: EditableLead) {
     phonesText: (lead?.phones ?? []).join('\n'),
     emailsText: (lead?.emails ?? []).join('\n'),
     gerente: lead?.gerente ?? '',
-    contactName: lead?.contactName ?? '',
-    contactPhone: lead?.contactPhone ?? '',
+    contacts: getDefaultContacts(lead),
     status: (lead?.status ?? 'NEW') as LeadStatus,
     ownerValue: lead?.ownerId ?? UNASSIGNED,
   };
@@ -135,8 +188,7 @@ export function LeadFormDialog({
   const [phonesText, setPhonesText] = useState(defaults.phonesText);
   const [emailsText, setEmailsText] = useState(defaults.emailsText);
   const [gerente, setGerente] = useState(defaults.gerente);
-  const [contactName, setContactName] = useState(defaults.contactName);
-  const [contactPhone, setContactPhone] = useState(defaults.contactPhone);
+  const [contacts, setContacts] = useState<ContactFormValue[]>(defaults.contacts);
   const [status, setStatus] = useState<LeadStatus>(defaults.status);
   const [ownerValue, setOwnerValue] = useState(defaults.ownerValue);
 
@@ -152,10 +204,43 @@ export function LeadFormDialog({
     setPhonesText(nextDefaults.phonesText);
     setEmailsText(nextDefaults.emailsText);
     setGerente(nextDefaults.gerente);
-    setContactName(nextDefaults.contactName);
-    setContactPhone(nextDefaults.contactPhone);
+    setContacts(nextDefaults.contacts);
     setStatus(nextDefaults.status);
     setOwnerValue(nextDefaults.ownerValue);
+  }
+
+  function updateContact(index: number, field: keyof ContactFormValue, value: string) {
+    setContacts((current) =>
+      current.map((contact, contactIndex) =>
+        contactIndex === index ? { ...contact, [field]: value } : contact,
+      ),
+    );
+  }
+
+  function addContact() {
+    setContacts((current) => [...current, createEmptyContact()]);
+  }
+
+  function removeContact(index: number) {
+    setContacts((current) => {
+      const nextContacts = current.filter((_, contactIndex) => contactIndex !== index);
+      return nextContacts.length > 0 ? nextContacts : [createEmptyContact()];
+    });
+  }
+
+  function buildContactsPayload() {
+    return contacts
+      .map((contact, index) => ({
+        name: contact.name,
+        phones: parseDelimitedList(contact.phonesText),
+        emails: parseDelimitedList(contact.emailsText),
+        role: contact.role,
+        notes: contact.notes,
+        isPrimary: index === 0,
+      }))
+      .filter(
+        (contact) => contact.name.trim() || contact.phones.length > 0 || contact.emails.length > 0,
+      );
   }
 
   function buildPayloadBase() {
@@ -171,8 +256,7 @@ export function LeadFormDialog({
       phones: parseDelimitedList(phonesText),
       emails: parseDelimitedList(emailsText),
       gerente,
-      contactName,
-      contactPhone,
+      contacts: buildContactsPayload(),
       status,
       ...(canAssign ? { ownerId: ownerValue === UNASSIGNED ? null : ownerValue } : {}),
     };
@@ -365,24 +449,84 @@ export function LeadFormDialog({
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor={`${lead?.id ?? 'new'}-contactName`}>Persona de contacto</Label>
-              <Input
-                id={`${lead?.id ?? 'new'}-contactName`}
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                placeholder="María García"
-              />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <Label>Contactos</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addContact}>
+                Agregar contacto
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor={`${lead?.id ?? 'new'}-contactPhone`}>Teléfono de contacto</Label>
-              <Input
-                id={`${lead?.id ?? 'new'}-contactPhone`}
-                value={contactPhone}
-                onChange={(e) => setContactPhone(e.target.value)}
-                placeholder="+51 999 123 456"
-              />
+            <div className="space-y-3">
+              {contacts.map((contact, index) => (
+                <div key={index} className="rounded-md border p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">Contacto {index + 1}</p>
+                    {contacts.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeContact(index)}
+                      >
+                        Quitar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor={`${lead?.id ?? 'new'}-contact-${index}-name`}>Nombre</Label>
+                      <Input
+                        id={`${lead?.id ?? 'new'}-contact-${index}-name`}
+                        value={contact.name}
+                        onChange={(e) => updateContact(index, 'name', e.target.value)}
+                        placeholder="Maria Garcia"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${lead?.id ?? 'new'}-contact-${index}-role`}>Cargo</Label>
+                      <Input
+                        id={`${lead?.id ?? 'new'}-contact-${index}-role`}
+                        value={contact.role}
+                        onChange={(e) => updateContact(index, 'role', e.target.value)}
+                        placeholder="Compras, operaciones..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${lead?.id ?? 'new'}-contact-${index}-phones`}>
+                        Telefonos del contacto
+                      </Label>
+                      <Textarea
+                        id={`${lead?.id ?? 'new'}-contact-${index}-phones`}
+                        value={contact.phonesText}
+                        onChange={(e) => updateContact(index, 'phonesText', e.target.value)}
+                        placeholder="+51 999 123 456"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`${lead?.id ?? 'new'}-contact-${index}-emails`}>
+                        Emails del contacto
+                      </Label>
+                      <Textarea
+                        id={`${lead?.id ?? 'new'}-contact-${index}-emails`}
+                        value={contact.emailsText}
+                        onChange={(e) => updateContact(index, 'emailsText', e.target.value)}
+                        placeholder="maria@empresa.com"
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor={`${lead?.id ?? 'new'}-contact-${index}-notes`}>
+                        Notas del contacto
+                      </Label>
+                      <Textarea
+                        id={`${lead?.id ?? 'new'}-contact-${index}-notes`}
+                        value={contact.notes}
+                        onChange={(e) => updateContact(index, 'notes', e.target.value)}
+                        placeholder="Preferencias de contacto o contexto del interlocutor"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

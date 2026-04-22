@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -30,8 +30,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type ImportOutcome = 'READY' | 'CREATED' | 'SKIPPED' | 'ERROR';
+type ImportMode = 'CREATE' | 'UPDATE_BY_RUC';
+type ImportOutcome = 'READY' | 'CREATED' | 'UPDATED' | 'SKIPPED' | 'ERROR';
+type Step = 'upload' | 'analyze' | 'confirm' | 'done';
 
 type ImportResult = {
   rowNumber: number;
@@ -50,37 +53,43 @@ type ImportPreview = {
 
 type ImportSummary = {
   createdCount: number;
+  updatedCount: number;
   skippedCount: number;
   errorCount: number;
   results: ImportResult[];
 };
 
-// ─── Outcome helpers ────────────────────────────────────────────────────────
-
-type Step = 'upload' | 'analyze' | 'confirm' | 'done';
-
-function outcomeLabel(outcome: ImportOutcome) {
-  if (outcome === 'READY') return 'Listo';
-  if (outcome === 'CREATED') return 'Creado';
-  if (outcome === 'SKIPPED') return 'Omitido';
-  return 'Error';
-}
-
-function outcomeBadgeClass(outcome: ImportOutcome) {
-  if (outcome === 'READY' || outcome === 'CREATED')
-    return 'border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400';
-  if (outcome === 'SKIPPED')
-    return 'border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
-  return 'border-red-200 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400';
-}
-
-function outcomeRowClass(outcome: ImportOutcome) {
-  if (outcome === 'READY' || outcome === 'CREATED') return 'bg-green-50/50 dark:bg-green-950/10';
-  if (outcome === 'SKIPPED') return 'bg-amber-50/50 dark:bg-amber-950/10';
-  return 'bg-red-50/50 dark:bg-red-950/10';
-}
-
-// ─── StepIndicator ───────────────────────────────────────────────────────────
+const MODE_COPY: Record<
+  ImportMode,
+  {
+    description: string;
+    readyLabel: string;
+    primaryResultLabel: string;
+    confirmLabel: string;
+    pendingLabel: string;
+    successToast: (summary: ImportSummary) => string;
+  }
+> = {
+  CREATE: {
+    description: 'Crea nuevos leads y omite automaticamente duplicados por RUC, email o telefono.',
+    readyLabel: 'Listos para importar',
+    primaryResultLabel: 'Leads creados',
+    confirmLabel: 'Confirmar importacion',
+    pendingLabel: 'Importando...',
+    successToast: (summary) =>
+      `Importacion completa: ${summary.createdCount} creado(s), ${summary.skippedCount} omitido(s), ${summary.errorCount} con error`,
+  },
+  UPDATE_BY_RUC: {
+    description:
+      'Actualiza leads activos que ya existen por RUC. Las celdas vacias no modifican datos.',
+    readyLabel: 'Listos para actualizar',
+    primaryResultLabel: 'Leads actualizados',
+    confirmLabel: 'Confirmar actualizacion',
+    pendingLabel: 'Actualizando...',
+    successToast: (summary) =>
+      `Actualizacion completa: ${summary.updatedCount} actualizado(s), ${summary.skippedCount} omitido(s), ${summary.errorCount} con error`,
+  },
+};
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'upload', label: 'Subir' },
@@ -88,16 +97,42 @@ const STEPS: { id: Step; label: string }[] = [
   { id: 'confirm', label: 'Confirmar' },
   { id: 'done', label: 'Listo' },
 ];
+
 const STEP_ORDER: Step[] = ['upload', 'analyze', 'confirm', 'done'];
+
+function outcomeLabel(outcome: ImportOutcome) {
+  if (outcome === 'READY') return 'Listo';
+  if (outcome === 'CREATED') return 'Creado';
+  if (outcome === 'UPDATED') return 'Actualizado';
+  if (outcome === 'SKIPPED') return 'Omitido';
+  return 'Error';
+}
+
+function outcomeBadgeClass(outcome: ImportOutcome) {
+  if (outcome === 'READY' || outcome === 'CREATED' || outcome === 'UPDATED')
+    return 'border-green-200 bg-green-100 text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400';
+  if (outcome === 'SKIPPED')
+    return 'border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-400';
+  return 'border-red-200 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400';
+}
+
+function outcomeRowClass(outcome: ImportOutcome) {
+  if (outcome === 'READY' || outcome === 'CREATED' || outcome === 'UPDATED')
+    return 'bg-green-50/50 dark:bg-green-950/10';
+  if (outcome === 'SKIPPED') return 'bg-amber-50/50 dark:bg-amber-950/10';
+  return 'bg-red-50/50 dark:bg-red-950/10';
+}
 
 function StepIndicator({ current }: { current: Step }) {
   const currentIndex = STEP_ORDER.indexOf(current);
+
   return (
     <div className="flex items-center gap-1 text-xs">
       {STEPS.map((step, i) => {
         const stepIndex = STEP_ORDER.indexOf(step.id);
         const isDone = stepIndex < currentIndex;
         const isActive = step.id === current;
+
         return (
           <div key={step.id} className="flex items-center gap-1">
             <div
@@ -132,13 +167,11 @@ function StepIndicator({ current }: { current: Step }) {
   );
 }
 
-// ─── SummaryCards ────────────────────────────────────────────────────────────
-
 type SummaryItem = {
   label: string;
   value: number;
   color: 'green' | 'amber' | 'red';
-  icon: React.ReactNode;
+  icon: ReactNode;
 };
 
 const COLOR_CARD: Record<SummaryItem['color'], string> = {
@@ -174,8 +207,6 @@ function SummaryCards({ items }: { items: SummaryItem[] }) {
   );
 }
 
-// ─── ResultsTable ────────────────────────────────────────────────────────────
-
 function ResultsTable({
   title,
   description,
@@ -198,7 +229,7 @@ function ResultsTable({
               <TableRow>
                 <TableHead className="w-12 pl-4">Fila</TableHead>
                 <TableHead>Lead</TableHead>
-                <TableHead className="w-36 font-mono text-xs">RUC / Código</TableHead>
+                <TableHead className="w-36 font-mono text-xs">RUC / Codigo</TableHead>
                 <TableHead className="w-24">Estado</TableHead>
                 <TableHead className="pr-4">Detalle</TableHead>
               </TableRow>
@@ -212,7 +243,7 @@ function ResultsTable({
                   <TableCell className="pl-4 text-muted-foreground">{result.rowNumber}</TableCell>
                   <TableCell className="font-medium">{result.businessName}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
-                    {result.ruc || <span className="italic opacity-40">—</span>}
+                    {result.ruc || <span className="italic opacity-40">-</span>}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={outcomeBadgeClass(result.outcome)}>
@@ -236,17 +267,56 @@ async function parseFile(file: File): Promise<string> {
   if (file.name.toLowerCase().endsWith('.csv')) {
     return file.text();
   }
+
   const XLSX = await import('xlsx');
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
+
   return XLSX.utils.sheet_to_csv(worksheet);
 }
 
-async function downloadTemplate(): Promise<void> {
-  const XLSX = await import('xlsx');
-  const worksheetData = [
+function buildTemplateRows(mode: ImportMode) {
+  if (mode === 'UPDATE_BY_RUC') {
+    return [
+      IMPORT_TEMPLATE_HEADERS as unknown as string[],
+      [
+        'Acme Logistics SAC - actualizado',
+        '20123456789',
+        '',
+        'Lima',
+        'Logistica',
+        '',
+        '',
+        'Lucia Torres',
+        '+51 988 111 222',
+        'Actualizar solo los campos con datos',
+        '',
+        'ventas@acme.com',
+        '',
+        '',
+      ],
+      [
+        '',
+        '20987654321',
+        '',
+        'Piura',
+        '',
+        'Referido',
+        'Carlos Ruiz',
+        '',
+        '',
+        '',
+        '+51 955 123 456',
+        '',
+        'CONTACTED',
+        '',
+      ],
+    ];
+  }
+
+  return [
     IMPORT_TEMPLATE_HEADERS as unknown as string[],
     [
       'Acme Logistics SAC',
@@ -256,9 +326,9 @@ async function downloadTemplate(): Promise<void> {
       'Logistica',
       'Web',
       'Ana Gerente',
-      'Lucía Torres',
+      'Lucia Torres',
       '+51 988 111 222',
-      'Cliente potencial — seguimiento Q1',
+      'Cliente potencial - seguimiento Q1',
       '+51 999 111 222',
       'ventas@acme.com',
       'NEW',
@@ -274,7 +344,7 @@ async function downloadTemplate(): Promise<void> {
       'Carlos Ruiz',
       'Mario Quispe',
       '+51 944 222 333',
-      'Requiere cotización urgente',
+      'Requiere cotizacion urgente',
       '+51 955 123 456',
       'comercial@norte.com',
       'CONTACTED',
@@ -286,7 +356,7 @@ async function downloadTemplate(): Promise<void> {
       'Peru',
       'Arequipa',
       'Retail',
-      'Llamada fría',
+      'Llamada fria',
       '',
       'Paula Salas',
       '+51 922 000 999',
@@ -297,11 +367,19 @@ async function downloadTemplate(): Promise<void> {
       '',
     ],
   ];
-  const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+}
+
+async function downloadTemplate(mode: ImportMode): Promise<void> {
+  const XLSX = await import('xlsx');
+  const worksheet = XLSX.utils.aoa_to_sheet(buildTemplateRows(mode));
   worksheet['!cols'] = ([...IMPORT_TEMPLATE_HEADERS] as string[]).map(() => ({ wch: 24 }));
   const workbook = XLSX.utils.book_new();
+
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Leads');
-  XLSX.writeFile(workbook, 'plantilla-leads.xlsx');
+  XLSX.writeFile(
+    workbook,
+    mode === 'UPDATE_BY_RUC' ? 'plantilla-actualizar-leads.xlsx' : 'plantilla-leads.xlsx',
+  );
 }
 
 export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
@@ -309,6 +387,7 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPreviewPending, startPreviewTransition] = useTransition();
   const [isImportPending, startImportTransition] = useTransition();
+  const [mode, setMode] = useState<ImportMode>('CREATE');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvText, setCsvText] = useState('');
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -316,8 +395,10 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
   const [previewSnapshot, setPreviewSnapshot] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
+  const modeCopy = MODE_COPY[mode];
   const hasCsv = csvText.trim().length > 0;
-  const isPreviewCurrent = preview !== null && previewSnapshot === csvText;
+  const previewKey = `${mode}:${csvText}`;
+  const isPreviewCurrent = preview !== null && previewSnapshot === previewKey;
 
   const currentStep: Step = summary
     ? 'done'
@@ -327,30 +408,6 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
         ? 'analyze'
         : 'upload';
 
-  async function handleFileChange(file: File) {
-    try {
-      const text = await parseFile(file);
-      setSelectedFile(file);
-      setCsvText(text);
-      setPreview(null);
-      setSummary(null);
-      setPreviewSnapshot('');
-    } catch {
-      toast.error(
-        'No se pudo leer el archivo. Verifica que sea un Excel (.xlsx/.xls) o CSV válido.',
-      );
-    }
-  }
-
-  function handleClear() {
-    setSelectedFile(null);
-    setCsvText('');
-    setPreview(null);
-    setSummary(null);
-    setPreviewSnapshot('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
   const totalPreviewed = useMemo(() => {
     if (!preview) return 0;
     return preview.readyCount + preview.skippedCount + preview.errorCount;
@@ -358,27 +415,69 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
 
   const totalProcessed = useMemo(() => {
     if (!summary) return 0;
-    return summary.createdCount + summary.skippedCount + summary.errorCount;
+    return summary.createdCount + summary.updatedCount + summary.skippedCount + summary.errorCount;
   }, [summary]);
 
   const canImport = Boolean(
     isPreviewCurrent && preview.readyCount > 0 && !isImportPending && !isPreviewPending,
   );
 
+  function resetAnalysis() {
+    setPreview(null);
+    setSummary(null);
+    setPreviewSnapshot('');
+  }
+
+  function handleModeChange(value: string) {
+    if (isPreviewPending || isImportPending) return;
+
+    const nextMode = value as ImportMode;
+    if (nextMode === mode) return;
+    setMode(nextMode);
+    resetAnalysis();
+  }
+
+  async function handleFileChange(file: File) {
+    try {
+      const text = await parseFile(file);
+      setSelectedFile(file);
+      setCsvText(text);
+      resetAnalysis();
+    } catch {
+      toast.error(
+        'No se pudo leer el archivo. Verifica que sea un Excel (.xlsx/.xls) o CSV valido.',
+      );
+    }
+  }
+
+  function handleClear() {
+    setSelectedFile(null);
+    setCsvText('');
+    resetAnalysis();
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
   function handleAnalyze() {
+    const snapshot = previewKey;
+    const activeMode = mode;
+
     startPreviewTransition(async () => {
       try {
-        const result = await previewImportLeadsAction({ tenantSlug, csvText });
+        const result = await previewImportLeadsAction({
+          tenantSlug,
+          csvText,
+          mode: activeMode,
+        });
         setPreview({
           readyCount: result.readyCount,
           skippedCount: result.skippedCount,
           errorCount: result.errorCount,
           results: result.results,
         });
-        setPreviewSnapshot(csvText);
+        setPreviewSnapshot(snapshot);
         setSummary(null);
         toast.success(
-          `Análisis listo: ${result.readyCount} lista(s), ${result.skippedCount} omitida(s), ${result.errorCount} con error`,
+          `Analisis listo: ${result.readyCount} lista(s), ${result.skippedCount} omitida(s), ${result.errorCount} con error`,
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : 'No se pudo analizar el archivo';
@@ -388,23 +487,26 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
   }
 
   function onSubmit() {
+    const activeMode = mode;
+
     startImportTransition(async () => {
       try {
-        const result = await importLeadsAction({ tenantSlug, csvText });
-        setSummary({
+        const result = await importLeadsAction({ tenantSlug, csvText, mode: activeMode });
+        const nextSummary = {
           createdCount: result.createdCount,
+          updatedCount: result.updatedCount,
           skippedCount: result.skippedCount,
           errorCount: result.errorCount,
           results: result.results,
-        });
+        };
+
+        setSummary(nextSummary);
         setPreview(null);
         setPreviewSnapshot('');
-        toast.success(
-          `Importación completa: ${result.createdCount} creado(s), ${result.skippedCount} omitido(s), ${result.errorCount} con error`,
-        );
+        toast.success(MODE_COPY[activeMode].successToast(nextSummary));
         router.refresh();
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'No se pudo importar el archivo';
+        const message = error instanceof Error ? error.message : 'No se pudo procesar el archivo';
         toast.error(message);
       }
     });
@@ -412,21 +514,20 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
 
   return (
     <div className="space-y-5">
-      {/* ── Upload card ─────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle>Carga tu archivo</CardTitle>
               <CardDescription className="mt-1">
-                Excel (.xlsx/.xls) o CSV — solo se lee la primera hoja
+                Excel (.xlsx/.xls) o CSV - solo se lee la primera hoja
               </CardDescription>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void downloadTemplate()}
+              onClick={() => void downloadTemplate(mode)}
               disabled={isPreviewPending || isImportPending}
               className="shrink-0 gap-1.5"
             >
@@ -434,14 +535,26 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
               Descargar plantilla
             </Button>
           </div>
+
           <Separator className="mt-3" />
-          <div className="pt-1">
+
+          <div className="flex flex-col gap-3 pt-1">
+            <Tabs value={mode} onValueChange={handleModeChange}>
+              <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+                <TabsTrigger value="CREATE" disabled={isPreviewPending || isImportPending}>
+                  Crear leads
+                </TabsTrigger>
+                <TabsTrigger value="UPDATE_BY_RUC" disabled={isPreviewPending || isImportPending}>
+                  Actualizar por RUC
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <p className="text-xs text-muted-foreground">{modeCopy.description}</p>
             <StepIndicator current={currentStep} />
           </div>
         </CardHeader>
 
         <CardContent className="space-y-4 pt-2">
-          {/* Drop zone */}
           <div
             className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-all duration-200 ${
               isDragging
@@ -450,15 +563,15 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
                   ? 'border-green-400 bg-green-50/60 dark:border-green-700 dark:bg-green-950/20'
                   : 'border-muted-foreground/25 bg-muted/20 hover:border-muted-foreground/45 hover:bg-muted/40'
             }`}
-            onDragOver={(e) => {
-              e.preventDefault();
+            onDragOver={(event) => {
+              event.preventDefault();
               setIsDragging(true);
             }}
             onDragLeave={() => setIsDragging(false)}
-            onDrop={(e) => {
-              e.preventDefault();
+            onDrop={(event) => {
+              event.preventDefault();
               setIsDragging(false);
-              const file = e.dataTransfer.files[0];
+              const file = event.dataTransfer.files[0];
               if (file) void handleFileChange(file);
             }}
           >
@@ -468,8 +581,8 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
               accept=".xlsx,.xls,.csv"
               className="absolute inset-0 cursor-pointer opacity-0"
               disabled={isPreviewPending || isImportPending}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
+              onChange={(event) => {
+                const file = event.target.files?.[0];
                 if (file) void handleFileChange(file);
               }}
             />
@@ -477,7 +590,7 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
             {isDragging ? (
               <>
                 <UploadCloud className="h-12 w-12 animate-bounce text-primary" />
-                <p className="text-sm font-semibold text-primary">Suelta el archivo aquí</p>
+                <p className="text-sm font-semibold text-primary">Suelta el archivo aqui</p>
               </>
             ) : selectedFile ? (
               <>
@@ -488,7 +601,7 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
                   <p className="text-sm font-semibold">{selectedFile.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {(selectedFile.size / 1024).toFixed(1)} KB
-                    {' · '}
+                    {' - '}
                     <span className="font-medium text-green-600 dark:text-green-400">
                       Listo para analizar
                     </span>
@@ -502,20 +615,19 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
                 </div>
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">
-                    Arrastra tu archivo aquí o{' '}
+                    Arrastra tu archivo aqui o{' '}
                     <span className="cursor-pointer text-primary underline underline-offset-2">
                       haz clic para seleccionar
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Formatos admitidos: .xlsx · .xls · .csv
+                    Formatos admitidos: .xlsx - .xls - .csv
                   </p>
                 </div>
               </>
             )}
           </div>
 
-          {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -526,7 +638,7 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
               {isPreviewPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Analizando…
+                  Analizando...
                 </>
               ) : (
                 <>
@@ -550,12 +662,12 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
               {isImportPending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Importando…
+                  {modeCopy.pendingLabel}
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="h-4 w-4" />
-                  Confirmar importación
+                  {modeCopy.confirmLabel}
                 </>
               )}
             </Button>
@@ -578,15 +690,13 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
             )}
           </div>
 
-          {/* Contextual alerts */}
           {!hasCsv && (
             <Alert className="border-blue-200 bg-blue-50/60 dark:border-blue-800 dark:bg-blue-950/20">
               <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <AlertTitle className="text-blue-800 dark:text-blue-300">Flujo de 2 pasos</AlertTitle>
               <AlertDescription className="text-blue-700 dark:text-blue-400">
-                Primero <strong>analiza</strong> el archivo — detecta duplicados, owners inválidos y
-                errores de formato. Luego <strong>confirma</strong> para crear solo las filas
-                listas.
+                Primero <strong>analiza</strong> el archivo. Luego <strong>confirma</strong> para
+                procesar solo las filas listas.
               </AlertDescription>
             </Alert>
           )}
@@ -594,9 +704,9 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
           {preview && !isPreviewCurrent && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Archivo modificado</AlertTitle>
+              <AlertTitle>Archivo o modo modificado</AlertTitle>
               <AlertDescription>
-                El archivo cambió después del último análisis. Vuelve a analizar antes de confirmar.
+                Vuelve a analizar antes de confirmar para trabajar con los datos actuales.
               </AlertDescription>
             </Alert>
           )}
@@ -608,27 +718,26 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
                 Hay filas con errores
               </AlertTitle>
               <AlertDescription className="text-amber-700 dark:text-amber-400">
-                Solo se importarán las <strong>{preview.readyCount}</strong> fila(s) listas. Las{' '}
-                <strong>{preview.errorCount}</strong> con error serán omitidas automáticamente.
+                Solo se procesaran las <strong>{preview.readyCount}</strong> fila(s) listas. Las{' '}
+                <strong>{preview.errorCount}</strong> con error seran omitidas automaticamente.
               </AlertDescription>
             </Alert>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Preview results ──────────────────────────────────────────── */}
       {preview && (
         <div className="space-y-4">
           <SummaryCards
             items={[
               {
-                label: 'Listos para importar',
+                label: modeCopy.readyLabel,
                 value: preview.readyCount,
                 color: 'green',
                 icon: <CheckCircle2 className="h-7 w-7" />,
               },
               {
-                label: 'Duplicados omitidos',
+                label: 'Omitidos',
                 value: preview.skippedCount,
                 color: 'amber',
                 icon: <AlertTriangle className="h-7 w-7" />,
@@ -642,26 +751,25 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
             ]}
           />
           <ResultsTable
-            title="Análisis previo (preflight)"
-            description={`${totalPreviewed} fila(s) analizadas. La confirmación volverá a validar contra el estado actual del tenant.`}
+            title="Analisis previo"
+            description={`${totalPreviewed} fila(s) analizadas. La confirmacion volvera a validar contra el estado actual del tenant.`}
             results={preview.results}
           />
         </div>
       )}
 
-      {/* ── Final results ────────────────────────────────────────────── */}
       {summary && (
         <div className="space-y-4">
           <SummaryCards
             items={[
               {
-                label: 'Leads creados',
-                value: summary.createdCount,
+                label: modeCopy.primaryResultLabel,
+                value: mode === 'UPDATE_BY_RUC' ? summary.updatedCount : summary.createdCount,
                 color: 'green',
                 icon: <CheckCircle2 className="h-7 w-7" />,
               },
               {
-                label: 'Duplicados omitidos',
+                label: 'Omitidos',
                 value: summary.skippedCount,
                 color: 'amber',
                 icon: <AlertTriangle className="h-7 w-7" />,
@@ -675,8 +783,8 @@ export function ImportForm({ tenantSlug }: { tenantSlug: string }) {
             ]}
           />
           <ResultsTable
-            title="Resultado de la importación"
-            description={`${totalProcessed} fila(s) procesadas en esta ejecución.`}
+            title="Resultado del proceso"
+            description={`${totalProcessed} fila(s) procesadas en esta ejecucion.`}
             results={summary.results}
           />
         </div>
