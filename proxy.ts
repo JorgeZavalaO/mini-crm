@@ -50,7 +50,8 @@ export const proxy = auth(async (req) => {
       pathname === '/' ||
       pathname === '/login' ||
       pathname.startsWith('/api/auth') ||
-      pathname.startsWith('/portal');
+      pathname.startsWith('/portal') ||
+      pathname.startsWith('/invite');
 
     if (isLoggedIn && pathname === '/login') {
       if (user?.isSuperAdmin) {
