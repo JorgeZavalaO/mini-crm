@@ -6,23 +6,24 @@ import {
 } from '@/lib/lead-owner';
 
 describe('lead-owner rules', () => {
-  it('permite ownership a admin, supervisor y vendedor', () => {
+  it('permite ownership a admin, supervisor, vendedor, freelance y pasante', () => {
     expect(canOwnLeads('ADMIN')).toBe(true);
     expect(canOwnLeads('SUPERVISOR')).toBe(true);
     expect(canOwnLeads('VENDEDOR')).toBe(true);
+    expect(canOwnLeads('FREELANCE')).toBe(true);
+    expect(canOwnLeads('PASANTE')).toBe(true);
   });
 
-  it('bloquea ownership a freelance, pasante o rol indefinido', () => {
-    expect(canOwnLeads('FREELANCE')).toBe(false);
-    expect(canOwnLeads('PASANTE')).toBe(false);
+  it('bloquea ownership a roles indefinidos o nulos', () => {
     expect(canOwnLeads(undefined)).toBe(false);
     expect(canOwnLeads(null)).toBe(false);
   });
 
-  it('solo considera asignables a miembros activos con rol vendedor o superior', () => {
+  it('solo considera asignables a miembros activos con rol vendedor o superior (incluye freelance y pasante)', () => {
     expect(isAssignableLeadOwner({ role: 'VENDEDOR', isActive: true })).toBe(true);
     expect(isAssignableLeadOwner({ role: 'SUPERVISOR', isActive: true })).toBe(true);
-    expect(isAssignableLeadOwner({ role: 'FREELANCE', isActive: true })).toBe(false);
+    expect(isAssignableLeadOwner({ role: 'FREELANCE', isActive: true })).toBe(true);
+    expect(isAssignableLeadOwner({ role: 'PASANTE', isActive: true })).toBe(true);
     expect(isAssignableLeadOwner({ role: 'ADMIN', isActive: false })).toBe(false);
   });
 
@@ -52,6 +53,7 @@ describe('lead-owner rules', () => {
 
     expect(options).toEqual([
       { id: '1', name: 'Ada', email: 'ada@example.com', role: 'ADMIN' },
+      { id: '2', name: 'Bob', email: 'bob@example.com', role: 'FREELANCE' },
       { id: '4', name: '', email: 'supervisor@example.com', role: 'SUPERVISOR' },
     ]);
   });

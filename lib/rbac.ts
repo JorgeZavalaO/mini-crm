@@ -2,9 +2,12 @@
  * RBAC – Role-Based Access Control helpers.
  *
  * Roles (tenant-level):
- *   ADMIN > SUPERVISOR > VENDEDOR > FREELANCE > PASANTE
+ *   ADMIN > SUPERVISOR > VENDEDOR = FREELANCE = PASANTE
  *
  * SuperAdmin is a platform flag on User, not a tenant role.
+ *
+ * FREELANCE and PASANTE share the same permission level as VENDEDOR.
+ * None of the three can manage team invitations (requires ADMIN).
  */
 
 export const ROLES = ['ADMIN', 'SUPERVISOR', 'VENDEDOR', 'FREELANCE', 'PASANTE'] as const;
@@ -16,8 +19,8 @@ const ROLE_WEIGHT: Record<Role, number> = {
   ADMIN: 50,
   SUPERVISOR: 40,
   VENDEDOR: 30,
-  FREELANCE: 20,
-  PASANTE: 10,
+  FREELANCE: 30,
+  PASANTE: 30,
 };
 
 /**

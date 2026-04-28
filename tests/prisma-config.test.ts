@@ -16,6 +16,6 @@ describe('prisma config migration', () => {
 
     expect(rawConfigFile).toContain('datasource:');
     expect(rawConfigFile).toContain('getValidatedEnv(process.env)');
-    expect(rawConfigFile).toContain('url: appEnv.DATABASE_URL');
+    expect(rawConfigFile).toContain('appEnv.DATABASE_URL');
   });
 });

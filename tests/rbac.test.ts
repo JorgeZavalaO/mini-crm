@@ -6,6 +6,9 @@ describe('hasRole', () => {
     expect(hasRole('ADMIN', 'VENDEDOR')).toBe(true);
     expect(hasRole('SUPERVISOR', 'PASANTE')).toBe(true);
     expect(hasRole('VENDEDOR', 'FREELANCE')).toBe(true);
+    expect(hasRole('FREELANCE', 'VENDEDOR')).toBe(true);
+    expect(hasRole('PASANTE', 'FREELANCE')).toBe(true);
+    expect(hasRole('FREELANCE', 'PASANTE')).toBe(true);
   });
 
   it('retorna true cuando el rol del usuario es exactamente el requerido', () => {
@@ -17,7 +20,7 @@ describe('hasRole', () => {
   it('retorna false cuando el rol del usuario está por debajo del requerido', () => {
     expect(hasRole('PASANTE', 'ADMIN')).toBe(false);
     expect(hasRole('VENDEDOR', 'SUPERVISOR')).toBe(false);
-    expect(hasRole('FREELANCE', 'VENDEDOR')).toBe(false);
+    expect(hasRole('FREELANCE', 'SUPERVISOR')).toBe(false);
     expect(hasRole('SUPERVISOR', 'ADMIN')).toBe(false);
   });
 
