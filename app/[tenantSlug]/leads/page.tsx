@@ -77,6 +77,7 @@ export default async function LeadsPage({
     role: membership?.role ?? null,
     isSuperAdmin: session.user.isSuperAdmin,
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
+    restrictLeadEditingToOwner: tenant.restrictLeadEditingToOwner,
   };
 
   const [assignmentsEnabled, importEnabled, dedupeEnabled] = await Promise.all([

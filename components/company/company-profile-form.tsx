@@ -5,8 +5,9 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -61,6 +62,9 @@ export function CompanyProfileForm({ tenantSlug, initialData }: CompanyProfileFo
   const [companyTimezone, setCompanyTimezone] = useState(
     initialData.companyTimezone ?? 'America/Lima',
   );
+  const [restrictLeadEditingToOwner, setRestrictLeadEditingToOwner] = useState(
+    initialData.restrictLeadEditingToOwner,
+  );
   const [isPending, startTransition] = useTransition();
 
   function handleSubmit(e: React.FormEvent) {
@@ -76,6 +80,7 @@ export function CompanyProfileForm({ tenantSlug, initialData }: CompanyProfileFo
           companyEmail: companyEmail || undefined,
           companyWebsite: companyWebsite || undefined,
           companyTimezone,
+          restrictLeadEditingToOwner,
         });
         toast.success('Perfil de empresa guardado');
       } catch (err) {
@@ -180,6 +185,33 @@ export function CompanyProfileForm({ tenantSlug, initialData }: CompanyProfileFo
             rows={2}
             disabled={isPending}
           />
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Operación comercial */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground">Operación comercial</h3>
+        </div>
+        <div className="flex items-start gap-3 rounded-md border px-3 py-3">
+          <Switch
+            id="restrictLeadEditingToOwner"
+            checked={restrictLeadEditingToOwner}
+            onCheckedChange={setRestrictLeadEditingToOwner}
+            disabled={isPending}
+          />
+          <div className="space-y-1">
+            <Label htmlFor="restrictLeadEditingToOwner" className="cursor-pointer">
+              Restringir edición y archivado de leads por responsable
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Cuando está activo, solo el responsable del lead y perfiles supervisor o superiores
+              pueden editar o archivar leads ajenos. Si lo desactivas, cualquier miembro activo con
+              acceso al CRM podrá colaborar en esos cambios.
+            </p>
+          </div>
         </div>
       </div>
 

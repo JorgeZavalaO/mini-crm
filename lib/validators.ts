@@ -379,6 +379,7 @@ export const updateCompanyProfileSchema = z.object({
       { message: 'Zona horaria inválida' },
     )
     .default('America/Lima'),
+  restrictLeadEditingToOwner: z.boolean().default(true),
 });
 
 export const productFiltersSchema = z.object({

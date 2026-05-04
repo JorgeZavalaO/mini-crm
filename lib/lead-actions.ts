@@ -40,6 +40,7 @@ type LeadActorContext = {
   role: string | null;
   isSuperAdmin: boolean;
   isActiveMember: boolean;
+  restrictLeadEditingToOwner: boolean;
 };
 
 type LeadMutationResult =
@@ -79,6 +80,7 @@ function toLeadActorContext(
     role: ctx.membership?.role ?? null,
     isSuperAdmin: ctx.session.user.isSuperAdmin,
     isActiveMember: ctx.session.user.isSuperAdmin || Boolean(ctx.membership?.isActive),
+    restrictLeadEditingToOwner: ctx.tenant.restrictLeadEditingToOwner ?? true,
   };
 }
 

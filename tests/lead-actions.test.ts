@@ -85,17 +85,27 @@ const LEAD_ID = 'lead-1';
 const USER_ID = 'user-1';
 const OWNER_ID = 'owner-1';
 
-function makeSupervisorContext(userId = USER_ID) {
+function makeSupervisorContext(
+  userId = USER_ID,
+  options?: { restrictLeadEditingToOwner?: boolean },
+) {
   return {
     session: { user: { id: userId, isSuperAdmin: false } },
-    tenant: { id: TENANT_ID, name: 'Acme', slug: TENANT_SLUG, isActive: true },
+    tenant: {
+      id: TENANT_ID,
+      name: 'Acme',
+      slug: TENANT_SLUG,
+      isActive: true,
+      companyTimezone: 'America/Lima',
+      restrictLeadEditingToOwner: options?.restrictLeadEditingToOwner ?? true,
+    },
     membership: { id: 'mem-1', role: 'SUPERVISOR', isActive: true },
   };
 }
 
-function makeVendedorContext(userId = USER_ID) {
+function makeVendedorContext(userId = USER_ID, options?: { restrictLeadEditingToOwner?: boolean }) {
   return {
-    ...makeSupervisorContext(userId),
+    ...makeSupervisorContext(userId, options),
     membership: { id: 'mem-1', role: 'VENDEDOR', isActive: true },
   };
 }
@@ -264,7 +274,14 @@ describe('updateLeadAction', () => {
   it('lanza AppError 403 cuando un PASANTE intenta editar un lead ajeno', async () => {
     getTenantActionContextBySlugMock.mockResolvedValue({
       session: { user: { id: 'pasante-1', isSuperAdmin: false } },
-      tenant: { id: TENANT_ID, name: 'Acme', slug: TENANT_SLUG, isActive: true },
+      tenant: {
+        id: TENANT_ID,
+        name: 'Acme',
+        slug: TENANT_SLUG,
+        isActive: true,
+        companyTimezone: 'America/Lima',
+        restrictLeadEditingToOwner: true,
+      },
       membership: { id: 'mem-p', role: 'PASANTE', isActive: true },
     });
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, ownerId: 'otro-owner' });
@@ -273,6 +290,18 @@ describe('updateLeadAction', () => {
   });
 
   it('actualiza el lead y retorna success cuando el usuario tiene permiso', async () => {
+    const result = await updateLeadAction(VALID_UPDATE_INPUT);
+
+    expect(result).toEqual({ success: true });
+    expect(dbMock.lead.update).toHaveBeenCalled();
+  });
+
+  it('permite editar un lead ajeno cuando el tenant trabaja en modo colaborativo', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(
+      makeVendedorContext(USER_ID, { restrictLeadEditingToOwner: false }),
+    );
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, ownerId: 'otro-owner' });
+
     const result = await updateLeadAction(VALID_UPDATE_INPUT);
 
     expect(result).toEqual({ success: true });
@@ -352,7 +381,14 @@ describe('archiveLeadAction', () => {
   it('lanza AppError 403 cuando un PASANTE intenta archivar un lead ajeno', async () => {
     getTenantActionContextBySlugMock.mockResolvedValue({
       session: { user: { id: 'p-1', isSuperAdmin: false } },
-      tenant: { id: TENANT_ID, name: 'Acme', slug: TENANT_SLUG, isActive: true },
+      tenant: {
+        id: TENANT_ID,
+        name: 'Acme',
+        slug: TENANT_SLUG,
+        isActive: true,
+        companyTimezone: 'America/Lima',
+        restrictLeadEditingToOwner: true,
+      },
       membership: { id: 'mem-p', role: 'PASANTE', isActive: true },
     });
     dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, ownerId: 'otro-owner' });
@@ -360,6 +396,18 @@ describe('archiveLeadAction', () => {
     await expect(
       archiveLeadAction({ tenantSlug: TENANT_SLUG, leadId: LEAD_ID }),
     ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('permite archivar un lead ajeno cuando el tenant desactiva la restricción por owner', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(
+      makeVendedorContext(USER_ID, { restrictLeadEditingToOwner: false }),
+    );
+    dbMock.lead.findFirst.mockResolvedValue({ id: LEAD_ID, ownerId: 'otro-owner' });
+
+    const result = await archiveLeadAction({ tenantSlug: TENANT_SLUG, leadId: LEAD_ID });
+
+    expect(result).toEqual({ success: true });
+    expect(dbMock.lead.update).toHaveBeenCalled();
   });
 });
 
@@ -527,6 +575,20 @@ describe('requestLeadReassignmentAction', () => {
 
     expect(result).toEqual({ success: true, requestId: 'req-1' });
     expect(dbMock.leadReassignmentRequest.create).toHaveBeenCalled();
+  });
+
+  it('rechaza la solicitud cuando el tenant ya permite editar leads ajenos', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(
+      makeVendedorContext(USER_ID, { restrictLeadEditingToOwner: false }),
+    );
+
+    await expect(
+      requestLeadReassignmentAction({
+        tenantSlug: TENANT_SLUG,
+        leadId: LEAD_ID,
+        reason: 'Ya puedo colaborar sin reasignar owner',
+      }),
+    ).rejects.toMatchObject({ status: 400 });
   });
 });
 

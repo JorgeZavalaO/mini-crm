@@ -6,6 +6,7 @@ type LeadPermissionContext = {
   role: string | null;
   isSuperAdmin: boolean;
   isActiveMember: boolean;
+  restrictLeadEditingToOwner?: boolean | null;
 };
 
 type LeadOwnership = {
@@ -15,6 +16,7 @@ type LeadOwnership = {
 export function canEditLead(ctx: LeadPermissionContext, ownership: LeadOwnership): boolean {
   if (ctx.isSuperAdmin) return true;
   if (!ctx.isActiveMember) return false;
+  if ((ctx.restrictLeadEditingToOwner ?? true) === false) return true;
   if (!ownership.ownerId) return true;
   if (ownership.ownerId === ctx.userId) return true;
   return hasRole(ctx.role, 'SUPERVISOR');

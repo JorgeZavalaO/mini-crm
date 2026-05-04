@@ -96,43 +96,44 @@ enum NotificationType {
 // ─── Multi-tenant ───────────────────────────────────────
 
 model Tenant {
-  id                       String                    @id @default(cuid())
-  name                     String
-  slug                     String                    @unique
-  isActive                 Boolean                   @default(true)
-  planId                   String?
-  maxUsers                 Int?
-  maxStorageGb             Int?
-  retentionDays            Int?
-  quoteSequence            Int                       @default(0)
+  id                         String                    @id @default(cuid())
+  name                       String
+  slug                       String                    @unique
+  isActive                   Boolean                   @default(true)
+  planId                     String?
+  maxUsers                   Int?
+  maxStorageGb               Int?
+  retentionDays              Int?
+  quoteSequence              Int                       @default(0)
   // Company profile / corporate identity
-  companyName              String?                   @db.VarChar(200)
-  companyRuc               String?                   @db.VarChar(20)
-  companyAddress           String?                   @db.VarChar(400)
-  companyPhone             String?                   @db.VarChar(50)
-  companyEmail             String?                   @db.VarChar(200)
-  companyWebsite           String?                   @db.VarChar(200)
-  companyLogoUrl           String?
-  companyLogoPathname      String?
-  companyTimezone          String                    @default("America/Lima") @db.VarChar(60)
-  deletedAt                DateTime?
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  memberships              Membership[]
-  teamInvitations          TeamInvitation[]
-  leads                    Lead[]
-  leadContacts             LeadContact[]
-  leadReassignmentRequests LeadReassignmentRequest[]
-  leadOwnerHistory         LeadOwnerHistory[]
-  interactions             Interaction[]
-  features                 TenantFeature[]
-  documents                Document[]
-  quotes                   Quote[]
-  tasks                    Task[]
-  products                 Product[]
-  notifications            Notification[]
-  portalTokens             PortalToken[]
-  plan                     Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
+  companyName                String?                   @db.VarChar(200)
+  companyRuc                 String?                   @db.VarChar(20)
+  companyAddress             String?                   @db.VarChar(400)
+  companyPhone               String?                   @db.VarChar(50)
+  companyEmail               String?                   @db.VarChar(200)
+  companyWebsite             String?                   @db.VarChar(200)
+  companyLogoUrl             String?
+  companyLogoPathname        String?
+  companyTimezone            String                    @default("America/Lima") @db.VarChar(60)
+  restrictLeadEditingToOwner Boolean                   @default(true)
+  deletedAt                  DateTime?
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  memberships                Membership[]
+  teamInvitations            TeamInvitation[]
+  leads                      Lead[]
+  leadContacts               LeadContact[]
+  leadReassignmentRequests   LeadReassignmentRequest[]
+  leadOwnerHistory           LeadOwnerHistory[]
+  interactions               Interaction[]
+  features                   TenantFeature[]
+  documents                  Document[]
+  quotes                     Quote[]
+  tasks                      Task[]
+  products                   Product[]
+  notifications              Notification[]
+  portalTokens               PortalToken[]
+  plan                       Plan?                     @relation(fields: [planId], references: [id], onDelete: SetNull)
 
   @@index([isActive, deletedAt])
 }

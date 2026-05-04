@@ -28,7 +28,14 @@ import {
   requireSuperAdmin,
 } from '@/lib/auth-guard';
 
-const ACTIVE_TENANT = { id: 'tenant-1', name: 'Acme', slug: 'acme', isActive: true };
+const ACTIVE_TENANT = {
+  id: 'tenant-1',
+  name: 'Acme',
+  slug: 'acme',
+  isActive: true,
+  companyTimezone: 'America/Lima',
+  restrictLeadEditingToOwner: true,
+};
 const ACTIVE_MEMBERSHIP = { id: 'mem-1', role: 'ADMIN', isActive: true };
 
 describe('getTenantActionContextBySlug', () => {
@@ -76,6 +83,7 @@ describe('getTenantActionContextBySlug', () => {
 
     expect(ctx.membership).toEqual(ACTIVE_MEMBERSHIP);
     expect(ctx.session.user.id).toBe('u1');
+    expect(ctx.tenant.restrictLeadEditingToOwner).toBe(true);
   });
 
   it('lanza AppError 403 cuando el usuario regular no tiene membresía activa', async () => {

@@ -21,6 +21,7 @@ export type CompanyProfile = {
   companyWebsite: string | null;
   companyLogoUrl: string | null; // base64 data URL resolved server-side
   companyTimezone: string;
+  restrictLeadEditingToOwner: boolean;
 };
 
 // ─── Permission helper ────────────────────────────────────────────────────────
@@ -41,6 +42,7 @@ async function assertCompanyAccess(tenantSlug: string) {
 
 function revalidateCompanyViews(tenantSlug: string) {
   revalidatePath(`/${tenantSlug}/company`);
+  revalidatePath(`/${tenantSlug}/leads`);
   revalidatePath(`/${tenantSlug}/quotes`);
 }
 
@@ -60,6 +62,7 @@ export async function getCompanyProfileAction(tenantSlug: string): Promise<Compa
       companyWebsite: true,
       companyLogoPathname: true,
       companyTimezone: true,
+      restrictLeadEditingToOwner: true,
     },
   });
 
@@ -89,6 +92,7 @@ export async function getCompanyProfileAction(tenantSlug: string): Promise<Compa
     companyWebsite: tenant.companyWebsite,
     companyLogoUrl,
     companyTimezone: tenant.companyTimezone,
+    restrictLeadEditingToOwner: tenant.restrictLeadEditingToOwner,
   };
 }
 
@@ -113,6 +117,7 @@ export async function updateCompanyProfileAction(input: unknown): Promise<void> 
       companyEmail: fields.companyEmail ?? null,
       companyWebsite: fields.companyWebsite ?? null,
       companyTimezone: fields.companyTimezone,
+      restrictLeadEditingToOwner: fields.restrictLeadEditingToOwner,
     },
   });
 

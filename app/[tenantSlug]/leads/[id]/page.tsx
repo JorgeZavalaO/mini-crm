@@ -117,6 +117,7 @@ export default async function LeadDetailPage({
     role: membership?.role ?? null,
     isSuperAdmin: session.user.isSuperAdmin,
     isActiveMember: session.user.isSuperAdmin || Boolean(membership?.isActive),
+    restrictLeadEditingToOwner: tenant.restrictLeadEditingToOwner,
   };
 
   const [

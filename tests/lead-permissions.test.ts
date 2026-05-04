@@ -26,6 +26,11 @@ describe('lead permissions', () => {
     isActiveMember: true,
   };
 
+  const freelanceCollaborative = {
+    ...freelance,
+    restrictLeadEditingToOwner: false,
+  };
+
   it('permite asignar y resolver reasignaciones a supervisor+', () => {
     expect(canAssignLeads(supervisor)).toBe(true);
     expect(canResolveReassignment(supervisor)).toBe(true);
@@ -43,6 +48,11 @@ describe('lead permissions', () => {
 
   it('permite editar un lead propio aunque el rol no pueda asignar', () => {
     expect(canEditLead(freelance, { ownerId: 'freelance-1' })).toBe(true);
+  });
+
+  it('permite editar leads ajenos cuando el tenant desactiva la restricción por owner', () => {
+    expect(canEditLead(freelanceCollaborative, { ownerId: 'other-user' })).toBe(true);
+    expect(canAssignLeads(freelanceCollaborative)).toBe(false);
   });
 
   // ─── Task permissions ─────────────────────────────────

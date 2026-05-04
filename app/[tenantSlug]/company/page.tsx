@@ -23,7 +23,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ tenant
         <div>
           <h1 className="text-2xl font-bold">Empresa</h1>
           <p className="text-sm text-muted-foreground">
-            Configura la información corporativa que aparece en cotizaciones y documentos.
+            Configura la información corporativa y reglas operativas del módulo comercial.
           </p>
         </div>
       </div>
@@ -42,7 +42,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ tenant
         {/* Profile form card */}
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-base">Información corporativa</CardTitle>
+            <CardTitle className="text-base">Información corporativa y operación</CardTitle>
           </CardHeader>
           <Separator />
           <CardContent className="pt-6">
