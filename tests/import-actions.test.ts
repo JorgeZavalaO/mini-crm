@@ -80,7 +80,14 @@ function makeValidImportRow(overrides: Record<string, unknown> = {}) {
     businessName: 'Empresa Alpha',
     ruc: '20111111111',
     country: undefined,
+    province: undefined,
     city: undefined,
+    district: undefined,
+    address: undefined,
+    constitutionYear: undefined,
+    employeeCount: undefined,
+    importOperationCount: undefined,
+    exportOperationCount: undefined,
     industry: undefined,
     source: undefined,
     gerente: undefined,
@@ -245,6 +252,40 @@ describe('importLeadsAction create mode', () => {
     expect(revalidatePathMock).toHaveBeenCalled();
   });
 
+  it('persiste dirección expandida y métricas nuevas al crear por importación', async () => {
+    mapCsvRecordToImportRowMock.mockReturnValue(
+      makeValidImportRow({
+        country: 'Peru',
+        province: 'Lima',
+        city: 'Lima',
+        district: 'Miraflores',
+        address: 'Av. Larco 123',
+        constitutionYear: 2014,
+        employeeCount: 120,
+        importOperationCount: 36,
+        exportOperationCount: 12,
+      }),
+    );
+
+    await importLeadsAction({ tenantSlug: TENANT_SLUG, csvText: VALID_CSV });
+
+    expect(dbMock.lead.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          country: 'Peru',
+          province: 'Lima',
+          city: 'Lima',
+          district: 'Miraflores',
+          address: 'Av. Larco 123',
+          constitutionYear: 2014,
+          employeeCount: 120,
+          importOperationCount: 36,
+          exportOperationCount: 12,
+        }),
+      }),
+    );
+  });
+
   it('lanza cuando la transaccion de creacion falla', async () => {
     dbMock.lead.create.mockRejectedValue(new Error('DB error'));
     dbMock.$transaction.mockRejectedValue(new Error('DB error'));
@@ -376,6 +417,44 @@ describe('importLeadsAction update mode', () => {
     expect(updateData.phones).toBeUndefined();
     expect(updateData.emails).toBeUndefined();
     expect(dbMock.leadContact.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('actualiza dirección expandida y métricas en modo update por RUC', async () => {
+    mapCsvRecordToImportRowMock.mockReturnValue(
+      makeValidImportRow({
+        businessName: undefined,
+        province: 'Lima',
+        city: 'Lima',
+        district: 'San Isidro',
+        address: 'Av. Camino Real 456',
+        constitutionYear: 2010,
+        employeeCount: 80,
+        importOperationCount: 24,
+        exportOperationCount: 6,
+        status: undefined,
+      }),
+    );
+
+    await importLeadsAction({
+      tenantSlug: TENANT_SLUG,
+      csvText: VALID_CSV,
+      mode: 'UPDATE_BY_RUC',
+    });
+
+    expect(dbMock.lead.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          province: 'Lima',
+          city: 'Lima',
+          district: 'San Isidro',
+          address: 'Av. Camino Real 456',
+          constitutionYear: 2010,
+          employeeCount: 80,
+          importOperationCount: 24,
+          exportOperationCount: 6,
+        }),
+      }),
+    );
   });
 
   it('reemplaza contactos en actualizacion por RUC cuando la fila trae contactos con datos', async () => {

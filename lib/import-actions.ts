@@ -363,7 +363,14 @@ function buildImportCreateData(
     rucNormalized: normalized.rucNormalized,
     nameNormalized: normalized.nameNormalized ?? normalizeLeadName(businessName),
     country: row.country ?? null,
+    province: row.province ?? null,
     city: row.city ?? null,
+    district: row.district ?? null,
+    address: row.address ?? null,
+    constitutionYear: row.constitutionYear ?? null,
+    employeeCount: row.employeeCount ?? null,
+    importOperationCount: row.importOperationCount ?? null,
+    exportOperationCount: row.exportOperationCount ?? null,
     industry: row.industry ?? null,
     source: row.source ?? null,
     gerente: row.gerente ?? null,
@@ -404,8 +411,43 @@ function buildImportUpdateData(
     hasUpdate = true;
   }
 
+  if (row.province !== undefined) {
+    data.province = row.province;
+    hasUpdate = true;
+  }
+
   if (row.city !== undefined) {
     data.city = row.city;
+    hasUpdate = true;
+  }
+
+  if (row.district !== undefined) {
+    data.district = row.district;
+    hasUpdate = true;
+  }
+
+  if (row.address !== undefined) {
+    data.address = row.address;
+    hasUpdate = true;
+  }
+
+  if (row.constitutionYear !== undefined) {
+    data.constitutionYear = row.constitutionYear;
+    hasUpdate = true;
+  }
+
+  if (row.employeeCount !== undefined) {
+    data.employeeCount = row.employeeCount;
+    hasUpdate = true;
+  }
+
+  if (row.importOperationCount !== undefined) {
+    data.importOperationCount = row.importOperationCount;
+    hasUpdate = true;
+  }
+
+  if (row.exportOperationCount !== undefined) {
+    data.exportOperationCount = row.exportOperationCount;
     hasUpdate = true;
   }
 

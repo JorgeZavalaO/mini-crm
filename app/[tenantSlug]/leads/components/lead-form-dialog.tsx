@@ -55,7 +55,14 @@ type EditableLead = {
   businessName: string;
   ruc: string | null;
   country: string | null;
+  province: string | null;
   city: string | null;
+  district: string | null;
+  address: string | null;
+  constitutionYear: number | null;
+  employeeCount: number | null;
+  importOperationCount: number | null;
+  exportOperationCount: number | null;
   industry: string | null;
   source: string | null;
   notes: string | null;
@@ -146,7 +153,14 @@ function toFormDefaults(lead?: EditableLead) {
     businessName: lead?.businessName ?? '',
     ruc: lead?.ruc ?? '',
     country: lead?.country ?? '',
+    province: lead?.province ?? '',
     city: lead?.city ?? '',
+    district: lead?.district ?? '',
+    address: lead?.address ?? '',
+    constitutionYear: lead?.constitutionYear?.toString() ?? '',
+    employeeCount: lead?.employeeCount?.toString() ?? '',
+    importOperationCount: lead?.importOperationCount?.toString() ?? '',
+    exportOperationCount: lead?.exportOperationCount?.toString() ?? '',
     industry: lead?.industry ?? '',
     source: lead?.source ?? '',
     notes: lead?.notes ?? '',
@@ -181,7 +195,14 @@ export function LeadFormDialog({
   const [businessName, setBusinessName] = useState(defaults.businessName);
   const [ruc, setRuc] = useState(defaults.ruc);
   const [country, setCountry] = useState(defaults.country);
+  const [province, setProvince] = useState(defaults.province);
   const [city, setCity] = useState(defaults.city);
+  const [district, setDistrict] = useState(defaults.district);
+  const [address, setAddress] = useState(defaults.address);
+  const [constitutionYear, setConstitutionYear] = useState(defaults.constitutionYear);
+  const [employeeCount, setEmployeeCount] = useState(defaults.employeeCount);
+  const [importOperationCount, setImportOperationCount] = useState(defaults.importOperationCount);
+  const [exportOperationCount, setExportOperationCount] = useState(defaults.exportOperationCount);
   const [industry, setIndustry] = useState(defaults.industry);
   const [source, setSource] = useState(defaults.source);
   const [notes, setNotes] = useState(defaults.notes);
@@ -197,7 +218,14 @@ export function LeadFormDialog({
     setBusinessName(nextDefaults.businessName);
     setRuc(nextDefaults.ruc);
     setCountry(nextDefaults.country);
+    setProvince(nextDefaults.province);
     setCity(nextDefaults.city);
+    setDistrict(nextDefaults.district);
+    setAddress(nextDefaults.address);
+    setConstitutionYear(nextDefaults.constitutionYear);
+    setEmployeeCount(nextDefaults.employeeCount);
+    setImportOperationCount(nextDefaults.importOperationCount);
+    setExportOperationCount(nextDefaults.exportOperationCount);
     setIndustry(nextDefaults.industry);
     setSource(nextDefaults.source);
     setNotes(nextDefaults.notes);
@@ -249,7 +277,14 @@ export function LeadFormDialog({
       businessName,
       ruc,
       country,
+      province,
       city,
+      district,
+      address,
+      constitutionYear,
+      employeeCount,
+      importOperationCount,
+      exportOperationCount,
       industry,
       source,
       notes,
@@ -309,6 +344,13 @@ export function LeadFormDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-1">
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold">Datos empresariales</h3>
+            <p className="text-xs text-muted-foreground">
+              Información base de la empresa, su giro y métricas comerciales.
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor={`${lead?.id ?? 'new'}-businessName`}>
               Razon social
@@ -364,12 +406,100 @@ export function LeadFormDialog({
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-province`}>Provincia / Región</Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-province`}
+                value={province}
+                onChange={(e) => setProvince(e.target.value)}
+                placeholder="Lima"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor={`${lead?.id ?? 'new'}-city`}>Ciudad</Label>
               <Input
                 id={`${lead?.id ?? 'new'}-city`}
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 placeholder="Lima"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-district`}>Distrito</Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-district`}
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+                placeholder="Miraflores"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`${lead?.id ?? 'new'}-address`}>Dirección</Label>
+            <Textarea
+              id={`${lead?.id ?? 'new'}-address`}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Av. Principal 123, oficina 402"
+              rows={2}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-constitutionYear`}>Año de constitución</Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-constitutionYear`}
+                type="number"
+                min="1800"
+                max={String(new Date().getFullYear())}
+                step="1"
+                value={constitutionYear}
+                onChange={(e) => setConstitutionYear(e.target.value)}
+                placeholder="2014"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-employeeCount`}>Cantidad de trabajadores</Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-employeeCount`}
+                type="number"
+                min="0"
+                step="1"
+                value={employeeCount}
+                onChange={(e) => setEmployeeCount(e.target.value)}
+                placeholder="120"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-importOperationCount`}>
+                Cantidad de importación
+              </Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-importOperationCount`}
+                type="number"
+                min="0"
+                step="1"
+                value={importOperationCount}
+                onChange={(e) => setImportOperationCount(e.target.value)}
+                placeholder="36"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`${lead?.id ?? 'new'}-exportOperationCount`}>
+                Cantidad de exportación
+              </Label>
+              <Input
+                id={`${lead?.id ?? 'new'}-exportOperationCount`}
+                type="number"
+                min="0"
+                step="1"
+                value={exportOperationCount}
+                onChange={(e) => setExportOperationCount(e.target.value)}
+                placeholder="12"
               />
             </div>
           </div>
@@ -447,6 +577,13 @@ export function LeadFormDialog({
               onChange={(e) => setGerente(e.target.value)}
               placeholder="Juan Pérez"
             />
+          </div>
+
+          <div className="space-y-1 pt-2">
+            <h3 className="text-sm font-semibold">Contacto y contexto</h3>
+            <p className="text-xs text-muted-foreground">
+              Canales principales, interlocutores y notas de seguimiento.
+            </p>
           </div>
 
           <div className="space-y-3">

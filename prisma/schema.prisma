@@ -255,7 +255,14 @@ model Lead {
   rucNormalized        String?
   nameNormalized       String
   country              String?
+  province             String?
   city                 String?
+  district             String?
+  address              String?
+  constitutionYear     Int?
+  employeeCount        Int?
+  importOperationCount Int?
+  exportOperationCount Int?
   industry             String?
   source               String?
   notes                String?
@@ -287,8 +294,15 @@ model Lead {
   @@index([tenantId, deletedAt])
   @@index([tenantId, status])
   @@index([tenantId, ownerId])
+  @@index([tenantId, country])
+  @@index([tenantId, province])
   @@index([tenantId, source])
   @@index([tenantId, city])
+  @@index([tenantId, district])
+  @@index([tenantId, constitutionYear])
+  @@index([tenantId, employeeCount])
+  @@index([tenantId, importOperationCount])
+  @@index([tenantId, exportOperationCount])
 }
 
 model LeadContact {

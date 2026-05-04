@@ -136,9 +136,32 @@ export default async function LeadImportPage({
                       desc: 'Razón social — si se omite, se usa el RUC',
                     },
                     { col: 'country', required: false, desc: 'País' },
+                    { col: 'province', required: false, desc: 'Provincia, estado o región' },
                     { col: 'city', required: false, desc: 'Ciudad' },
+                    { col: 'district', required: false, desc: 'Distrito' },
+                    { col: 'address', required: false, desc: 'Dirección física o comercial' },
                     { col: 'industry', required: false, desc: 'Rubro o sector' },
                     { col: 'source', required: false, desc: 'Fuente (Web, Referido…)' },
+                    {
+                      col: 'constitutionYear',
+                      required: false,
+                      desc: 'Año de constitución de la empresa, por ejemplo 2014',
+                    },
+                    {
+                      col: 'employeeCount',
+                      required: false,
+                      desc: 'Cantidad total de trabajadores (entero no negativo)',
+                    },
+                    {
+                      col: 'importOperationCount',
+                      required: false,
+                      desc: 'Cantidad de operaciones de importación (entero no negativo)',
+                    },
+                    {
+                      col: 'exportOperationCount',
+                      required: false,
+                      desc: 'Cantidad de operaciones de exportación (entero no negativo)',
+                    },
                     {
                       col: 'gerente',
                       required: false,

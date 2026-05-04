@@ -10,6 +10,8 @@ import {
 import { z } from 'zod';
 import { ROLES } from '@/lib/rbac';
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -26,6 +28,48 @@ const optionalId = z
   .transform((value) => (value && value.length > 0 ? value : undefined));
 
 const nullableId = z.union([z.string().trim().min(1), z.null()]).optional();
+
+const optionalInteger = (options: {
+  min?: number;
+  max?: number;
+  integerMessage?: string;
+  rangeMessage?: string;
+}) =>
+  z.preprocess(
+    (value) => {
+      if (value === '' || value === null || value === undefined) {
+        return undefined;
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? Number(trimmed) : undefined;
+      }
+
+      return value;
+    },
+    z
+      .number({ invalid_type_error: options.integerMessage ?? 'Debe ser un número válido' })
+      .int(options.integerMessage ?? 'Debe ser un número entero')
+      .min(options.min ?? Number.MIN_SAFE_INTEGER, options.rangeMessage)
+      .max(options.max ?? Number.MAX_SAFE_INTEGER, options.rangeMessage)
+      .optional(),
+  );
+
+const optionalConstitutionYear = optionalInteger({
+  min: 1800,
+  max: CURRENT_YEAR,
+  integerMessage: 'El año de constitución debe ser un número entero',
+  rangeMessage: `El año de constitución debe estar entre 1800 y ${CURRENT_YEAR}`,
+});
+
+const optionalMetricCount = (label: string) =>
+  optionalInteger({
+    min: 0,
+    max: 1_000_000_000,
+    integerMessage: `${label} debe ser un número entero`,
+    rangeMessage: `${label} debe ser mayor o igual a 0`,
+  });
 
 export const emailSchema = z.string().email();
 
@@ -77,7 +121,14 @@ export const createLeadSchema = z.object({
   businessName: z.string().trim().min(1, 'La razon social es requerida').max(200),
   ruc: optionalText(40),
   country: optionalText(80),
+  province: optionalText(120),
   city: optionalText(120),
+  district: optionalText(120),
+  address: optionalText(400),
+  constitutionYear: optionalConstitutionYear,
+  employeeCount: optionalMetricCount('La cantidad de trabajadores'),
+  importOperationCount: optionalMetricCount('La cantidad de importación'),
+  exportOperationCount: optionalMetricCount('La cantidad de exportación'),
   industry: optionalText(120),
   source: optionalText(120),
   notes: optionalText(5000),
@@ -99,8 +150,19 @@ export const leadFiltersSchema = z.object({
   q: optionalText(120),
   status: z.nativeEnum(LeadStatus).optional(),
   ownerId: optionalId,
+  country: optionalText(80),
+  province: optionalText(120),
   source: optionalText(120),
   city: optionalText(120),
+  district: optionalText(120),
+  constitutionYearMin: optionalConstitutionYear,
+  constitutionYearMax: optionalConstitutionYear,
+  employeeCountMin: optionalMetricCount('La cantidad mínima de trabajadores'),
+  employeeCountMax: optionalMetricCount('La cantidad máxima de trabajadores'),
+  importOperationCountMin: optionalMetricCount('La cantidad mínima de importación'),
+  importOperationCountMax: optionalMetricCount('La cantidad máxima de importación'),
+  exportOperationCountMin: optionalMetricCount('La cantidad mínima de exportación'),
+  exportOperationCountMax: optionalMetricCount('La cantidad máxima de exportación'),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -134,7 +196,14 @@ export const importLeadRowSchema = z.object({
   businessName: optionalText(200),
   ruc: z.string().trim().min(1, 'El RUC/código es requerido').max(40),
   country: optionalText(80),
+  province: optionalText(120),
   city: optionalText(120),
+  district: optionalText(120),
+  address: optionalText(400),
+  constitutionYear: optionalConstitutionYear,
+  employeeCount: optionalMetricCount('La cantidad de trabajadores'),
+  importOperationCount: optionalMetricCount('La cantidad de importación'),
+  exportOperationCount: optionalMetricCount('La cantidad de exportación'),
   industry: optionalText(120),
   source: optionalText(120),
   gerente: optionalText(200),

@@ -30,20 +30,67 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
+function toNumericRange(min?: number, max?: number) {
+  if (min === undefined && max === undefined) return undefined;
+
+  return {
+    ...(min !== undefined ? { gte: min } : {}),
+    ...(max !== undefined ? { lte: max } : {}),
+  };
+}
+
 function toFilterHref(filters: {
   q?: string;
   status?: string;
   ownerId?: string;
+  country?: string;
+  province?: string;
   source?: string;
   city?: string;
+  district?: string;
+  constitutionYearMin?: number;
+  constitutionYearMax?: number;
+  employeeCountMin?: number;
+  employeeCountMax?: number;
+  importOperationCountMin?: number;
+  importOperationCountMax?: number;
+  exportOperationCountMin?: number;
+  exportOperationCountMax?: number;
   page: number;
 }) {
   const params = new URLSearchParams();
   if (filters.q) params.set('q', filters.q);
   if (filters.status) params.set('status', filters.status);
   if (filters.ownerId) params.set('ownerId', filters.ownerId);
+  if (filters.country) params.set('country', filters.country);
+  if (filters.province) params.set('province', filters.province);
   if (filters.source) params.set('source', filters.source);
   if (filters.city) params.set('city', filters.city);
+  if (filters.district) params.set('district', filters.district);
+  if (filters.constitutionYearMin !== undefined) {
+    params.set('constitutionYearMin', String(filters.constitutionYearMin));
+  }
+  if (filters.constitutionYearMax !== undefined) {
+    params.set('constitutionYearMax', String(filters.constitutionYearMax));
+  }
+  if (filters.employeeCountMin !== undefined) {
+    params.set('employeeCountMin', String(filters.employeeCountMin));
+  }
+  if (filters.employeeCountMax !== undefined) {
+    params.set('employeeCountMax', String(filters.employeeCountMax));
+  }
+  if (filters.importOperationCountMin !== undefined) {
+    params.set('importOperationCountMin', String(filters.importOperationCountMin));
+  }
+  if (filters.importOperationCountMax !== undefined) {
+    params.set('importOperationCountMax', String(filters.importOperationCountMax));
+  }
+  if (filters.exportOperationCountMin !== undefined) {
+    params.set('exportOperationCountMin', String(filters.exportOperationCountMin));
+  }
+  if (filters.exportOperationCountMax !== undefined) {
+    params.set('exportOperationCountMax', String(filters.exportOperationCountMax));
+  }
   params.set('page', String(filters.page));
   return `?${params.toString()}`;
 }
@@ -65,8 +112,19 @@ export default async function LeadsPage({
     q: firstParam(rawSearchParams.q),
     status: firstParam(rawSearchParams.status),
     ownerId: firstParam(rawSearchParams.ownerId),
+    country: firstParam(rawSearchParams.country),
+    province: firstParam(rawSearchParams.province),
     source: firstParam(rawSearchParams.source),
     city: firstParam(rawSearchParams.city),
+    district: firstParam(rawSearchParams.district),
+    constitutionYearMin: firstParam(rawSearchParams.constitutionYearMin),
+    constitutionYearMax: firstParam(rawSearchParams.constitutionYearMax),
+    employeeCountMin: firstParam(rawSearchParams.employeeCountMin),
+    employeeCountMax: firstParam(rawSearchParams.employeeCountMax),
+    importOperationCountMin: firstParam(rawSearchParams.importOperationCountMin),
+    importOperationCountMax: firstParam(rawSearchParams.importOperationCountMax),
+    exportOperationCountMin: firstParam(rawSearchParams.exportOperationCountMin),
+    exportOperationCountMax: firstParam(rawSearchParams.exportOperationCountMax),
     page: firstParam(rawSearchParams.page) ?? '1',
   });
 
@@ -99,8 +157,38 @@ export default async function LeadsPage({
       : filters.ownerId
         ? { ownerId: filters.ownerId }
         : {}),
+    ...(filters.country ? { country: filters.country } : {}),
+    ...(filters.province ? { province: filters.province } : {}),
     ...(filters.source ? { source: filters.source } : {}),
     ...(filters.city ? { city: filters.city } : {}),
+    ...(filters.district ? { district: filters.district } : {}),
+    ...(toNumericRange(filters.constitutionYearMin, filters.constitutionYearMax)
+      ? {
+          constitutionYear: toNumericRange(
+            filters.constitutionYearMin,
+            filters.constitutionYearMax,
+          ),
+        }
+      : {}),
+    ...(toNumericRange(filters.employeeCountMin, filters.employeeCountMax)
+      ? { employeeCount: toNumericRange(filters.employeeCountMin, filters.employeeCountMax) }
+      : {}),
+    ...(toNumericRange(filters.importOperationCountMin, filters.importOperationCountMax)
+      ? {
+          importOperationCount: toNumericRange(
+            filters.importOperationCountMin,
+            filters.importOperationCountMax,
+          ),
+        }
+      : {}),
+    ...(toNumericRange(filters.exportOperationCountMin, filters.exportOperationCountMax)
+      ? {
+          exportOperationCount: toNumericRange(
+            filters.exportOperationCountMin,
+            filters.exportOperationCountMax,
+          ),
+        }
+      : {}),
   };
 
   const q = filters.q?.trim();
@@ -122,98 +210,130 @@ export default async function LeadsPage({
   const currentPage = Math.min(filters.page, totalPages);
   const skip = (currentPage - 1) * pageSize;
 
-  const [rawLeads, activeOwners, sourceRows, cityRows, rawPendingReassignments] = await Promise.all(
-    [
-      db.lead.findMany({
-        where,
-        orderBy: { updatedAt: 'desc' },
-        skip,
-        take: pageSize,
-        select: {
-          id: true,
-          businessName: true,
-          ruc: true,
-          status: true,
-          city: true,
-          source: true,
-          country: true,
-          industry: true,
-          notes: true,
-          phones: true,
-          emails: true,
-          gerente: true,
-          contactName: true,
-          contactPhone: true,
-          contacts: {
-            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-            select: {
-              id: true,
-              name: true,
-              phones: true,
-              emails: true,
-              role: true,
-              notes: true,
-              isPrimary: true,
-              sortOrder: true,
-            },
-          },
-          ownerId: true,
-          updatedAt: true,
-          owner: { select: { id: true, name: true, email: true } },
-          reassignmentRequests: {
-            orderBy: { createdAt: 'desc' },
-            take: 3,
-            select: {
-              id: true,
-              status: true,
-              reason: true,
-              createdAt: true,
-              requestedBy: { select: { name: true, email: true } },
-              requestedOwner: { select: { name: true, email: true } },
-            },
+  const [
+    rawLeads,
+    activeOwners,
+    countryRows,
+    provinceRows,
+    sourceRows,
+    cityRows,
+    districtRows,
+    rawPendingReassignments,
+  ] = await Promise.all([
+    db.lead.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      skip,
+      take: pageSize,
+      select: {
+        id: true,
+        businessName: true,
+        ruc: true,
+        status: true,
+        country: true,
+        province: true,
+        city: true,
+        district: true,
+        address: true,
+        constitutionYear: true,
+        employeeCount: true,
+        importOperationCount: true,
+        exportOperationCount: true,
+        source: true,
+        industry: true,
+        notes: true,
+        phones: true,
+        emails: true,
+        gerente: true,
+        contactName: true,
+        contactPhone: true,
+        contacts: {
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            name: true,
+            phones: true,
+            emails: true,
+            role: true,
+            notes: true,
+            isPrimary: true,
+            sortOrder: true,
           },
         },
-      }),
-      db.membership.findMany({
-        where: { tenantId: tenant.id, isActive: true },
-        orderBy: { createdAt: 'asc' },
-        select: {
-          isActive: true,
-          role: true,
-          user: { select: { id: true, name: true, email: true } },
+        ownerId: true,
+        updatedAt: true,
+        owner: { select: { id: true, name: true, email: true } },
+        reassignmentRequests: {
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+          select: {
+            id: true,
+            status: true,
+            reason: true,
+            createdAt: true,
+            requestedBy: { select: { name: true, email: true } },
+            requestedOwner: { select: { name: true, email: true } },
+          },
         },
-      }),
-      db.lead.findMany({
-        where: { tenantId: tenant.id, deletedAt: null, source: { not: null } },
-        select: { source: true },
-        distinct: ['source'],
-        orderBy: { source: 'asc' },
-      }),
-      db.lead.findMany({
-        where: { tenantId: tenant.id, deletedAt: null, city: { not: null } },
-        select: { city: true },
-        distinct: ['city'],
-        orderBy: { city: 'asc' },
-      }),
-      canResolve
-        ? db.leadReassignmentRequest.findMany({
-            where: { tenantId: tenant.id, status: 'PENDING' },
-            orderBy: { createdAt: 'desc' },
-            take: 20,
-            select: {
-              id: true,
-              leadId: true,
-              reason: true,
-              createdAt: true,
-              requestedOwnerId: true,
-              lead: { select: { businessName: true } },
-              requestedBy: { select: { name: true, email: true } },
-              requestedOwner: { select: { name: true, email: true } },
-            },
-          })
-        : Promise.resolve([]),
-    ],
-  );
+      },
+    }),
+    db.membership.findMany({
+      where: { tenantId: tenant.id, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        isActive: true,
+        role: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    db.lead.findMany({
+      where: { tenantId: tenant.id, deletedAt: null, country: { not: null } },
+      select: { country: true },
+      distinct: ['country'],
+      orderBy: { country: 'asc' },
+    }),
+    db.lead.findMany({
+      where: { tenantId: tenant.id, deletedAt: null, province: { not: null } },
+      select: { province: true },
+      distinct: ['province'],
+      orderBy: { province: 'asc' },
+    }),
+    db.lead.findMany({
+      where: { tenantId: tenant.id, deletedAt: null, source: { not: null } },
+      select: { source: true },
+      distinct: ['source'],
+      orderBy: { source: 'asc' },
+    }),
+    db.lead.findMany({
+      where: { tenantId: tenant.id, deletedAt: null, city: { not: null } },
+      select: { city: true },
+      distinct: ['city'],
+      orderBy: { city: 'asc' },
+    }),
+    db.lead.findMany({
+      where: { tenantId: tenant.id, deletedAt: null, district: { not: null } },
+      select: { district: true },
+      distinct: ['district'],
+      orderBy: { district: 'asc' },
+    }),
+    canResolve
+      ? db.leadReassignmentRequest.findMany({
+          where: { tenantId: tenant.id, status: 'PENDING' },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            leadId: true,
+            reason: true,
+            createdAt: true,
+            requestedOwnerId: true,
+            lead: { select: { businessName: true } },
+            requestedBy: { select: { name: true, email: true } },
+            requestedOwner: { select: { name: true, email: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const owners = activeOwners.map(toLeadOwnerOption);
   const assignableOwners = getAssignableLeadOwnerOptions(activeOwners);
@@ -244,7 +364,34 @@ export default async function LeadsPage({
   const sources = sourceRows
     .map((row) => row.source)
     .filter((value): value is string => Boolean(value));
+  const countries = countryRows
+    .map((row) => row.country)
+    .filter((value): value is string => Boolean(value));
+  const provinces = provinceRows
+    .map((row) => row.province)
+    .filter((value): value is string => Boolean(value));
   const cities = cityRows.map((row) => row.city).filter((value): value is string => Boolean(value));
+  const districts = districtRows
+    .map((row) => row.district)
+    .filter((value): value is string => Boolean(value));
+  const filterState = {
+    q: filters.q,
+    status: filters.status,
+    ownerId: filters.ownerId,
+    country: filters.country,
+    province: filters.province,
+    source: filters.source,
+    city: filters.city,
+    district: filters.district,
+    constitutionYearMin: filters.constitutionYearMin,
+    constitutionYearMax: filters.constitutionYearMax,
+    employeeCountMin: filters.employeeCountMin,
+    employeeCountMax: filters.employeeCountMax,
+    importOperationCountMin: filters.importOperationCountMin,
+    importOperationCountMax: filters.importOperationCountMax,
+    exportOperationCountMin: filters.exportOperationCountMin,
+    exportOperationCountMax: filters.exportOperationCountMax,
+  };
 
   return (
     <div className="min-w-0 space-y-6">
@@ -276,12 +423,26 @@ export default async function LeadsPage({
           q: filters.q,
           status: filters.status,
           ownerId: filters.ownerId,
+          country: filters.country,
+          province: filters.province,
           source: filters.source,
           city: filters.city,
+          district: filters.district,
+          constitutionYearMin: filters.constitutionYearMin,
+          constitutionYearMax: filters.constitutionYearMax,
+          employeeCountMin: filters.employeeCountMin,
+          employeeCountMax: filters.employeeCountMax,
+          importOperationCountMin: filters.importOperationCountMin,
+          importOperationCountMax: filters.importOperationCountMax,
+          exportOperationCountMin: filters.exportOperationCountMin,
+          exportOperationCountMax: filters.exportOperationCountMax,
         }}
         owners={owners}
+        countries={countries}
+        provinces={provinces}
         sources={sources}
         cities={cities}
+        districts={districts}
       />
 
       {!assignmentsEnabled && (
@@ -308,14 +469,7 @@ export default async function LeadsPage({
             <PaginationItem>
               {currentPage > 1 ? (
                 <PaginationPrevious
-                  href={toFilterHref({
-                    q: filters.q,
-                    status: filters.status,
-                    ownerId: filters.ownerId,
-                    source: filters.source,
-                    city: filters.city,
-                    page: currentPage - 1,
-                  })}
+                  href={toFilterHref({ ...filterState, page: currentPage - 1 })}
                 />
               ) : (
                 <PaginationPrevious href="#" className="pointer-events-none opacity-50" />
@@ -328,16 +482,7 @@ export default async function LeadsPage({
             </PaginationItem>
             <PaginationItem>
               {currentPage < totalPages ? (
-                <PaginationNext
-                  href={toFilterHref({
-                    q: filters.q,
-                    status: filters.status,
-                    ownerId: filters.ownerId,
-                    source: filters.source,
-                    city: filters.city,
-                    page: currentPage + 1,
-                  })}
-                />
+                <PaginationNext href={toFilterHref({ ...filterState, page: currentPage + 1 })} />
               ) : (
                 <PaginationNext href="#" className="pointer-events-none opacity-50" />
               )}

@@ -85,9 +85,16 @@ type LeadRow = {
   businessName: string;
   ruc: string | null;
   status: LeadStatus;
-  city: string | null;
-  source: string | null;
   country: string | null;
+  province: string | null;
+  city: string | null;
+  district: string | null;
+  address: string | null;
+  constitutionYear: number | null;
+  employeeCount: number | null;
+  importOperationCount: number | null;
+  exportOperationCount: number | null;
+  source: string | null;
   industry: string | null;
   notes: string | null;
   phones: string[];
@@ -322,7 +329,7 @@ export function LeadTable({
               <TableHead>Prospecto</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Responsable</TableHead>
-              <TableHead>Fuente / Ciudad</TableHead>
+              <TableHead>Fuente / Ubicación</TableHead>
               <TableHead>Actualizado</TableHead>
               <TableHead>Solicitudes</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -374,7 +381,11 @@ export function LeadTable({
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     <p>{lead.source || '-'}</p>
-                    <p>{lead.city || lead.country || '-'}</p>
+                    <p>
+                      {[lead.district, lead.city, lead.province, lead.country]
+                        .filter(Boolean)
+                        .join(', ') || '-'}
+                    </p>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDateTime(lead.updatedAt, tenant.timezone)}

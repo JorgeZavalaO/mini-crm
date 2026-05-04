@@ -19,12 +19,21 @@ describe('import utils', () => {
 
   it('acepta alias de columnas y construye records', () => {
     const records = parseImportCsvRecords(
-      'razon_social,ruc,telefonos,correos,estado,persona_contacto,telefono_contacto,correo_contacto\nAcme,20123456789,+51 999 111 222,ventas@acme.com,Contactado,Laura Peña,+51 944 100 200,laura@acme.com',
+      'razon_social,ruc,pais,provincia,ciudad,distrito,direccion,anoconstitucion,cantidadtrabajadores,cantidadimportacion,cantidadexportacion,telefonos,correos,estado,persona_contacto,telefono_contacto,correo_contacto\nAcme,20123456789,Peru,Lima,Lima,Miraflores,Av. Larco 123,2014,120,36,12,+51 999 111 222,ventas@acme.com,Contactado,Laura Peña,+51 944 100 200,laura@acme.com',
     );
 
     expect(records[0]).toMatchObject({
       businessName: 'Acme',
       ruc: '20123456789',
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      address: 'Av. Larco 123',
+      constitutionYear: '2014',
+      employeeCount: '120',
+      importOperationCount: '36',
+      exportOperationCount: '12',
       phones: '+51 999 111 222',
       emails: 'ventas@acme.com',
       status: 'Contactado',
@@ -48,7 +57,14 @@ describe('import utils', () => {
       businessName: 'Acme Logistics',
       ruc: '20123456789',
       country: undefined,
+      province: undefined,
       city: undefined,
+      district: undefined,
+      address: undefined,
+      constitutionYear: undefined,
+      employeeCount: undefined,
+      importOperationCount: undefined,
+      exportOperationCount: undefined,
       industry: undefined,
       source: undefined,
       gerente: undefined,
@@ -61,6 +77,34 @@ describe('import utils', () => {
       hasContactColumns: false,
       status: LeadStatus.WON,
       ownerEmail: 'admin@acme.com',
+    });
+  });
+
+  it('mapea dirección expandida y métricas nuevas desde CSV', () => {
+    const row = mapCsvRecordToImportRow({
+      ruc: '20123456789',
+      businessName: 'Acme Logistics',
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      address: 'Av. Larco 123',
+      constitutionYear: '2014',
+      employeeCount: '120',
+      importOperationCount: '36',
+      exportOperationCount: '12',
+    });
+
+    expect(row).toMatchObject({
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      address: 'Av. Larco 123',
+      constitutionYear: '2014',
+      employeeCount: '120',
+      importOperationCount: '36',
+      exportOperationCount: '12',
     });
   });
 

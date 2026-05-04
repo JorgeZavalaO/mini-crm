@@ -23,6 +23,38 @@ describe('lead validators', () => {
     });
   });
 
+  it('parsea filtros avanzados de ubicación y métricas', () => {
+    const result = leadFiltersSchema.parse({
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      constitutionYearMin: '2008',
+      constitutionYearMax: '2020',
+      employeeCountMin: '10',
+      employeeCountMax: '250',
+      importOperationCountMin: '1',
+      importOperationCountMax: '50',
+      exportOperationCountMin: '0',
+      exportOperationCountMax: '12',
+    });
+
+    expect(result).toMatchObject({
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      constitutionYearMin: 2008,
+      constitutionYearMax: 2020,
+      employeeCountMin: 10,
+      employeeCountMax: 250,
+      importOperationCountMin: 1,
+      importOperationCountMax: 50,
+      exportOperationCountMin: 0,
+      exportOperationCountMax: 12,
+    });
+  });
+
   it('valida payload mínimo de creación de lead sin owner', () => {
     const result = createLeadSchema.parse({
       tenantSlug: 'acme-logistics',
@@ -35,6 +67,34 @@ describe('lead validators', () => {
 
     expect(result.ownerId).toBeNull();
     expect(result.businessName).toBe('Acme Logistics SAC');
+  });
+
+  it('parsea dirección expandida y métricas numéricas del lead', () => {
+    const result = createLeadSchema.parse({
+      tenantSlug: 'acme-logistics',
+      businessName: 'Acme Logistics SAC',
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      address: 'Av. Larco 123',
+      constitutionYear: '2014',
+      employeeCount: '120',
+      importOperationCount: '36',
+      exportOperationCount: '12',
+    });
+
+    expect(result).toMatchObject({
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      address: 'Av. Larco 123',
+      constitutionYear: 2014,
+      employeeCount: 120,
+      importOperationCount: 36,
+      exportOperationCount: 12,
+    });
   });
 
   it('valida contactos multiples con telefonos y correos propios', () => {
@@ -110,6 +170,13 @@ describe('lead validators', () => {
     const result = importLeadRowSchema.parse({
       ruc: '20123456789',
       businessName: 'Acme Logistics',
+      province: 'Lima',
+      district: 'Miraflores',
+      address: 'Av. Larco 123',
+      constitutionYear: '2014',
+      employeeCount: '120',
+      importOperationCount: '36',
+      exportOperationCount: '12',
       phones: ['+51 999 111 222'],
       emails: ['ventas@acme.com'],
       contacts: [
@@ -127,6 +194,8 @@ describe('lead validators', () => {
     expect(result.ownerEmail).toBe('admin@acme.com');
     expect(result.status).toBe(LeadStatus.CONTACTED);
     expect(result.contacts).toHaveLength(1);
+    expect(result.constitutionYear).toBe(2014);
+    expect(result.employeeCount).toBe(120);
   });
 
   it('valida merges de duplicados', () => {

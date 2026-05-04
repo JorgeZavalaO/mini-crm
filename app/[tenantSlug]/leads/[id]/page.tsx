@@ -250,7 +250,14 @@ export default async function LeadDetailPage({
         ruc: true,
         status: true,
         country: true,
+        province: true,
         city: true,
+        district: true,
+        address: true,
+        constitutionYear: true,
+        employeeCount: true,
+        importOperationCount: true,
+        exportOperationCount: true,
         industry: true,
         source: true,
         notes: true,
@@ -435,7 +442,7 @@ export default async function LeadDetailPage({
   }));
 
   const ownerLabel = lead.owner?.name || lead.owner?.email;
-  const locationParts = [lead.city, lead.country].filter(Boolean);
+  const locationParts = [lead.district, lead.city, lead.province, lead.country].filter(Boolean);
   const leadContacts =
     lead.contacts.length > 0
       ? lead.contacts
@@ -593,12 +600,73 @@ export default async function LeadDetailPage({
                         </div>
                       </div>
                       <div className="flex items-start gap-3 px-6 py-3.5">
+                        <Globe className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">País</p>
+                          <p className="font-medium">{lead.country || 'No registrado'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
                         <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                         <div>
-                          <p className="text-xs text-muted-foreground">Ubicación</p>
+                          <p className="text-xs text-muted-foreground">Provincia / Región</p>
+                          <p className="font-medium">{lead.province || 'No registrada'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Ciudad</p>
+                          <p className="font-medium">{lead.city || 'No registrada'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Distrito</p>
+                          <p className="font-medium">{lead.district || 'No registrado'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Dirección</p>
+                          <p className="font-medium">{lead.address || 'No registrada'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
+                        <Hash className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Año de constitución</p>
                           <p className="font-medium">
-                            {[lead.city, lead.country].filter(Boolean).join(', ') ||
-                              'No registrada'}
+                            {lead.constitutionYear?.toString() || 'No registrado'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
+                        <UserIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Cantidad de trabajadores</p>
+                          <p className="font-medium">
+                            {lead.employeeCount?.toString() || 'No registrada'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
+                        <ClipboardList className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Cantidad de importación</p>
+                          <p className="font-medium">
+                            {lead.importOperationCount?.toString() || 'No registrada'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 px-6 py-3.5">
+                        <ClipboardList className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Cantidad de exportación</p>
+                          <p className="font-medium">
+                            {lead.exportOperationCount?.toString() || 'No registrada'}
                           </p>
                         </div>
                       </div>

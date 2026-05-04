@@ -152,6 +152,37 @@ describe('createLeadAction', () => {
     expect(revalidatePathMock).toHaveBeenCalledWith(`/${TENANT_SLUG}/leads`);
   });
 
+  it('persiste dirección expandida y métricas al crear un lead', async () => {
+    await createLeadAction({
+      ...VALID_CREATE_INPUT,
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'Miraflores',
+      address: 'Av. Larco 123',
+      constitutionYear: 2014,
+      employeeCount: 120,
+      importOperationCount: 36,
+      exportOperationCount: 12,
+    });
+
+    expect(dbMock.lead.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          country: 'Peru',
+          province: 'Lima',
+          city: 'Lima',
+          district: 'Miraflores',
+          address: 'Av. Larco 123',
+          constitutionYear: 2014,
+          employeeCount: 120,
+          importOperationCount: 36,
+          exportOperationCount: 12,
+        }),
+      }),
+    );
+  });
+
   it('crea contactos estructurados y sincroniza campos legacy al crear', async () => {
     await createLeadAction({
       ...VALID_CREATE_INPUT,
@@ -294,6 +325,37 @@ describe('updateLeadAction', () => {
 
     expect(result).toEqual({ success: true });
     expect(dbMock.lead.update).toHaveBeenCalled();
+  });
+
+  it('actualiza dirección expandida y métricas del lead', async () => {
+    await updateLeadAction({
+      ...VALID_UPDATE_INPUT,
+      country: 'Peru',
+      province: 'Lima',
+      city: 'Lima',
+      district: 'San Isidro',
+      address: 'Av. Camino Real 456',
+      constitutionYear: 2010,
+      employeeCount: 80,
+      importOperationCount: 24,
+      exportOperationCount: 6,
+    });
+
+    expect(dbMock.lead.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          country: 'Peru',
+          province: 'Lima',
+          city: 'Lima',
+          district: 'San Isidro',
+          address: 'Av. Camino Real 456',
+          constitutionYear: 2010,
+          employeeCount: 80,
+          importOperationCount: 24,
+          exportOperationCount: 6,
+        }),
+      }),
+    );
   });
 
   it('permite editar un lead ajeno cuando el tenant trabaja en modo colaborativo', async () => {
