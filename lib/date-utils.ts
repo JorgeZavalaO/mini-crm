@@ -7,6 +7,10 @@
 export const DEFAULT_TIMEZONE = 'America/Lima';
 const LOCALE = 'es-PE';
 
+function normalizeFormattedDate(value: string): string {
+  return value.replace(/[\u00a0\u202f]/g, ' ');
+}
+
 /**
  * Format a date as a full datetime string (date + time) in the given timezone.
  * Example: "10 abr 2026, 10:35"
@@ -18,14 +22,16 @@ export function formatDateTime(
   if (!date) return '—';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString(LOCALE, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: timezone,
-  });
+  return normalizeFormattedDate(
+    d.toLocaleString(LOCALE, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: timezone,
+    }),
+  );
 }
 
 /**
@@ -40,13 +46,15 @@ export function formatDate(
   if (!date) return '—';
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(LOCALE, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    ...opts,
-    timeZone: timezone,
-  });
+  return normalizeFormattedDate(
+    d.toLocaleDateString(LOCALE, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      ...opts,
+      timeZone: timezone,
+    }),
+  );
 }
 
 /**

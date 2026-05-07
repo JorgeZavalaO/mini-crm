@@ -413,6 +413,7 @@ model Interaction {
 
   @@index([leadId])
   @@index([tenantId, leadId])
+  @@index([tenantId, leadId, occurredAt])
 }
 
 // ─── Documents ──────────────────────────────────────────

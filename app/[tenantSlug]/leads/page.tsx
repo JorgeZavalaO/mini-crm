@@ -138,14 +138,18 @@ export default async function LeadsPage({
     restrictLeadEditingToOwner: tenant.restrictLeadEditingToOwner,
   };
 
-  const [assignmentsEnabled, importEnabled, dedupeEnabled] = await Promise.all([
-    isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
-    isTenantFeatureEnabled(tenant.id, 'IMPORT'),
-    isTenantFeatureEnabled(tenant.id, 'DEDUPE'),
-  ]);
+  const [assignmentsEnabled, importEnabled, interactionsEnabled, dedupeEnabled] = await Promise.all(
+    [
+      isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
+      isTenantFeatureEnabled(tenant.id, 'IMPORT'),
+      isTenantFeatureEnabled(tenant.id, 'INTERACTIONS'),
+      isTenantFeatureEnabled(tenant.id, 'DEDUPE'),
+    ],
+  );
   const canAssign = assignmentsEnabled && canAssignLeads(actor);
   const canResolve = assignmentsEnabled && canResolveReassignment(actor);
   const canImport = importEnabled && canImportLeads(actor);
+  const canImportInteractions = canImport && interactionsEnabled;
   const canManageDuplicates = dedupeEnabled && canManageDuplicateLeads(actor);
 
   const where: Prisma.LeadWhereInput = {
@@ -408,6 +412,11 @@ export default async function LeadsPage({
           {canImport && (
             <Button variant="outline" asChild>
               <Link href={`/${tenantSlug}/leads/import`}>Importar leads</Link>
+            </Button>
+          )}
+          {canImportInteractions && (
+            <Button variant="outline" asChild>
+              <Link href={`/${tenantSlug}/leads/interactions/import`}>Importar interacciones</Link>
             </Button>
           )}
           {canManageDuplicates && (

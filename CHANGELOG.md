@@ -2,6 +2,47 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.4.4 · 2026-05-07] Post Sprint 13.3 — Importación masiva de interacciones y mejoras UX
+
+### Added
+
+- **Importación masiva de interacciones**:
+  - Nueva ruta `/{tenantSlug}/leads/interactions/import`.
+  - Carga desde `.xlsx`, `.xls` y `.csv`, con plantilla descargable, análisis previo, confirmación y resultados por fila.
+  - Columnas soportadas: `ruc`, `authorEmail`, `type`, `occurredAt`, `subject` y `notes`; `subject` es opcional.
+  - Aliases en español para columnas comunes (`fecha`, `fechaInteraccion`, `tipo`, `asunto`, `notas`, `correoAutor`).
+  - Tipos soportados: `CALL`, `EMAIL`, `NOTE`, `VISIT`, `WHATSAPP`, con aliases en español; tipos no contemplados no vacíos se guardan como `NOTE`.
+  - Resolución de leads activos por RUC normalizado dentro del tenant y validación de autor por `authorEmail` con membresía activa.
+  - `occurredAt` se interpreta en la zona horaria del tenant, permite fechas anteriores y guarda fechas sin hora a las 00:00 local.
+  - La importación inserta interacciones sin modificar `status`, `ownerId` ni `LeadOwnerHistory`.
+  - Nuevo índice Prisma `Interaction(tenantId, leadId, occurredAt)` para mejorar consultas por lead y fecha.
+
+- **Cobertura de pruebas para importación de interacciones**:
+  - Parser con aliases de columnas, tipos en inglés/español, fechas históricas, fechas sin hora, fechas inválidas y notas obligatorias.
+  - Acciones con validaciones de features, permisos, RUC inexistente o ambiguo, autor inválido/inactivo y creación correcta.
+  - Casos explícitos para asegurar que no se cambia owner, estado ni historial del lead.
+
+### Changed
+
+- **Filtros de leads rediseñados**:
+  - Panel compacto con buscador principal, contador de filtros activos, chips de criterios aplicados y filtros avanzados colapsables.
+  - Acciones de limpiar/aplicar ajustadas para mobile y layouts estrechos.
+
+- **UX de importación de interacciones mejorada**:
+  - Stepper visual para las etapas subir, analizar, confirmar y listo.
+  - Área de carga y mensajes de estado más claros.
+  - Tabla de resultados por fila con layout estable para revisar errores, omitidos y creados.
+
+- **Fechas en UI**:
+  - Normalización de espacios no separables en helpers de formato de fecha para evitar desajustes de hidratación entre servidor y cliente.
+
+### Tests
+
+- `pnpm exec tsc --noEmit` ✅ sin errores.
+- `pnpm lint` ✅ sin errores nuevos; se mantienen 2 warnings preexistentes en `app/[tenantSlug]/dashboard/page.tsx`.
+- `pnpm test` ✅ **464 / 464** tests pasando.
+- Smoke test manual con navegador en desktop/mobile para `/{tenantSlug}/leads` y `/{tenantSlug}/leads/interactions/import`, sin errores de consola.
+
 ## [v1.4.3 · 2026-04-10] Post Sprint 13.2 — Exportación de leads y mejoras del dashboard
 
 ### Added

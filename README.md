@@ -9,8 +9,10 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - Autenticación por credenciales y acceso `SuperAdmin`.
 - Multi-tenancy por `tenantSlug`.
 - RBAC por tenant (`ADMIN`, `SUPERVISOR`, `VENDEDOR`, `FREELANCE`, `PASANTE`).
-- CRUD de leads con filtros, asignación y reasignación.
+- CRUD de leads con filtros rediseñados, asignación y reasignación.
 - Importación masiva de leads por archivo Excel (`.xlsx/.xls`) o CSV, con análisis previo y confirmación en 2 pasos.
+- Importación masiva de interacciones por archivo Excel (`.xlsx/.xls`) o CSV, con plantilla descargable, análisis previo, confirmación en 2 pasos y resultado por fila.
+- Interacciones históricas para leads (`CALL`, `EMAIL`, `NOTE`, `VISIT`, `WHATSAPP`) con `occurredAt`, asociación por RUC, autor por `authorEmail` y soporte para fechas anteriores sin modificar estado ni responsable del lead.
 - Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
 - Módulo de documentos operativo: carga, listado y eliminación con almacenamiento privado en Vercel Blob y descarga autenticada vía `GET /api/documents/[id]`.
 - Módulo de cotizaciones operativo: CRUD de cotizaciones con ítems, cálculo de subtotal/impuesto/total, estados (`BORRADOR`, `ENVIADA`, `ACEPTADA`, `RECHAZADA`) y soporte de moneda (`PEN`/`USD`).
@@ -36,6 +38,8 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
   - **CSV (.csv)**: con BOM UTF-8 para compatibilidad con Excel en Windows/español.
   - **Excel (.xlsx)**: construido dinámicamente con librería `xlsx`, 16 campos en español (Empresa, RUC, Estado, País, Ciudad, Industria, Fuente, Gerente, Nombre Contacto, Teléfono Contacto, Teléfonos, Emails, Notas, Responsable, Email Responsable, Fecha Creación).
   - Visibilidad endurecida: managers (`SUPERVISOR+`, `SuperAdmin`) exportan todos los leads; resto exporta solo los suyos (mismo control que la lista).
+- **UX de filtros de leads mejorada**: panel compacto con búsqueda principal, contador y chips de filtros activos, filtros avanzados colapsables y acciones optimizadas para mobile.
+- **UX de importación de interacciones**: flujo visual por pasos (subir, analizar, confirmar y listo), área de carga más clara, mensajes contextuales y tabla de resultados estable para auditoría de filas.
 - **Hardening de seguridad transversal (Sprint 12)**:
   - Aislamiento de tenant endurecido en acciones de leads y cotizaciones: `tenantId` validado en todas las mutaciones.
   - Hashing de contraseñas con validación de longitud y comparaciones timing-safe (`lib/password.ts`).
@@ -84,6 +88,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 11.2   | Hardening de navegación y límites Server/Client                   | ✅ Completado |
 | 12     | Hardening de seguridad, modelo Lead enriquecido y visualizaciones | ✅ Completado |
 | 13     | Módulo de empresa, KPI cotizaciones y combobox de catálogo        | ✅ Completado |
+| 13.3   | Importación masiva de interacciones y mejoras UX de leads         | ✅ Completado |
 
 ## Stack
 
@@ -203,6 +208,7 @@ pnpm dev
 - `app/[tenantSlug]/leads`
 - `app/[tenantSlug]/leads/[id]`
 - `app/[tenantSlug]/leads/import`
+- `app/[tenantSlug]/leads/interactions/import`
 - `app/[tenantSlug]/leads/dedupe`
 - `app/[tenantSlug]/notifications`
 - `app/[tenantSlug]/team`
@@ -231,6 +237,18 @@ pnpm dev
 - `app/(superadmin)/superadmin/tenants`
 
 ## Últimos avances documentados
+
+### Post Sprint 13.3
+
+- Nueva ruta `leads/interactions/import` para cargar interacciones masivas desde Excel o CSV.
+- Plantilla descargable y preflight con análisis previo antes de confirmar la creación.
+- Asociación por RUC normalizado dentro del tenant y autor obligatorio por `authorEmail` con membresía activa.
+- Tipos soportados: llamadas, correos, notas, visitas y WhatsApp, con aliases en español.
+- `occurredAt` acepta fechas históricas; una fecha sin hora se guarda a las 00:00 en la zona horaria del tenant.
+- La importación crea interacciones sin actualizar estado, responsable ni historial de propietarios del lead.
+- Índice Prisma `Interaction(tenantId, leadId, occurredAt)` para acelerar consultas por lead y fecha.
+- Filtros de leads rediseñados con buscador principal, filtros avanzados colapsables, chips de criterios activos y mejor comportamiento mobile.
+- Pantalla de importación de interacciones rediseñada con stepper, estados más claros y tabla de resultados por fila.
 
 ### Sprint 2.1
 

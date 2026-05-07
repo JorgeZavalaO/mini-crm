@@ -192,6 +192,11 @@ export const importCsvSchema = z.object({
   mode: importModeSchema.default('CREATE'),
 });
 
+export const importInteractionsCsvSchema = z.object({
+  tenantSlug: z.string().min(1),
+  csvText: z.string().trim().min(1, 'Carga un CSV con encabezados').max(250_000),
+});
+
 export const importLeadRowSchema = z.object({
   businessName: optionalText(200),
   ruc: z.string().trim().min(1, 'El RUC/código es requerido').max(40),
@@ -226,6 +231,22 @@ export const importLeadRowSchema = z.object({
 
 export const importLeadUpdateRowSchema = importLeadRowSchema.extend({
   status: z.nativeEnum(LeadStatus).optional(),
+});
+
+export const importInteractionRowSchema = z.object({
+  ruc: z.string().trim().min(1, 'El RUC/codigo es requerido').max(40),
+  authorEmail: z
+    .string()
+    .trim()
+    .email('Author email invalido')
+    .max(200)
+    .transform((value) => value.toLowerCase()),
+  type: z.nativeEnum(InteractionType),
+  subject: optionalText(200),
+  notes: z.string().trim().min(1, 'Las notas son requeridas').max(5000),
+  occurredAt: z
+    .date()
+    .refine((value) => !Number.isNaN(value.getTime()), 'Fecha de interaccion invalida'),
 });
 
 export const mergeDuplicateLeadsSchema = z.object({
