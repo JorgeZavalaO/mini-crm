@@ -1,5 +1,6 @@
 import {
   CurrencyCode,
+  FeatureKey,
   InteractionType,
   LeadStatus,
   QuoteStatus,
@@ -102,7 +103,7 @@ export const TENANT_REPORT_STATES = ['all', 'active', 'inactive', 'deleted'] as 
 export const reportPresetSchema = z.enum(REPORT_PRESETS);
 export const tenantStateSchema = z.enum(TENANT_REPORT_STATES);
 
-const featureKeySchema = z.enum(FEATURE_KEYS as [string, ...string[]]);
+const featureKeySchema = z.nativeEnum(FeatureKey);
 
 const baseReportFiltersSchema = z.object({
   preset: reportPresetSchema.default('30d'),
