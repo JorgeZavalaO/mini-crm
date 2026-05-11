@@ -10,6 +10,8 @@ import {
   leadFiltersSchema,
   mergeDuplicateLeadsSchema,
   resolveReassignSchema,
+  superadminReportFiltersSchema,
+  tenantReportFiltersSchema,
 } from '@/lib/validators';
 
 describe('lead validators', () => {
@@ -238,5 +240,52 @@ describe('lead validators', () => {
         confirmPassword: 'otra123',
       }),
     ).toThrow();
+  });
+
+  it('normaliza filtros de reportes tenant con rango por defecto', () => {
+    const result = tenantReportFiltersSchema.parse({
+      tenantSlug: 'acme-logistics',
+      preset: '30d',
+      scope: 'all',
+      ownerId: 'owner-1',
+      status: 'CONTACTED',
+      city: 'Lima',
+    });
+
+    expect(result).toMatchObject({
+      tenantSlug: 'acme-logistics',
+      preset: '30d',
+      scope: 'all',
+      ownerId: 'owner-1',
+      status: LeadStatus.CONTACTED,
+      city: 'Lima',
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
+  it('exige fechas en preset custom para reportes tenant', () => {
+    expect(() =>
+      tenantReportFiltersSchema.parse({
+        tenantSlug: 'acme-logistics',
+        preset: 'custom',
+      }),
+    ).toThrow();
+  });
+
+  it('parsea filtros de reportes superadmin con feature y fechas', () => {
+    const result = superadminReportFiltersSchema.parse({
+      preset: 'custom',
+      from: '2026-05-01',
+      to: '2026-05-11',
+      tenantState: 'active',
+      featureKey: 'REPORTS',
+    });
+
+    expect(result.preset).toBe('custom');
+    expect(result.tenantState).toBe('active');
+    expect(result.featureKey).toBe('REPORTS');
+    expect(result.from).toBeInstanceOf(Date);
+    expect(result.to).toBeInstanceOf(Date);
   });
 });

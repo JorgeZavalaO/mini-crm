@@ -50,6 +50,13 @@ describe('feature catalog - sprint 4 bundles', () => {
     expect(PLAN_FEATURE_BUNDLES.SCALE.INTERACTIONS?.enabled).toBe(true);
   });
 
+  it('habilita REPORTS en Growth y Scale, pero no en Starter', () => {
+    expect(SUPPORTED_FEATURE_KEYS).toContain('REPORTS');
+    expect(PLAN_FEATURE_BUNDLES.STARTER.REPORTS?.enabled ?? false).toBe(false);
+    expect(PLAN_FEATURE_BUNDLES.GROWTH.REPORTS?.enabled).toBe(true);
+    expect(PLAN_FEATURE_BUNDLES.SCALE.REPORTS?.enabled).toBe(true);
+  });
+
   it('mantiene las features futuras deshabilitadas en todos los bundles', () => {
     for (const featureKey of COMING_SOON_FEATURE_KEYS) {
       expect(PLAN_FEATURE_BUNDLES.STARTER[featureKey]?.enabled ?? false).toBe(false);

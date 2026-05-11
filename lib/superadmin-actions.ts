@@ -44,10 +44,12 @@ function parseEnabledFeatures(formData: FormData): FeatureKey[] {
 async function revalidateTenantViews(tenantId: string) {
   const tenant = await db.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } });
   revalidatePath('/superadmin');
+  revalidatePath('/superadmin/reports');
   revalidatePath(`/superadmin/tenants/${tenantId}`);
 
   if (!tenant) return;
   revalidatePath(`/${tenant.slug}/dashboard`);
+  revalidatePath(`/${tenant.slug}/reports`);
   revalidatePath(`/${tenant.slug}/leads`);
   revalidatePath(`/${tenant.slug}/documents`);
   revalidatePath(`/${tenant.slug}/team`);
@@ -102,6 +104,7 @@ export async function createPlanAction(
   });
 
   revalidatePath('/superadmin/plans');
+  revalidatePath('/superadmin/reports');
   return { success: 'Plan creado' };
 }
 
@@ -152,6 +155,7 @@ export async function updatePlanAction(
   });
 
   revalidatePath('/superadmin/plans');
+  revalidatePath('/superadmin/reports');
   return { success: 'Plan actualizado' };
 }
 
@@ -166,6 +170,7 @@ export async function togglePlanAction(planId: string) {
   });
 
   revalidatePath('/superadmin/plans');
+  revalidatePath('/superadmin/reports');
   return { success: true, isActive: updated.isActive };
 }
 
@@ -261,6 +266,7 @@ export async function createTenantAction(
   }
 
   revalidatePath('/superadmin');
+  revalidatePath('/superadmin/reports');
   return { success: 'Empresa creada correctamente' };
 }
 

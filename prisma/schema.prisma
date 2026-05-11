@@ -45,6 +45,7 @@ enum FeatureKey {
   QUOTING_BASIC
   CLIENT_PORTAL
   NOTIFICATIONS
+  REPORTS
 }
 
 enum InteractionType {

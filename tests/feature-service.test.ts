@@ -137,7 +137,7 @@ describe('materializeTenantFeaturesFromPlan', () => {
     await materializeTenantFeaturesFromPlan(TENANT_ID, PLAN_ID, true);
 
     // $transaction recibe el array de upserts generados por FEATURE_KEYS.map(...)
-    // Verificamos que upsert fue llamado por cada key (11 features)
-    expect(dbMock.tenantFeature.upsert).toHaveBeenCalledTimes(11);
+    // Verificamos que upsert fue llamado por cada key (12 features)
+    expect(dbMock.tenantFeature.upsert).toHaveBeenCalledTimes(12);
   });
 });

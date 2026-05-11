@@ -10,7 +10,6 @@ import {
   GitMerge,
   Inbox,
   Phone,
-  Shuffle,
   TrendingUp,
   UserCheck,
   Users,
@@ -61,8 +60,7 @@ export default async function DashboardPage({
 }) {
   const { tenantSlug } = await params;
   const { tenant, membership, session } = await requireTenantFeature(tenantSlug, 'DASHBOARD');
-  const [assignmentsEnabled, importEnabled, dedupeEnabled] = await Promise.all([
-    isTenantFeatureEnabled(tenant.id, 'ASSIGNMENTS'),
+  const [importEnabled, dedupeEnabled] = await Promise.all([
     isTenantFeatureEnabled(tenant.id, 'IMPORT'),
     isTenantFeatureEnabled(tenant.id, 'DEDUPE'),
   ]);
@@ -77,7 +75,6 @@ export default async function DashboardPage({
     leads,
     members,
     unassignedLeads,
-    pendingReassignments,
     statusRows,
     recentLeads,
     myLeads,
@@ -94,11 +91,6 @@ export default async function DashboardPage({
       : Promise.resolve(0),
     isManager
       ? db.lead.count({ where: { tenantId: tenant.id, deletedAt: null, ownerId: null } })
-      : Promise.resolve(0),
-    assignmentsEnabled && isManager
-      ? db.leadReassignmentRequest.count({
-          where: { tenantId: tenant.id, status: 'PENDING' },
-        })
       : Promise.resolve(0),
     isManager
       ? db.lead.groupBy({

@@ -12,6 +12,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import {
+  BarChart3,
   Bell,
   Building2,
   ClipboardList,
@@ -55,6 +56,9 @@ export function TenantSidebar({
   const navItems = [
     ...(enabledFeatures.DASHBOARD
       ? [{ href: `/${tenantSlug}/dashboard`, label: 'Tablero', icon: LayoutDashboard }]
+      : []),
+    ...(enabledFeatures.REPORTS
+      ? [{ href: `/${tenantSlug}/reports`, label: 'Reportes', icon: BarChart3 }]
       : []),
     ...(enabledFeatures.CRM_LEADS
       ? [{ href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target }]

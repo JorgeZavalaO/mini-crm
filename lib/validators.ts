@@ -8,6 +8,7 @@ import {
   TaskStatus,
 } from '@prisma/client';
 import { z } from 'zod';
+import { FEATURE_KEYS } from '@/lib/feature-catalog';
 import { ROLES } from '@/lib/rbac';
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -70,6 +71,67 @@ const optionalMetricCount = (label: string) =>
     integerMessage: `${label} debe ser un número entero`,
     rangeMessage: `${label} debe ser mayor o igual a 0`,
   });
+
+const optionalDateParam = z.preprocess(
+  (value) => {
+    if (value === '' || value === null || value === undefined) {
+      return undefined;
+    }
+
+    if (value instanceof Date) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length === 0) return undefined;
+      return new Date(`${trimmed}T00:00:00`);
+    }
+
+    return value;
+  },
+  z
+    .date()
+    .refine((value) => !Number.isNaN(value.getTime()), 'Fecha inválida')
+    .optional(),
+);
+
+export const REPORT_PRESETS = ['7d', '30d', '90d', 'month', 'quarter', 'year', 'custom'] as const;
+export const TENANT_REPORT_STATES = ['all', 'active', 'inactive', 'deleted'] as const;
+
+export const reportPresetSchema = z.enum(REPORT_PRESETS);
+export const tenantStateSchema = z.enum(TENANT_REPORT_STATES);
+
+const featureKeySchema = z.enum(FEATURE_KEYS as [string, ...string[]]);
+
+const baseReportFiltersSchema = z.object({
+  preset: reportPresetSchema.default('30d'),
+  from: optionalDateParam,
+  to: optionalDateParam,
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+function validateReportDateRange(
+  value: { preset: (typeof REPORT_PRESETS)[number]; from?: Date; to?: Date },
+  ctx: z.RefinementCtx,
+) {
+  if (value.preset === 'custom' && (!value.from || !value.to)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Para el rango personalizado debes indicar fecha inicial y final',
+      path: ['from'],
+    });
+  }
+
+  if (value.from && value.to && value.from > value.to) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'La fecha inicial no puede ser mayor que la fecha final',
+      path: ['from'],
+    });
+  }
+}
 
 export const emailSchema = z.string().email();
 
@@ -406,6 +468,29 @@ export const taskFiltersSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
+
+export const tenantReportFiltersSchema = baseReportFiltersSchema
+  .extend({
+    tenantSlug: z.string().min(1),
+    scope: z.enum(['mine', 'all']).default('all'),
+    ownerId: optionalId,
+    status: z.nativeEnum(LeadStatus).optional(),
+    source: optionalText(120),
+    country: optionalText(80),
+    city: optionalText(120),
+  })
+  .superRefine(validateReportDateRange);
+
+export const superadminReportFiltersSchema = baseReportFiltersSchema
+  .extend({
+    tenantState: tenantStateSchema.default('all'),
+    planId: optionalId,
+    featureKey: featureKeySchema.optional(),
+  })
+  .superRefine(validateReportDateRange);
+
+export type TenantReportFilters = z.infer<typeof tenantReportFiltersSchema>;
+export type SuperadminReportFilters = z.infer<typeof superadminReportFiltersSchema>;
 
 // ─── Products ──────────────────────────────────────────
 

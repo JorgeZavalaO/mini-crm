@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { FeatureKey } from '@prisma/client';
 import {
   AlertTriangle,
+  BarChart3,
   Bell,
   Building2,
   CalendarDays,
@@ -67,6 +68,7 @@ const FEATURE_ICONS: Record<FeatureKey, LucideIcon> = {
   IMPORT: Upload,
   DEDUPE: GitMerge,
   DASHBOARD: LayoutDashboard,
+  REPORTS: BarChart3,
   QUOTING_BASIC: FileSearch,
   CLIENT_PORTAL: Globe,
   NOTIFICATIONS: Bell,
@@ -81,6 +83,7 @@ const FEATURE_COLOR: Record<FeatureKey, string> = {
   IMPORT: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/30 dark:text-cyan-400',
   DEDUPE: 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400',
   DASHBOARD: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400',
+  REPORTS: 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
   QUOTING_BASIC: 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400',
   CLIENT_PORTAL: 'bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400',
   NOTIFICATIONS: 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400',
