@@ -110,11 +110,11 @@ async function ensureTenantFeatureRows(tenantId: string) {
 
   // Fallback: usa PLAN_FEATURE_BUNDLES en memoria cuando PlanFeature en BD está desactualizado
   const planNameToKey: Record<string, 'STARTER' | 'GROWTH' | 'SCALE'> = {
-    Starter: 'STARTER',
-    Growth: 'GROWTH',
-    Scale: 'SCALE',
+    starter: 'STARTER',
+    growth: 'GROWTH',
+    scale: 'SCALE',
   };
-  const bundleKey = tenant?.plan?.name ? planNameToKey[tenant.plan.name] : undefined;
+  const bundleKey = tenant?.plan?.name ? planNameToKey[tenant.plan.name.toLowerCase()] : undefined;
   const bundle = bundleKey ? PLAN_FEATURE_BUNDLES[bundleKey] : undefined;
 
   await db.$transaction(
