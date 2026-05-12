@@ -2,6 +2,48 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.5.0 · 2026-05-11] Sprint 14 — Módulo de Reportes
+
+### Added
+
+- **Módulo de Reportes (`REPORTS`)** — nuevo feature controlado por flag por tenant:
+  - Ruta `/{tenantSlug}/reports` con página de reportes operativos para el tenant.
+  - Ruta `/superadmin/reports` con página de métricas globales para SuperAdmin.
+  - KPI cards: leads segmentados, nuevos en rango, win rate, interacciones, tareas abiertas y cotizaciones.
+  - Gráfico de tendencia de captación de leads (área) y distribución del pipeline (barras).
+  - Sección de actividad por canal de interacción con gráfico de barras + ranking.
+  - **Indicadores de clientes mejorados**: Top Ciudades, Top Fuentes e Top Industrias con barras de progreso proporcionales, porcentaje por ítem y color diferenciado por sección (cielo / violeta / ámbar).
+  - **Operación relacionada mejorada**: estado de tareas con puntos de color codificados por estado y barras de distribución proporcionales; cotizaciones con dot de color, monto `S/` por estado y fila de «Total pipeline» al pie.
+  - Tabla de desempeño del equipo (leads y cierres por responsable).
+  - Filtros GET avanzados: preset temporal (`7d`, `30d`, `90d`, `month`, `quarter`, `year`, `custom`), rango personalizado, scope (mío/todo), propietario, estado, fuente, país y ciudad.
+  - Botón de exportación CSV con BOM UTF-8; estructura preparada para XLSX.
+  - Filtros de SuperAdmin: estado del tenant (activo/inactivo/eliminado), plan y feature key.
+  - Reportes SuperAdmin: distribución de planes, adopción de features, ciclo de vida de tenants, top tenants por leads.
+  - Capa de datos `lib/reporting/` con módulos independientes: `shared.ts`, `tenant-reports.ts`, `superadmin-reports.ts`, `report-actions.ts`.
+  - Componentes reutilizables en `components/reports/`: `CategoryBarChart`, `TimeSeriesAreaChart`, `ReportStatCard`, `ReportExportButton`, `ReportFilters`.
+  - Ítem «Reportes» añadido al sidebar del tenant (visible solo si `REPORTS` está habilitado) y al sidebar de SuperAdmin.
+  - Icono `BarChart3` y color `violet` añadidos a la configuración visual de features en `components/superadmin/tenant-settings-tabs.tsx`.
+  - Invalidación de caché (`revalidatePath`) para `/superadmin/reports` y `/{slug}/reports` en acciones de planes y tenants.
+
+- **Feature `REPORTS` en catálogo y planes**:
+  - `REPORTS` añadido al enum `FeatureKey` en el schema de Prisma.
+  - Migración `20260511113000_add_reports_feature` que agrega el valor al enum de PostgreSQL con `ADD VALUE IF NOT EXISTS`.
+  - Migración `20260511120000_enable_reports_in_plans_and_tenants` que habilita `REPORTS` en `PlanFeature` para los planes Growth y Scale, y en `TenantFeature` para todos los tenants activos de esos planes (idempotente con `ON CONFLICT DO UPDATE`).
+  - `REPORTS` incluido en los bundles GROWTH y SCALE de `PLAN_FEATURE_BUNDLES`.
+  - Validadores Zod en `lib/validators.ts`: `tenantReportFiltersSchema`, `superadminReportFiltersSchema`, constantes `REPORT_PRESETS` y `TENANT_REPORT_STATES`.
+
+### Fixed
+
+- **`featureKeySchema` en `validators.ts`**: cambiado de `z.enum(FEATURE_KEYS as [string, ...string[]])` a `z.nativeEnum(FeatureKey)` para que el tipo inferido coincida con `FeatureKey` de Prisma y eliminar el error de compilación TypeScript en `superadmin-reports.ts`.
+- **Error «Algo se desalineó» al acceder a módulos no habilitados**: añadido `authInterrupts: true` en `next.config.ts` para que `forbidden()` de Next.js 16 muestre la página 403 en lugar de lanzar una excepción no controlada.
+- **Lookup de nombre de plan insensible a mayúsculas** en `feature-service.ts`: el fallback de `ensureTenantFeatureRows` ahora normaliza con `.toLowerCase()` para cubrir variantes de capitalización (`growth`, `GROWTH`, `Growth`).
+
+### Tests
+
+- `pnpm test` ✅ **468 / 468** tests pasando.
+- `pnpm lint` ✅ sin errores.
+- `pnpm run build` ✅ EXIT CODE: 0 — TypeScript, compilación, migraciones y Prisma Client correctos.
+
 ## [v1.4.4 · 2026-05-07] Post Sprint 13.3 — Importación masiva de interacciones y mejoras UX
 
 ### Added

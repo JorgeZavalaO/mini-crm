@@ -6,6 +6,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### Ya implementado
 
+- **Módulo de Reportes** (`/{tenantSlug}/reports` y `/superadmin/reports`): indicadores operativos, comerciales y ejecutivos con filtros avanzados. KPI cards de leads/interacciones/tareas/cotizaciones, gráficos de tendencia de captación y distribución del pipeline, top ciudades/fuentes/industrias con barras de progreso proporcionales, estado de tareas con puntos de color, cotizaciones con monto `S/` y total pipeline, tabla de desempeño del equipo. Exportación en CSV. Vista SuperAdmin con métricas globales (distribución de planes, adopción de features, ciclo de vida de tenants, top tenants). Feature controlada por flag `REPORTS`, habilitada en planes Growth y Scale.
 - Autenticación por credenciales y acceso `SuperAdmin`.
 - Multi-tenancy por `tenantSlug`.
 - RBAC por tenant (`ADMIN`, `SUPERVISOR`, `VENDEDOR`, `FREELANCE`, `PASANTE`).
@@ -89,6 +90,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 12     | Hardening de seguridad, modelo Lead enriquecido y visualizaciones | ✅ Completado |
 | 13     | Módulo de empresa, KPI cotizaciones y combobox de catálogo        | ✅ Completado |
 | 13.3   | Importación masiva de interacciones y mejoras UX de leads         | ✅ Completado |
+| 14     | Módulo de Reportes (tenant + SuperAdmin) y mejoras UX             | ✅ Completado |
 
 ## Stack
 

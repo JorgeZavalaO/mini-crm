@@ -47,6 +47,61 @@ function MetricList({
   );
 }
 
+function RankedMetricList({
+  items,
+  emptyLabel,
+  barColor = 'bg-primary',
+}: {
+  items: Array<{ label: string; value: number }>;
+  emptyLabel: string;
+  barColor?: string;
+}) {
+  if (items.length === 0) {
+    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
+  }
+  const total = items.reduce((s, i) => s + i.value, 0) || 1;
+  const max = Math.max(...items.map((i) => i.value), 1);
+  return (
+    <ul className="space-y-3">
+      {items.map((item) => (
+        <li key={item.label}>
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-sm">
+            <span className="truncate text-foreground">{item.label}</span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {Math.round((item.value / total) * 100)}%
+              </span>
+              <span className="w-8 text-right font-semibold tabular-nums">
+                {item.value.toLocaleString('es-PE')}
+              </span>
+            </div>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full ${barColor} transition-all`}
+              style={{ width: `${(item.value / max) * 100}%` }}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const TASK_STATUS_DOT: Record<string, string> = {
+  Pendientes: 'bg-amber-500',
+  'En progreso': 'bg-blue-500',
+  Completadas: 'bg-emerald-500',
+  Canceladas: 'bg-slate-400',
+};
+
+const QUOTE_STATUS_DOT: Record<string, string> = {
+  Borrador: 'bg-slate-400',
+  Enviada: 'bg-blue-500',
+  Aceptada: 'bg-emerald-500',
+  Rechazada: 'bg-red-500',
+};
+
 export default async function TenantReportsPage({
   params,
   searchParams,
@@ -246,19 +301,31 @@ export default async function TenantReportsPage({
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Top ciudades
               </p>
-              <MetricList items={data.topCities} emptyLabel="Sin ciudades registradas." />
+              <RankedMetricList
+                items={data.topCities}
+                emptyLabel="Sin ciudades registradas."
+                barColor="bg-sky-500"
+              />
             </div>
             <div className="space-y-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Top fuentes
               </p>
-              <MetricList items={data.topSources} emptyLabel="Sin fuentes registradas." />
+              <RankedMetricList
+                items={data.topSources}
+                emptyLabel="Sin fuentes registradas."
+                barColor="bg-violet-500"
+              />
             </div>
             <div className="space-y-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Top industrias
               </p>
-              <MetricList items={data.topIndustries} emptyLabel="Sin industrias registradas." />
+              <RankedMetricList
+                items={data.topIndustries}
+                emptyLabel="Sin industrias registradas."
+                barColor="bg-amber-500"
+              />
             </div>
           </CardContent>
         </Card>
@@ -275,30 +342,105 @@ export default async function TenantReportsPage({
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Tareas
               </p>
-              <MetricList items={data.taskStatusRows} emptyLabel="Sin tareas relacionadas." />
+              {(() => {
+                const totalTasks = data.taskStatusRows.reduce((s, r) => s + r.value, 0);
+                if (totalTasks === 0) {
+                  return <p className="text-sm text-muted-foreground">Sin tareas relacionadas.</p>;
+                }
+                return (
+                  <ul className="space-y-2.5">
+                    {data.taskStatusRows.map((row) => {
+                      const pct = Math.round((row.value / totalTasks) * 100);
+                      const dot = TASK_STATUS_DOT[row.label] ?? 'bg-muted-foreground';
+                      return (
+                        <li key={row.label}>
+                          <div className="flex items-center justify-between gap-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+                              <span className="text-foreground">{row.label}</span>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{pct}%</span>
+                              <span className="w-6 text-right font-semibold tabular-nums">
+                                {row.value}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full rounded-full ${dot} transition-all`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+              })()}
             </div>
             <div className="space-y-3">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Cotizaciones
               </p>
-              {data.quoteStatusRows.every((row) => row.value === 0) ? (
-                <p className="text-sm text-muted-foreground">Sin cotizaciones relacionadas.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {data.quoteStatusRows.map((row) => (
-                    <li key={row.label} className="space-y-1.5 rounded-lg border p-3">
-                      <div className="flex items-center justify-between gap-3 text-sm">
-                        <span className="font-medium">{row.label}</span>
-                        <span className="font-semibold">{row.value.toLocaleString('es-PE')}</span>
+              {(() => {
+                const totalQuotes = data.quoteStatusRows.reduce((s, r) => s + r.value, 0);
+                const totalAmount = data.quoteStatusRows.reduce((s, r) => s + r.amount, 0);
+                if (totalQuotes === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground">Sin cotizaciones relacionadas.</p>
+                  );
+                }
+                return (
+                  <div className="space-y-4">
+                    <ul className="space-y-2.5">
+                      {data.quoteStatusRows.map((row) => {
+                        const pct = Math.round((row.value / totalQuotes) * 100);
+                        const dot = QUOTE_STATUS_DOT[row.label] ?? 'bg-muted-foreground';
+                        return (
+                          <li key={row.label}>
+                            <div className="flex items-center justify-between gap-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+                                <span>{row.label}</span>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-3">
+                                {row.amount > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    S/{' '}
+                                    {row.amount.toLocaleString('es-PE', {
+                                      maximumFractionDigits: 0,
+                                    })}
+                                  </span>
+                                )}
+                                <span className="w-6 text-right font-semibold tabular-nums">
+                                  {row.value}
+                                </span>
+                              </div>
+                            </div>
+                            {row.value > 0 && (
+                              <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className={`h-full rounded-full ${dot} transition-all`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {totalAmount > 0 && (
+                      <div className="flex items-center justify-between border-t pt-2 text-sm">
+                        <span className="text-muted-foreground">Total pipeline</span>
+                        <span className="font-semibold">
+                          S/ {totalAmount.toLocaleString('es-PE', { maximumFractionDigits: 0 })}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Monto nominal:{' '}
-                        {row.amount.toLocaleString('es-PE', { maximumFractionDigits: 0 })}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </CardContent>
         </Card>
