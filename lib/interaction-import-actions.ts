@@ -9,6 +9,7 @@ import { AppError } from '@/lib/errors';
 import {
   mapCsvRecordToInteractionImportRow,
   parseInteractionImportCsvRecords,
+  expandMultipleInteractionsRow,
 } from '@/lib/interaction-import-utils';
 import { canImportLeads } from '@/lib/lead-permissions';
 import { normalizeRuc } from '@/lib/lead-normalization';
@@ -161,27 +162,35 @@ async function buildInteractionImportExecutionPlan(
     const rowNumber = index + 2;
 
     try {
-      const row = importInteractionRowSchema.parse(
-        mapCsvRecordToInteractionImportRow(csvRecord, ctx.tenant.companyTimezone),
+      const expandedRows = expandMultipleInteractionsRow(csvRecord, ctx.tenant.companyTimezone);
+
+      // Validate all expanded rows
+      const validatedRows = expandedRows.map((expandedRow) =>
+        importInteractionRowSchema.parse(expandedRow),
       );
-      const rucNormalized = normalizeRuc(row.ruc);
 
-      if (!rucNormalized) {
-        throw new AppError('El RUC debe contener al menos un caracter valido', 400);
+      // If all are valid, add them all to preparedRows
+      for (const validatedRow of validatedRows) {
+        const rucNormalized = normalizeRuc(validatedRow.ruc);
+
+        if (!rucNormalized) {
+          throw new AppError('El RUC debe contener al menos un caracter valido', 400);
+        }
+
+        preparedRows.push({
+          rowNumber,
+          row: validatedRow,
+          rucNormalized,
+        });
       }
-
-      preparedRows.push({
-        rowNumber,
-        row,
-        rucNormalized,
-      });
     } catch (error) {
+      // If any expanded row fails validation or expansion fails, reject the entire line
       planRows.push({
         rowNumber,
         ruc: csvRecord.ruc || '',
         businessName: csvRecord.ruc || `Fila ${rowNumber}`,
-        authorEmail: csvRecord.authorEmail || '',
-        type: csvRecord.type || '',
+        authorEmail: csvRecord.authorEmail || csvRecord['authorEmail'] || '',
+        type: csvRecord.type || csvRecord.types || '',
         occurredAt: csvRecord.occurredAt || '',
         outcome: 'ERROR',
         message: getErrorMessage(error, 'No se pudo analizar la fila'),

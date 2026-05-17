@@ -2,6 +2,30 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.5.1 · 2026-05-17] Post Sprint 14 — Importación dinámica de múltiples interacciones por línea
+
+### Added
+
+- **Importación dinámica de múltiples interacciones por línea en CSV/Excel**:
+  - Nuevo formato soportado: columnas `types`, `subjects` (nuevas) y `notes` con valores separados por `;`.
+  - Ejemplo: `types="Correo;WhatsApp;Llamada"`, `subjects="Asunto1;Asunto2;Asunto3"`, `notes="Comentario1;Comentario2;Comentario3"`.
+  - Una línea CSV se expande internamente a múltiples interacciones (máximo 10 por línea).
+  - Todas las interacciones de una línea comparten la misma `occurredAt` (fecha/hora única).
+  - Asuntos opcionales: pueden dejarse vacíos con separadores dobles (`;;`).
+  - Retrocompatibilidad total: formato antiguo (columnas `type`, `subject`, `notes` singular) sigue siendo válido.
+  - Detección automática de formato: si existe `types` y NO existe `type`, usa formato múltiple; si existe `type`, usa formato simple.
+  - Validación estricta: si hay error en cualquier interacción de una línea, rechaza toda la línea (fail-fast).
+  - Parsers nuevos: `parseMultipleInteractionTypes()`, `parseMultipleSubjects()`, `parseMultipleNotes()`, `isMultipleInteractionRow()`, `expandMultipleInteractionsRow()`.
+  - Plantilla Excel mejorada: dos hojas de ejemplo — "Interacciones Simples" (formato antiguo) y "Multiples por linea" (formato nuevo), con ejemplos prácticos de cada uno.
+  - UI mejorada: descripción del formulario de importación menciona soporte para ambos formatos.
+
+### Tests
+
+- `pnpm test` ✅ **481 / 481** tests pasando (incluidos 11 tests nuevos para múltiples interacciones).
+- `pnpm exec tsc --noEmit` ✅ sin errores.
+- `pnpm lint` ✅ sin errores nuevos.
+- `pnpm run build` ✅ EXIT CODE: 0 — TypeScript, compilación y Prisma Client correctos.
+
 ## [v1.5.0 · 2026-05-11] Sprint 14 — Módulo de Reportes
 
 ### Added

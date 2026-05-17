@@ -11,13 +11,16 @@ export const INTERACTION_IMPORT_TEMPLATE_HEADERS = [
   'notes',
 ] as const;
 
-const REQUIRED_INTERACTION_IMPORT_HEADERS = [
+export const INTERACTION_IMPORT_TEMPLATE_HEADERS_MULTIPLE = [
   'ruc',
   'authorEmail',
-  'type',
+  'types',
   'occurredAt',
+  'subjects',
   'notes',
 ] as const;
+
+const REQUIRED_INTERACTION_IMPORT_HEADERS = ['ruc', 'authorEmail', 'occurredAt', 'notes'] as const;
 
 export const INTERACTION_IMPORT_SAMPLE_CSV = [
   INTERACTION_IMPORT_TEMPLATE_HEADERS.join(','),
@@ -25,10 +28,15 @@ export const INTERACTION_IMPORT_SAMPLE_CSV = [
   '20123456789,supervisor@acme.com,WHATSAPP,2026-03-28,Seguimiento,"Envia documentos por WhatsApp"',
 ].join('\n');
 
+export const INTERACTION_IMPORT_SAMPLE_CSV_MULTIPLE = [
+  INTERACTION_IMPORT_TEMPLATE_HEADERS_MULTIPLE.join(','),
+  '20123456789,vendedor@acme.com,"Correo;WhatsApp;Llamada",2026-03-30,"Envio de documentos;Seguimiento;Contacto telefónico","Documentos de importacion;Cliente solicita cotizacion;Acordar proxima reunion"',
+].join('\n');
+
 type ImportInteractionColumn = (typeof INTERACTION_IMPORT_TEMPLATE_HEADERS)[number];
 type RawCsvRecord = Record<string, string>;
 
-const COLUMN_ALIASES: Record<string, ImportInteractionColumn> = {
+const COLUMN_ALIASES: Record<string, string> = {
   ruc: 'ruc',
   codigo: 'ruc',
   codigolead: 'ruc',
@@ -41,6 +49,8 @@ const COLUMN_ALIASES: Record<string, ImportInteractionColumn> = {
   email_autor: 'authorEmail',
   tipo: 'type',
   type: 'type',
+  tipos: 'types',
+  types: 'types',
   fecha: 'occurredAt',
   fechainteraccion: 'occurredAt',
   fecha_interaccion: 'occurredAt',
@@ -48,6 +58,8 @@ const COLUMN_ALIASES: Record<string, ImportInteractionColumn> = {
   occurred_at: 'occurredAt',
   asunto: 'subject',
   subject: 'subject',
+  asuntos: 'subjects',
+  subjects: 'subjects',
   notas: 'notes',
   notes: 'notes',
 };
@@ -248,6 +260,15 @@ export function parseInteractionImportCsvRecords(input: string): RawCsvRecord[] 
     throw new Error(`El archivo debe incluir las columnas: ${missingHeaders.join(', ')}`);
   }
 
+  const hasTypeColumn = headers.includes('type');
+  const hasTypesColumn = headers.includes('types');
+
+  if (!hasTypeColumn && !hasTypesColumn) {
+    throw new Error(
+      'El archivo debe incluir la columna "type" (para importacion individual) o "types" (para multiples interacciones por linea)',
+    );
+  }
+
   return dataRows.map((row) => {
     const record: RawCsvRecord = {};
 
@@ -300,6 +321,105 @@ export function parseImportOccurredAt(
     }
     throw error;
   }
+}
+
+export function parseMultipleInteractionTypes(value: string | undefined): InteractionType[] {
+  const rawValue = value?.trim();
+
+  if (!rawValue) {
+    throw new Error('Los tipos de interaccion son requeridos');
+  }
+
+  const types = rawValue.split(';').map((type) => type.trim());
+
+  if (types.length === 0) {
+    throw new Error('Los tipos de interaccion son requeridos');
+  }
+
+  if (types.length > 10) {
+    throw new Error('Maximo 10 interacciones por linea permitidas');
+  }
+
+  return types.map((type) => {
+    if (!type) {
+      throw new Error('El tipo de interaccion es requerido');
+    }
+    return parseImportInteractionType(type);
+  });
+}
+
+export function parseMultipleSubjects(
+  value: string | undefined,
+  expectedCount: number,
+): (string | undefined)[] {
+  const rawValue = value?.trim();
+
+  if (!rawValue) {
+    return Array(expectedCount).fill(undefined);
+  }
+
+  const subjects = rawValue.split(';').map((subject) => subject.trim() || undefined);
+
+  if (subjects.length !== expectedCount) {
+    throw new Error(
+      `Cantidad de asuntos (${subjects.length}) debe coincidir con cantidad de tipos (${expectedCount})`,
+    );
+  }
+
+  return subjects;
+}
+
+export function parseMultipleNotes(value: string | undefined, expectedCount: number): string[] {
+  const rawValue = value?.trim();
+
+  if (!rawValue) {
+    throw new Error('Las notas son requeridas');
+  }
+
+  const notes = rawValue.split(';').map((note) => note.trim());
+
+  if (notes.length !== expectedCount) {
+    throw new Error(
+      `Cantidad de comentarios (${notes.length}) debe coincidir con cantidad de tipos (${expectedCount})`,
+    );
+  }
+
+  const hasEmptyNote = notes.some((note) => !note);
+  if (hasEmptyNote) {
+    throw new Error('Los comentarios no pueden estar vacios');
+  }
+
+  return notes;
+}
+
+export function isMultipleInteractionRow(record: RawCsvRecord): boolean {
+  const hasTypes = Boolean(record.types && record.types.trim().length > 0);
+  const hasType = Boolean(record.type && record.type.trim().length > 0);
+
+  return hasTypes && !hasType;
+}
+
+export function expandMultipleInteractionsRow(
+  record: RawCsvRecord,
+  timezone: string = DEFAULT_TIMEZONE,
+): ReturnType<typeof mapCsvRecordToInteractionImportRow>[] {
+  if (!isMultipleInteractionRow(record)) {
+    return [mapCsvRecordToInteractionImportRow(record, timezone)];
+  }
+
+  const types = parseMultipleInteractionTypes(record.types);
+  const subjects = parseMultipleSubjects(record.subjects, types.length);
+  const notes = parseMultipleNotes(record.notes, types.length);
+  const occurredAt = parseImportOccurredAt(record.occurredAt, timezone);
+
+  return types.map((type, index) => ({
+    ruc: record.ruc ?? '',
+    authorEmail: record.authorEmail?.trim().toLowerCase() ?? '',
+    type,
+    occurredAt,
+    subject: subjects[index],
+    notes: notes[index] ?? '',
+  }));
 }
 
 export function mapCsvRecordToInteractionImportRow(

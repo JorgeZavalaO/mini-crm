@@ -13,6 +13,9 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 - CRUD de leads con filtros rediseñados, asignación y reasignación.
 - Importación masiva de leads por archivo Excel (`.xlsx/.xls`) o CSV, con análisis previo y confirmación en 2 pasos.
 - Importación masiva de interacciones por archivo Excel (`.xlsx/.xls`) o CSV, con plantilla descargable, análisis previo, confirmación en 2 pasos y resultado por fila.
+  - **Formato simple (original)**: una interacción por línea con columnas `ruc`, `authorEmail`, `type`, `occurredAt`, `subject` (opcional) y `notes`.
+  - **Formato múltiple (nuevo)**: múltiples interacciones por línea con columnas `ruc`, `authorEmail`, `types`, `occurredAt`, `subjects` y `notes`, valores separados por `;`. Máximo 10 interacciones por línea, todas comparten la misma fecha, asuntos opcionales, retrocompatibilidad total.
+  - Plantilla Excel con dos hojas de ejemplo para ambos formatos.
 - Interacciones históricas para leads (`CALL`, `EMAIL`, `NOTE`, `VISIT`, `WHATSAPP`) con `occurredAt`, asociación por RUC, autor por `authorEmail` y soporte para fechas anteriores sin modificar estado ni responsable del lead.
 - Detección y fusión MVP de duplicados por RUC, email, teléfono y nombre normalizado.
 - Módulo de documentos operativo: carga, listado y eliminación con almacenamiento privado en Vercel Blob y descarga autenticada vía `GET /api/documents/[id]`.
@@ -91,6 +94,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 13     | Módulo de empresa, KPI cotizaciones y combobox de catálogo        | ✅ Completado |
 | 13.3   | Importación masiva de interacciones y mejoras UX de leads         | ✅ Completado |
 | 14     | Módulo de Reportes (tenant + SuperAdmin) y mejoras UX             | ✅ Completado |
+| 14.1   | Importación dinámica de múltiples interacciones por línea         | ✅ Completado |
 
 ## Stack
 

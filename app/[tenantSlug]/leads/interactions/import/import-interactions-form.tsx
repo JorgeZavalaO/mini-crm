@@ -22,7 +22,10 @@ import {
 import { formatDateTime } from '@/lib/date-utils';
 import { useTenant } from '@/lib/tenant-context';
 import { cn } from '@/lib/utils';
-import { INTERACTION_IMPORT_TEMPLATE_HEADERS } from '@/lib/interaction-import-utils';
+import {
+  INTERACTION_IMPORT_TEMPLATE_HEADERS,
+  INTERACTION_IMPORT_TEMPLATE_HEADERS_MULTIPLE,
+} from '@/lib/interaction-import-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -192,15 +195,44 @@ function buildTemplateRows(sampleAuthorEmail: string) {
   ];
 }
 
+function buildTemplateRowsMultiple(sampleAuthorEmail: string) {
+  return [
+    INTERACTION_IMPORT_TEMPLATE_HEADERS_MULTIPLE as unknown as string[],
+    [
+      '20123456789',
+      sampleAuthorEmail,
+      'Correo;WhatsApp;Llamada',
+      '2026-03-30',
+      'Envio de documentos;Seguimiento;Contacto telefónico',
+      'Documentos de importacion;Cliente solicita cotizacion;Acordar proxima reunion',
+    ],
+    [
+      '20987654321',
+      sampleAuthorEmail,
+      'EMAIL;EMAIL',
+      '2026-03-29',
+      'Propuesta;Confirmacion',
+      'Se envio propuesta inicial;Cliente confirmo interes',
+    ],
+  ];
+}
+
 async function downloadTemplate(sampleAuthorEmail: string): Promise<void> {
   const XLSX = await import('xlsx');
-  const worksheet = XLSX.utils.aoa_to_sheet(buildTemplateRows(sampleAuthorEmail));
-  worksheet['!cols'] = ([...INTERACTION_IMPORT_TEMPLATE_HEADERS] as string[]).map(() => ({
+
+  const worksheet1 = XLSX.utils.aoa_to_sheet(buildTemplateRows(sampleAuthorEmail));
+  worksheet1['!cols'] = ([...INTERACTION_IMPORT_TEMPLATE_HEADERS] as string[]).map(() => ({
     wch: 26,
   }));
-  const workbook = XLSX.utils.book_new();
 
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Interacciones');
+  const worksheet2 = XLSX.utils.aoa_to_sheet(buildTemplateRowsMultiple(sampleAuthorEmail));
+  worksheet2['!cols'] = ([...INTERACTION_IMPORT_TEMPLATE_HEADERS_MULTIPLE] as string[]).map(() => ({
+    wch: 26,
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet1, 'Interacciones Simples');
+  XLSX.utils.book_append_sheet(workbook, worksheet2, 'Multiples por linea');
   XLSX.writeFile(workbook, 'plantilla-interacciones.xlsx');
 }
 
@@ -444,7 +476,8 @@ export function ImportInteractionsForm({
             <div className="flex flex-col gap-1">
               <CardTitle>Archivo de interacciones</CardTitle>
               <CardDescription className="mt-1">
-                Excel (.xlsx/.xls) o CSV. Se valida cada fila antes de guardar.
+                Excel (.xlsx/.xls) o CSV. Soporta interacción individual o múltiples por línea
+                (separadas por ;). Se valida cada fila antes de guardar.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
