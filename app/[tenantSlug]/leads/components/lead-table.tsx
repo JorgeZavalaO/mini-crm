@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import type { LeadStatus, ReassignmentStatus } from '@prisma/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { archiveLeadAction, assignLeadAction } from '@/lib/lead-actions';
 import { formatDateTime } from '@/lib/date-utils';
 import { useTenant } from '@/lib/tenant-context';
+import { parseLeadFiltersFromSearchParams } from '@/lib/lead-query';
+import { leadFiltersSchema } from '@/lib/validators';
 import {
   getLeadStatusVariant,
   getReassignmentStatusVariant,
@@ -52,6 +54,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { BulkAssignDialog } from './bulk-assign-dialog';
+import { BulkAssignByRucDialog } from './bulk-assign-by-ruc-dialog';
 import { LeadFormDialog } from './lead-form-dialog';
 import { ReassignRequestDialog } from './reassign-request-dialog';
 import { ResolveReassignmentDialog } from './resolve-reassignment-dialog';
@@ -260,7 +263,15 @@ export function LeadTable({
   pendingReassignments,
 }: LeadTableProps) {
   const { tenant } = useTenant();
+  const searchParams = useSearchParams();
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
+  const [isFilterSelectionMode, setIsFilterSelectionMode] = useState(false);
+
+  const activeFilters = useMemo(() => {
+    const raw = parseLeadFiltersFromSearchParams(searchParams);
+    const parsed = leadFiltersSchema.omit({ page: true, pageSize: true }).safeParse(raw);
+    return parsed.success ? parsed.data : {};
+  }, [searchParams]);
 
   const visibleLeadIdSet = useMemo(() => new Set(leads.map((lead) => lead.id)), [leads]);
   const activeSelectedLeadIds = useMemo(
@@ -268,13 +279,23 @@ export function LeadTable({
     [selectedLeadIds, visibleLeadIdSet],
   );
 
-  const selectedCount = activeSelectedLeadIds.length;
-  const allSelected = useMemo(
+  const selectedCount = isFilterSelectionMode ? totalCount : activeSelectedLeadIds.length;
+  const allVisibleSelected = useMemo(
     () => leads.length > 0 && leads.every((lead) => activeSelectedLeadIds.includes(lead.id)),
     [leads, activeSelectedLeadIds],
   );
 
+  // Show the "select all matching filter" banner when all visible leads are selected
+  // but there are more leads beyond the current page
+  const showSelectAllBanner =
+    canAssign &&
+    !isFilterSelectionMode &&
+    allVisibleSelected &&
+    leads.length > 0 &&
+    totalCount > leads.length;
+
   function toggleLead(leadId: string, checked: boolean) {
+    setIsFilterSelectionMode(false);
     setSelectedLeadIds((prev) => {
       if (checked) {
         if (prev.includes(leadId)) return prev;
@@ -285,7 +306,17 @@ export function LeadTable({
   }
 
   function toggleAll(checked: boolean) {
+    setIsFilterSelectionMode(false);
     setSelectedLeadIds(checked ? leads.map((lead) => lead.id) : []);
+  }
+
+  function activateFilterMode() {
+    setIsFilterSelectionMode(true);
+  }
+
+  function clearFilterMode() {
+    setIsFilterSelectionMode(false);
+    setSelectedLeadIds([]);
   }
 
   return (
@@ -293,16 +324,37 @@ export function LeadTable({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {totalCount} lead(s) activo(s)
-          {selectedCount > 0 ? ` - ${selectedCount} seleccionado(s)` : ''}
+          {selectedCount > 0 && !isFilterSelectionMode ? ` - ${selectedCount} seleccionado(s)` : ''}
+          {isFilterSelectionMode ? ` - ${totalCount} seleccionado(s) por filtro` : ''}
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          {canAssign && (
-            <BulkAssignDialog
-              tenantSlug={tenantSlug}
-              owners={assignableOwners}
-              leadIds={activeSelectedLeadIds}
-            />
-          )}
+          {canAssign &&
+            (isFilterSelectionMode ? (
+              <>
+                <BulkAssignDialog
+                  mode="filter"
+                  tenantSlug={tenantSlug}
+                  owners={assignableOwners}
+                  filters={activeFilters}
+                  triggerLabel={`Asignar todos (${totalCount})`}
+                />
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline"
+                  onClick={clearFilterMode}
+                >
+                  Cancelar selección
+                </button>
+              </>
+            ) : (
+              <BulkAssignDialog
+                mode="ids"
+                tenantSlug={tenantSlug}
+                owners={assignableOwners}
+                leadIds={activeSelectedLeadIds}
+              />
+            ))}
+          {canAssign && <BulkAssignByRucDialog tenantSlug={tenantSlug} />}
           <LeadFormDialog
             tenantSlug={tenantSlug}
             owners={assignableOwners}
@@ -311,6 +363,17 @@ export function LeadTable({
           />
         </div>
       </div>
+
+      {showSelectAllBanner && (
+        <div className="flex items-center gap-2 rounded-md border border-dashed bg-muted/50 px-4 py-2 text-sm">
+          <span>
+            Tienes {leads.length} de {totalCount} leads seleccionados.
+          </span>
+          <button type="button" className="font-medium underline" onClick={activateFilterMode}>
+            Seleccionar los {totalCount} que coinciden con el filtro actual
+          </button>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-lg border">
         <Table>
@@ -321,7 +384,7 @@ export function LeadTable({
                   <input
                     type="checkbox"
                     aria-label="Seleccionar todos los leads"
-                    checked={allSelected}
+                    checked={allVisibleSelected}
                     onChange={(e) => toggleAll(e.target.checked)}
                   />
                 </TableHead>

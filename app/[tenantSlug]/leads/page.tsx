@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import type { Prisma } from '@prisma/client';
 import { requireTenantFeature } from '@/lib/auth-guard';
 import { db } from '@/lib/db';
 import { isTenantFeatureEnabled } from '@/lib/feature-service';
 import { getAssignableLeadOwnerOptions, toLeadOwnerOption } from '@/lib/lead-owner';
-import { normalizeLeadName, normalizeRuc } from '@/lib/lead-normalization';
+import { buildLeadWhereClause } from '@/lib/lead-query';
 import {
   canAssignLeads,
   canEditLead,
@@ -28,15 +27,6 @@ import { LeadExportButton } from './components/lead-export-button';
 function firstParam(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
-}
-
-function toNumericRange(min?: number, max?: number) {
-  if (min === undefined && max === undefined) return undefined;
-
-  return {
-    ...(min !== undefined ? { gte: min } : {}),
-    ...(max !== undefined ? { lte: max } : {}),
-  };
 }
 
 function toFilterHref(filters: {
@@ -152,61 +142,7 @@ export default async function LeadsPage({
   const canImportInteractions = canImport && interactionsEnabled;
   const canManageDuplicates = dedupeEnabled && canManageDuplicateLeads(actor);
 
-  const where: Prisma.LeadWhereInput = {
-    tenantId: tenant.id,
-    deletedAt: null,
-    ...(filters.status ? { status: filters.status } : {}),
-    ...(filters.ownerId === '__UNASSIGNED__'
-      ? { ownerId: null }
-      : filters.ownerId
-        ? { ownerId: filters.ownerId }
-        : {}),
-    ...(filters.country ? { country: filters.country } : {}),
-    ...(filters.province ? { province: filters.province } : {}),
-    ...(filters.source ? { source: filters.source } : {}),
-    ...(filters.city ? { city: filters.city } : {}),
-    ...(filters.district ? { district: filters.district } : {}),
-    ...(toNumericRange(filters.constitutionYearMin, filters.constitutionYearMax)
-      ? {
-          constitutionYear: toNumericRange(
-            filters.constitutionYearMin,
-            filters.constitutionYearMax,
-          ),
-        }
-      : {}),
-    ...(toNumericRange(filters.employeeCountMin, filters.employeeCountMax)
-      ? { employeeCount: toNumericRange(filters.employeeCountMin, filters.employeeCountMax) }
-      : {}),
-    ...(toNumericRange(filters.importOperationCountMin, filters.importOperationCountMax)
-      ? {
-          importOperationCount: toNumericRange(
-            filters.importOperationCountMin,
-            filters.importOperationCountMax,
-          ),
-        }
-      : {}),
-    ...(toNumericRange(filters.exportOperationCountMin, filters.exportOperationCountMax)
-      ? {
-          exportOperationCount: toNumericRange(
-            filters.exportOperationCountMin,
-            filters.exportOperationCountMax,
-          ),
-        }
-      : {}),
-  };
-
-  const q = filters.q?.trim();
-  if (q) {
-    const normalizedName = normalizeLeadName(q);
-    const normalizedRuc = normalizeRuc(q);
-    where.OR = [
-      { businessName: { contains: q, mode: 'insensitive' } },
-      { nameNormalized: { contains: normalizedName } },
-      ...(normalizedRuc ? [{ rucNormalized: { contains: normalizedRuc } }] : []),
-      { emails: { has: q.toLowerCase() } },
-      { phones: { has: q } },
-    ];
-  }
+  const where = buildLeadWhereClause(tenant.id, filters);
 
   const totalCount = await db.lead.count({ where });
   const pageSize = filters.pageSize;

@@ -21,6 +21,7 @@ const dbMock = vi.hoisted(() => ({
     create: vi.fn(),
     findFirst: vi.fn(),
     findMany: vi.fn(),
+    count: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -71,6 +72,8 @@ import {
   archiveLeadAction,
   assignLeadAction,
   bulkAssignLeadsAction,
+  bulkAssignByFilterAction,
+  countLeadsByFilterAction,
   createLeadAction,
   createLeadSafeAction,
   requestLeadReassignmentAction,
@@ -757,5 +760,124 @@ describe('resolveLeadReassignmentAction', () => {
         }),
       }),
     );
+  });
+});
+
+describe('countLeadsByFilterAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    assertTenantFeatureByIdMock.mockResolvedValue(undefined);
+    dbMock.lead.count.mockResolvedValue(42);
+  });
+
+  it('lanza AppError 403 cuando el usuario no tiene permiso de asignaci\u00f3n', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
+
+    await expect(
+      countLeadsByFilterAction({ tenantSlug: TENANT_SLUG, ownerId: OWNER_ID, filters: {} }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('retorna el conteo de leads que coinciden con el filtro', async () => {
+    const result = await countLeadsByFilterAction({
+      tenantSlug: TENANT_SLUG,
+      ownerId: OWNER_ID,
+      filters: { province: 'Lima' },
+    });
+
+    expect(result).toEqual({ count: 42 });
+    expect(dbMock.lead.count).toHaveBeenCalled();
+  });
+});
+
+describe('bulkAssignByFilterAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getTenantActionContextBySlugMock.mockResolvedValue(makeSupervisorContext());
+    assertTenantFeatureByIdMock.mockResolvedValue(undefined);
+    dbMock.membership.findUnique.mockResolvedValue(makeOwnerMembership());
+    dbMock.lead.count.mockResolvedValue(3);
+    dbMock.lead.findMany.mockResolvedValue([
+      { id: 'lead-1', ownerId: 'other-1' },
+      { id: 'lead-2', ownerId: null },
+      { id: 'lead-3', ownerId: OWNER_ID },
+    ]);
+    dbMock.lead.updateMany.mockResolvedValue({ count: 3 });
+    dbMock.leadOwnerHistory.createMany.mockResolvedValue({ count: 2 });
+    dbMock.$transaction.mockImplementation(async (fn: (tx: typeof dbMock) => Promise<unknown>) =>
+      fn(dbMock),
+    );
+  });
+
+  it('lanza AppError 403 cuando el usuario no tiene permiso de asignaci\u00f3n masiva', async () => {
+    getTenantActionContextBySlugMock.mockResolvedValue(makeVendedorContext());
+
+    await expect(
+      bulkAssignByFilterAction({ tenantSlug: TENANT_SLUG, ownerId: OWNER_ID, filters: {} }),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('lanza AppError 400 cuando el conteo supera el l\u00edmite de 5000', async () => {
+    dbMock.lead.count.mockResolvedValue(5001);
+
+    await expect(
+      bulkAssignByFilterAction({
+        tenantSlug: TENANT_SLUG,
+        ownerId: OWNER_ID,
+        filters: {},
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('asigna los leads que coinciden con filtro de provincia', async () => {
+    const result = await bulkAssignByFilterAction({
+      tenantSlug: TENANT_SLUG,
+      ownerId: OWNER_ID,
+      filters: { province: 'Lima' },
+    });
+
+    expect(result).toEqual({ success: true, updatedCount: 3 });
+    expect(dbMock.lead.updateMany).toHaveBeenCalled();
+  });
+
+  it('asigna los leads sin propietario cuando se filtra por __UNASSIGNED__', async () => {
+    dbMock.lead.count.mockResolvedValue(2);
+    dbMock.lead.findMany.mockResolvedValue([
+      { id: 'lead-1', ownerId: null },
+      { id: 'lead-2', ownerId: null },
+    ]);
+    dbMock.lead.updateMany.mockResolvedValue({ count: 2 });
+
+    const result = await bulkAssignByFilterAction({
+      tenantSlug: TENANT_SLUG,
+      ownerId: OWNER_ID,
+      filters: { ownerId: '__UNASSIGNED__' },
+    });
+
+    expect(result).toEqual({ success: true, updatedCount: 2 });
+  });
+
+  it('crea registros de historial solo para los leads que cambian de propietario', async () => {
+    await bulkAssignByFilterAction({
+      tenantSlug: TENANT_SLUG,
+      ownerId: OWNER_ID,
+      filters: {},
+    });
+
+    // lead-3 ya tiene OWNER_ID, entonces solo 2 leads cambian
+    const callArg = dbMock.leadOwnerHistory.createMany.mock.calls[0][0];
+    expect(callArg.data).toHaveLength(2);
+    expect(callArg.data[0]).toMatchObject({ newOwnerId: OWNER_ID });
+  });
+
+  it('no lanza error cuando el conteo es exactamente 5000', async () => {
+    dbMock.lead.count.mockResolvedValue(5000);
+    dbMock.lead.findMany.mockResolvedValue([]);
+    dbMock.lead.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      bulkAssignByFilterAction({ tenantSlug: TENANT_SLUG, ownerId: OWNER_ID, filters: {} }),
+    ).resolves.toEqual({ success: true, updatedCount: 0 });
   });
 });

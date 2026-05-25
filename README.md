@@ -244,6 +244,17 @@ pnpm dev
 
 ## Últimos avances documentados
 
+### [v1.6.0 · 2026-05-25]
+
+- Selección cross-page en el listado de leads: banner "Seleccionar los N que coinciden con el filtro actual" que permite activar una selección global basada en los filtros aplicados.
+- Asignación masiva por filtros: nuevas server actions `countLeadsByFilterAction` y `bulkAssignByFilterAction` (límite de seguridad: 5.000 leads por ejecución) y soporte en UI (`BulkAssignDialog` modo `filter`).
+- Asignación por Excel/CSV (RUC + correo): `BulkAssignByRucDialog` con subida de `.xlsx/.csv`, vista previa por fila, descarga de plantilla (`plantilla-asignacion-ruc.xlsx`) y confirmación de ejecución (`previewBulkAssignByRucAction` / `executeBulkAssignByRucAction`).
+- Nuevo helper `lib/lead-query.ts` con `buildLeadWhereClause` y `parseLeadFiltersFromSearchParams` para centralizar la interpretación de filtros desde la URL.
+- Botón "Asignar por Excel" en la barra del módulo de leads (visible para roles con permiso `canAssign`).
+- Tests unitarios añadidos para cubrir los nuevos flujos de conteo y asignación masiva; ejecutar `pnpm test` para validar la suite completa.
+
+### Post Sprint 13.3
+
 ### Post Sprint 13.3
 
 - Nueva ruta `leads/interactions/import` para cargar interacciones masivas desde Excel o CSV.

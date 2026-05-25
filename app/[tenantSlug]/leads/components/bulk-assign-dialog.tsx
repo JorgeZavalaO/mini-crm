@@ -1,9 +1,14 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { bulkAssignLeadsAction } from '@/lib/lead-actions';
+import {
+  bulkAssignLeadsAction,
+  bulkAssignByFilterAction,
+  countLeadsByFilterAction,
+} from '@/lib/lead-actions';
+import type { LeadFilters } from '@/lib/lead-query';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -38,26 +43,68 @@ const ROLE_LABEL: Record<string, string> = {
   PASANTE: 'Pasante',
 };
 
-interface BulkAssignDialogProps {
-  tenantSlug: string;
-  owners: LeadOwnerOption[];
-  leadIds: string[];
-  triggerLabel?: string;
-}
+type BulkAssignDialogProps =
+  | {
+      mode: 'ids';
+      tenantSlug: string;
+      owners: LeadOwnerOption[];
+      leadIds: string[];
+      triggerLabel?: string;
+    }
+  | {
+      mode: 'filter';
+      tenantSlug: string;
+      owners: LeadOwnerOption[];
+      filters: Omit<LeadFilters, 'page' | 'pageSize'>;
+      triggerLabel?: string;
+    };
 
-export function BulkAssignDialog({
-  tenantSlug,
-  owners,
-  leadIds,
-  triggerLabel = 'Asignación masiva',
-}: BulkAssignDialogProps) {
+export function BulkAssignDialog(props: BulkAssignDialogProps) {
+  const { mode, tenantSlug, owners, triggerLabel = 'Asignación masiva' } = props;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [ownerId, setOwnerId] = useState(owners[0]?.id ?? '');
+  const [filterCount, setFilterCount] = useState<number | null>(null);
+  const filters = mode === 'filter' ? props.filters : undefined;
 
-  const count = leadIds.length;
+  const idCount = mode === 'ids' ? props.leadIds.length : 0;
+  const count = mode === 'ids' ? idCount : (filterCount ?? 0);
   const disabled = count === 0 || owners.length === 0;
+  const isLoadingCount = mode === 'filter' && open && filterCount === null;
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (mode === 'filter') {
+      setFilterCount(null);
+    }
+  }
+
+  function handleOwnerChange(value: string) {
+    setOwnerId(value);
+    if (mode === 'filter' && open) {
+      setFilterCount(null);
+    }
+  }
+
+  // When the dialog opens in filter mode, fetch the matching count
+  useEffect(() => {
+    if (!open || mode !== 'filter' || filterCount !== null) return;
+
+    let cancelled = false;
+
+    countLeadsByFilterAction({ tenantSlug, ownerId, filters: filters ?? {} })
+      .then(({ count: c }) => {
+        if (!cancelled) setFilterCount(c);
+      })
+      .catch(() => {
+        if (!cancelled) setFilterCount(0);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, mode, tenantSlug, ownerId, filterCount, filters]);
 
   const ownerLabel = useMemo(() => owners.find((owner) => owner.id === ownerId), [owners, ownerId]);
 
@@ -66,13 +113,26 @@ export function BulkAssignDialog({
 
     startTransition(async () => {
       try {
-        const result = await bulkAssignLeadsAction({
-          tenantSlug,
-          leadIds,
-          ownerId,
-        });
+        let updatedCount: number;
+
+        if (mode === 'ids') {
+          const result = await bulkAssignLeadsAction({
+            tenantSlug,
+            leadIds: props.leadIds,
+            ownerId,
+          });
+          updatedCount = result.updatedCount;
+        } else {
+          const result = await bulkAssignByFilterAction({
+            tenantSlug,
+            ownerId,
+            filters: props.filters,
+          });
+          updatedCount = result.updatedCount;
+        }
+
         toast.success(
-          `${result.updatedCount} lead(s) asignados a ${ownerLabel?.name || ownerLabel?.email}`,
+          `${updatedCount} lead(s) asignados a ${ownerLabel?.name || ownerLabel?.email}`,
         );
         setOpen(false);
         router.refresh();
@@ -83,26 +143,34 @@ export function BulkAssignDialog({
     });
   }
 
+  function countLabel() {
+    if (mode === 'ids') {
+      return count === 0
+        ? 'Selecciona al menos un lead para asignar.'
+        : `Asignarás ${count} lead(s) a un responsable.`;
+    }
+    if (isLoadingCount) return 'Calculando leads a asignar…';
+    return count === 0
+      ? 'No hay leads que coincidan con los filtros actuales.'
+      : `Asignarás ${count} lead(s) que coinciden con el filtro activo.`;
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" disabled={disabled}>
+        <Button type="button" variant="outline" disabled={disabled && mode === 'ids'}>
           {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Asignación masiva</DialogTitle>
-          <DialogDescription>
-            {count === 0
-              ? 'Selecciona al menos un lead para asignar.'
-              : `Asignarás ${count} lead(s) a un responsable.`}
-          </DialogDescription>
+          <DialogDescription>{countLabel()}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
           <Label>Responsable destino</Label>
-          <Select value={ownerId} onValueChange={setOwnerId}>
+          <Select value={ownerId} onValueChange={handleOwnerChange}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona un responsable" />
             </SelectTrigger>
@@ -120,7 +188,10 @@ export function BulkAssignDialog({
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
             Cancelar
           </Button>
-          <Button onClick={onConfirm} disabled={isPending || disabled || !ownerId}>
+          <Button
+            onClick={onConfirm}
+            disabled={isPending || disabled || !ownerId || isLoadingCount}
+          >
             {isPending ? 'Asignando...' : 'Confirmar asignación'}
           </Button>
         </DialogFooter>

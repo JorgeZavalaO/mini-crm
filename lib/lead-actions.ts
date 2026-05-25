@@ -26,12 +26,16 @@ import {
   archiveLeadSchema,
   assignLeadSchema,
   bulkAssignSchema,
+  bulkAssignByFilterSchema,
+  previewBulkAssignByRucSchema,
+  executeBulkAssignByRucSchema,
   createLeadSchema,
   ownerHistoryFiltersSchema,
   requestReassignSchema,
   resolveReassignSchema,
   updateLeadSchema,
 } from '@/lib/validators';
+import { buildLeadWhereClause } from '@/lib/lead-query';
 
 type LeadActorContext = {
   tenantId: string;
@@ -527,6 +531,255 @@ export async function bulkAssignLeadsAction(input: unknown) {
 
   revalidateTenantLeadViews(ctx.tenantSlug);
   return { success: true, updatedCount: result.count };
+}
+
+const BULK_ASSIGN_BY_FILTER_LIMIT = 5_000;
+
+export async function countLeadsByFilterAction(input: unknown) {
+  const parsed = bulkAssignByFilterSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Solicitud invalida', 400);
+  }
+
+  const ctx = await getLeadContext(parsed.data.tenantSlug);
+  await assertFeatureEnabled(ctx.tenantId, 'ASSIGNMENTS');
+  if (!canAssignLeads(ctx)) {
+    throw new AppError('No autorizado para asignar leads', 403);
+  }
+
+  const where = buildLeadWhereClause(ctx.tenantId, parsed.data.filters);
+  const count = await db.lead.count({ where });
+  return { count };
+}
+
+export async function bulkAssignByFilterAction(input: unknown) {
+  const parsed = bulkAssignByFilterSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Solicitud invalida', 400);
+  }
+
+  const ctx = await getLeadContext(parsed.data.tenantSlug);
+  await assertFeatureEnabled(ctx.tenantId, 'ASSIGNMENTS');
+  if (!canAssignLeads(ctx)) {
+    throw new AppError('No autorizado para asignar leads', 403);
+  }
+
+  await assertOwnerBelongsToTenant(ctx.tenantId, parsed.data.ownerId);
+
+  const where = buildLeadWhereClause(ctx.tenantId, parsed.data.filters);
+
+  const total = await db.lead.count({ where });
+  if (total > BULK_ASSIGN_BY_FILTER_LIMIT) {
+    throw new AppError(
+      `La selección contiene ${total} leads, el límite es ${BULK_ASSIGN_BY_FILTER_LIMIT}. Aplica filtros más específicos.`,
+      400,
+    );
+  }
+
+  const currentLeads = await db.lead.findMany({
+    where,
+    select: { id: true, ownerId: true },
+  });
+
+  const leadsChanging = currentLeads.filter((l) => l.ownerId !== parsed.data.ownerId);
+
+  const result = await db.$transaction(async (tx) => {
+    const updated = await tx.lead.updateMany({
+      where,
+      data: { ownerId: parsed.data.ownerId },
+    });
+
+    if (leadsChanging.length > 0) {
+      await tx.leadOwnerHistory.createMany({
+        data: leadsChanging.map((l) => ({
+          leadId: l.id,
+          tenantId: ctx.tenantId,
+          previousOwnerId: l.ownerId,
+          newOwnerId: parsed.data.ownerId,
+          changedById: ctx.userId,
+        })),
+      });
+    }
+
+    return updated;
+  });
+
+  revalidateTenantLeadViews(ctx.tenantSlug);
+  return { success: true, updatedCount: result.count };
+}
+
+// ─── Bulk Assign by RUC Import ──────────────────────────────────────────────
+
+export type RucAssignmentPreviewRow = {
+  ruc: string;
+  ownerEmail: string;
+  status: 'READY' | 'LEAD_NOT_FOUND' | 'OWNER_NOT_FOUND' | 'ALREADY_ASSIGNED';
+  leadId?: string;
+  leadName?: string;
+  ownerId?: string;
+  ownerName?: string | null;
+};
+
+export async function previewBulkAssignByRucAction(input: unknown): Promise<{
+  rows: RucAssignmentPreviewRow[];
+  readyCount: number;
+  notFoundCount: number;
+  ownerNotFoundCount: number;
+  alreadyAssignedCount: number;
+}> {
+  const parsed = previewBulkAssignByRucSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Solicitud inválida', 400);
+  }
+
+  const ctx = await getLeadContext(parsed.data.tenantSlug);
+  await assertFeatureEnabled(ctx.tenantId, 'ASSIGNMENTS');
+  if (!canAssignLeads(ctx)) {
+    throw new AppError('No autorizado para asignar leads', 403);
+  }
+
+  const { rows } = parsed.data;
+
+  // Collect unique RUCs and emails
+  const rucsRaw = [...new Set(rows.map((r) => r.ruc))];
+  const emailsRaw = [...new Set(rows.map((r) => r.ownerEmail.toLowerCase()))];
+
+  // Normalize RUCs for lookup
+  const rucNormalizedToRaw = new Map<string, string>(
+    rucsRaw.map((r) => [normalizeRuc(r) ?? r.toUpperCase(), r]),
+  );
+  const normalizedRucs = [...rucNormalizedToRaw.keys()];
+
+  // Query leads and tenant members in parallel
+  const [leads, members] = await Promise.all([
+    db.lead.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        rucNormalized: { in: normalizedRucs },
+        deletedAt: null,
+      },
+      select: { id: true, businessName: true, rucNormalized: true, ownerId: true },
+    }),
+    db.membership.findMany({
+      where: {
+        tenantId: ctx.tenantId,
+        isActive: true,
+        user: { email: { in: emailsRaw } },
+      },
+      select: {
+        userId: true,
+        user: { select: { email: true, name: true } },
+      },
+    }),
+  ]);
+
+  const leadsByRuc = new Map(leads.map((l) => [l.rucNormalized ?? '', l]));
+  const membersByEmail = new Map(members.map((m) => [m.user.email.toLowerCase(), m]));
+
+  const result: RucAssignmentPreviewRow[] = rows.map((row) => {
+    const normalizedRuc = normalizeRuc(row.ruc) ?? row.ruc.toUpperCase();
+    const lead = leadsByRuc.get(normalizedRuc);
+    const member = membersByEmail.get(row.ownerEmail.toLowerCase());
+
+    if (!lead) {
+      return { ruc: row.ruc, ownerEmail: row.ownerEmail, status: 'LEAD_NOT_FOUND' as const };
+    }
+    if (!member) {
+      return {
+        ruc: row.ruc,
+        ownerEmail: row.ownerEmail,
+        status: 'OWNER_NOT_FOUND' as const,
+        leadId: lead.id,
+        leadName: lead.businessName,
+      };
+    }
+    if (lead.ownerId === member.userId) {
+      return {
+        ruc: row.ruc,
+        ownerEmail: row.ownerEmail,
+        status: 'ALREADY_ASSIGNED' as const,
+        leadId: lead.id,
+        leadName: lead.businessName,
+        ownerId: member.userId,
+        ownerName: member.user.name,
+      };
+    }
+    return {
+      ruc: row.ruc,
+      ownerEmail: row.ownerEmail,
+      status: 'READY' as const,
+      leadId: lead.id,
+      leadName: lead.businessName,
+      ownerId: member.userId,
+      ownerName: member.user.name,
+    };
+  });
+
+  return {
+    rows: result,
+    readyCount: result.filter((r) => r.status === 'READY').length,
+    notFoundCount: result.filter((r) => r.status === 'LEAD_NOT_FOUND').length,
+    ownerNotFoundCount: result.filter((r) => r.status === 'OWNER_NOT_FOUND').length,
+    alreadyAssignedCount: result.filter((r) => r.status === 'ALREADY_ASSIGNED').length,
+  };
+}
+
+export async function executeBulkAssignByRucAction(input: unknown): Promise<{
+  success: true;
+  updatedCount: number;
+}> {
+  const parsed = executeBulkAssignByRucSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new AppError(parsed.error.issues[0]?.message ?? 'Solicitud inválida', 400);
+  }
+
+  const ctx = await getLeadContext(parsed.data.tenantSlug);
+  await assertFeatureEnabled(ctx.tenantId, 'ASSIGNMENTS');
+  if (!canAssignLeads(ctx)) {
+    throw new AppError('No autorizado para asignar leads', 403);
+  }
+
+  const { assignments } = parsed.data;
+
+  // Verify all leads belong to this tenant
+  const leadIds = assignments.map((a) => a.leadId);
+  const foundLeads = await db.lead.findMany({
+    where: { id: { in: leadIds }, tenantId: ctx.tenantId, deletedAt: null },
+    select: { id: true, ownerId: true },
+  });
+  const foundLeadMap = new Map(foundLeads.map((l) => [l.id, l]));
+
+  const validAssignments = assignments.filter((a) => foundLeadMap.has(a.leadId));
+
+  if (validAssignments.length === 0) {
+    return { success: true, updatedCount: 0 };
+  }
+
+  await db.$transaction(async (tx) => {
+    for (const a of validAssignments) {
+      await tx.lead.update({
+        where: { id: a.leadId },
+        data: { ownerId: a.ownerId },
+      });
+    }
+
+    const historyData = validAssignments
+      .map((a) => ({
+        leadId: a.leadId,
+        tenantId: ctx.tenantId,
+        previousOwnerId: foundLeadMap.get(a.leadId)!.ownerId,
+        newOwnerId: a.ownerId,
+        changedById: ctx.userId,
+      }))
+      .filter((h) => h.previousOwnerId !== h.newOwnerId);
+
+    if (historyData.length > 0) {
+      await tx.leadOwnerHistory.createMany({ data: historyData });
+    }
+  });
+
+  revalidateTenantLeadViews(ctx.tenantSlug);
+  return { success: true, updatedCount: validAssignments.length };
 }
 
 export async function requestLeadReassignmentAction(input: unknown) {

@@ -247,6 +247,30 @@ export const bulkAssignSchema = z.object({
   ownerId: z.string().min(1),
 });
 
+export const bulkAssignByFilterSchema = z.object({
+  tenantSlug: z.string().min(1),
+  ownerId: z.string().min(1),
+  filters: leadFiltersSchema.omit({ page: true, pageSize: true }),
+});
+
+const bulkAssignByRucRowSchema = z.object({
+  ruc: z.string().trim().min(1),
+  ownerEmail: z.string().trim().email('Correo de responsable inválido'),
+});
+
+export const previewBulkAssignByRucSchema = z.object({
+  tenantSlug: z.string().min(1),
+  rows: z.array(bulkAssignByRucRowSchema).min(1).max(5_000),
+});
+
+export const executeBulkAssignByRucSchema = z.object({
+  tenantSlug: z.string().min(1),
+  assignments: z
+    .array(z.object({ leadId: z.string().min(1), ownerId: z.string().min(1) }))
+    .min(1)
+    .max(5_000),
+});
+
 export const importModeSchema = z.enum(['CREATE', 'UPDATE_BY_RUC']);
 
 export const importCsvSchema = z.object({

@@ -2,6 +2,34 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.6.0 · 2026-05-25] Asignación masiva mejorada — Asignación por filtros y por Excel (RUC)
+
+### Added
+
+- Banner "Seleccionar los N que coinciden con el filtro actual" en el listado de leads (`/{tenantSlug}/leads`) para permitir seleccionar todos los leads que coinciden con los filtros activos (selección cross-page).
+- Nuevas server actions en `lib/lead-actions.ts`: `countLeadsByFilterAction` (consulta rápida del total que coincide con un filtro) y `bulkAssignByFilterAction` (aplica asignación masiva por filtro). Se aplica un límite de seguridad de 5.000 leads por ejecución.
+- `BulkAssignDialog` ahora soporta modo `filter` (asignar todos los leads coincidentes con el filtro activo).
+- Nuevo diálogo `BulkAssignByRucDialog` (subida de `.xlsx/.csv`) para asignaciones por RUC + correo del responsable: análisis previo, vista previa por fila, descarga de plantilla y confirmación de ejecución (`previewBulkAssignByRucAction` / `executeBulkAssignByRucAction`).
+- Nuevo helper `lib/lead-query.ts` con `buildLeadWhereClause` y `parseLeadFiltersFromSearchParams` para centralizar la construcción de cláusulas WHERE a partir de filtros de UI.
+- Plantilla Excel descargable: `plantilla-asignacion-ruc.xlsx` (genera columnas `ruc` y `email` con ejemplos).
+- Tests unitarios añadidos para las nuevas acciones de asignación masiva.
+
+### Changed
+
+- `app/[tenantSlug]/leads/components/lead-table.tsx`: añadido banner de selección cross-page y botón "Asignar por Excel" en la barra de acciones (visible solo para `canAssign`).
+- `app/[tenantSlug]/leads/components/bulk-assign-dialog.tsx`: añadido soporte para `mode='ids' | 'filter'` y comunicación con las nuevas acciones server.
+- `lib/lead-actions.ts`: refactor y adición de acciones para asignación por filtro y por RUC; registro de historiales de owner preservado.
+- `tests/lead-actions.test.ts` extendido con suites para `countLeadsByFilterAction`, `bulkAssignByFilterAction` y las acciones de import/preview por RUC.
+
+### Tests
+
+- `tests/lead-actions.test.ts` (local): nueva cobertura en el archivo — 43 tests pasando localmente.
+- Se añadieron tests unitarios para cubrir los flujos de conteo y asignación masiva. Ejecuta `pnpm test` para validar la suite completa.
+
+### Notes
+
+- Versión del paquete actualizada a `v1.6.0`.
+
 ## [v1.5.1 · 2026-05-17] Post Sprint 14 — Importación dinámica de múltiples interacciones por línea
 
 ### Added
