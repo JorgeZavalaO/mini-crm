@@ -25,7 +25,6 @@ const optionalText = (max: number) =>
 const optionalId = z
   .string()
   .trim()
-  .min(1)
   .optional()
   .transform((value) => (value && value.length > 0 ? value : undefined));
 
@@ -520,7 +519,10 @@ export const tenantReportFiltersSchema = baseReportFiltersSchema
     tenantSlug: z.string().min(1),
     scope: z.enum(['mine', 'all']).default('all'),
     ownerId: optionalId,
-    status: z.nativeEnum(LeadStatus).optional(),
+    status: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.nativeEnum(LeadStatus).optional(),
+    ),
     source: optionalText(120),
     country: optionalText(80),
     city: optionalText(120),
@@ -531,7 +533,10 @@ export const superadminReportFiltersSchema = baseReportFiltersSchema
   .extend({
     tenantState: tenantStateSchema.default('all'),
     planId: optionalId,
-    featureKey: featureKeySchema.optional(),
+    featureKey: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      featureKeySchema.optional(),
+    ),
   })
   .superRefine(validateReportDateRange);
 

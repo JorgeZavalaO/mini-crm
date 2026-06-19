@@ -1,10 +1,34 @@
-import Link from 'next/link';
+'use client';
+
+import { useRouter, usePathname } from 'next/navigation';
+import { useState, useTransition, useCallback, useMemo } from 'react';
 import { FilterX, SlidersHorizontal } from 'lucide-react';
 import { LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from '@/lib/lead-status';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+
+type TenantFilterState = {
+  preset: string;
+  from: string;
+  to: string;
+  scope: 'mine' | 'all';
+  ownerId: string;
+  status: string;
+  source: string;
+  country: string;
+  city: string;
+};
+
+type SuperadminFilterState = {
+  preset: string;
+  from: string;
+  to: string;
+  tenantState: 'all' | 'active' | 'inactive' | 'deleted';
+  planId: string;
+  featureKey: string;
+};
 
 type TenantReportFiltersProps = {
   mode: 'tenant';
@@ -64,10 +88,128 @@ const selectClassName = cn(
 );
 
 export function ReportFilters(props: ReportFiltersProps) {
-  const isCustom = props.filters.preset === 'custom';
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
+
   const isTenantMode = props.mode === 'tenant';
+
+  const getInitialState = useCallback((): TenantFilterState | SuperadminFilterState => {
+    if (isTenantMode) {
+      const f = props.filters as TenantReportFiltersProps['filters'];
+      return {
+        preset: f.preset,
+        from: f.from ?? '',
+        to: f.to ?? '',
+        scope: f.scope,
+        ownerId: f.ownerId ?? '',
+        status: f.status ?? '',
+        source: f.source ?? '',
+        country: f.country ?? '',
+        city: f.city ?? '',
+      };
+    } else {
+      const f = props.filters as SuperadminReportFiltersProps['filters'];
+      return {
+        preset: f.preset,
+        from: f.from ?? '',
+        to: f.to ?? '',
+        tenantState: f.tenantState,
+        planId: f.planId ?? '',
+        featureKey: f.featureKey ?? '',
+      };
+    }
+  }, [isTenantMode, props.filters]);
+
+  const [state, setState] = useState(getInitialState);
+
+  const isCustom = state.preset === 'custom';
+
+  const applyFilters = useCallback(() => {
+    startTransition(() => {
+      const params = new URLSearchParams();
+
+      params.set('preset', state.preset);
+
+      if (isCustom) {
+        if (state.from) params.set('from', state.from);
+        if (state.to) params.set('to', state.to);
+      }
+
+      if (isTenantMode) {
+        const s = state as TenantFilterState;
+        if (s.scope) params.set('scope', s.scope);
+        if (s.ownerId) params.set('ownerId', s.ownerId);
+        if (s.status) params.set('status', s.status);
+        if (s.source) params.set('source', s.source);
+        if (s.country) params.set('country', s.country);
+        if (s.city) params.set('city', s.city);
+      } else {
+        const s = state as SuperadminFilterState;
+        if (s.tenantState) params.set('tenantState', s.tenantState);
+        if (s.planId) params.set('planId', s.planId);
+        if (s.featureKey) params.set('featureKey', s.featureKey);
+      }
+
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname);
+    });
+  }, [state, isCustom, isTenantMode, pathname, router]);
+
+  const resetFilters = useCallback(() => {
+    const defaultState = getInitialState();
+    Object.keys(defaultState).forEach((key) => {
+      if (key === 'preset') {
+        (defaultState as Record<string, string>)[key] = 'custom';
+      }
+    });
+    setState({
+      ...defaultState,
+      preset: 'custom',
+      from: '',
+      to: '',
+      scope: isTenantMode ? 'all' : 'all',
+      ownerId: '',
+      status: '',
+      source: '',
+      country: '',
+      city: '',
+      tenantState: 'all',
+      planId: '',
+      featureKey: '',
+    });
+    startTransition(() => {
+      router.push(props.basePath);
+    });
+  }, [getInitialState, isTenantMode, props.basePath, router]);
+
+  const handlePresetChange = useCallback((value: string) => {
+    setState((prev) => {
+      const next = { ...prev, preset: value };
+      if (value !== 'custom') {
+        next.from = '';
+        next.to = '';
+      }
+      return next;
+    });
+  }, []);
+
+  const handleChange = useCallback((field: string, value: string) => {
+    setState((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const tenantOptions = useMemo(() => {
+    if (!isTenantMode) return null;
+    return props.options as TenantReportFiltersProps['options'];
+  }, [isTenantMode, props.options]);
+
+  const superadminOptions = useMemo(() => {
+    if (isTenantMode) return null;
+    return props.options as SuperadminReportFiltersProps['options'];
+  }, [isTenantMode, props.options]);
+
   return (
-    <form method="get" action={props.basePath} className="rounded-xl border bg-card p-4 space-y-4">
+    <div className="rounded-xl border bg-card p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-medium">Filtros del reporte</p>
@@ -76,15 +218,13 @@ export function ReportFilters(props: ReportFiltersProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button type="submit" size="sm">
+          <Button type="button" size="sm" onClick={applyFilters} disabled={isPending}>
             <SlidersHorizontal className="mr-2 h-4 w-4" />
-            Aplicar filtros
+            {isPending ? 'Aplicando...' : 'Aplicar filtros'}
           </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href={props.basePath}>
-              <FilterX className="mr-2 h-4 w-4" />
-              Limpiar
-            </Link>
+          <Button variant="outline" size="sm" onClick={resetFilters} disabled={isPending}>
+            <FilterX className="mr-2 h-4 w-4" />
+            Limpiar
           </Button>
         </div>
       </div>
@@ -95,7 +235,8 @@ export function ReportFilters(props: ReportFiltersProps) {
           <select
             id="preset"
             name="preset"
-            defaultValue={props.filters.preset}
+            value={state.preset}
+            onChange={(e) => handlePresetChange(e.target.value)}
             className={selectClassName}
           >
             {presetOptions.map((option) => (
@@ -111,7 +252,8 @@ export function ReportFilters(props: ReportFiltersProps) {
             id="from"
             name="from"
             type="date"
-            defaultValue={props.filters.from}
+            value={state.from}
+            onChange={(e) => handleChange('from', e.target.value)}
             disabled={!isCustom}
             aria-describedby={!isCustom ? 'from-hint' : undefined}
           />
@@ -127,7 +269,8 @@ export function ReportFilters(props: ReportFiltersProps) {
             id="to"
             name="to"
             type="date"
-            defaultValue={props.filters.to}
+            value={state.to}
+            onChange={(e) => handleChange('to', e.target.value)}
             disabled={!isCustom}
             aria-describedby={!isCustom ? 'to-hint' : undefined}
           />
@@ -144,7 +287,8 @@ export function ReportFilters(props: ReportFiltersProps) {
             <select
               id="scope"
               name="scope"
-              defaultValue={props.filters.scope}
+              value={(state as TenantFilterState).scope}
+              onChange={(e) => handleChange('scope', e.target.value)}
               className={selectClassName}
               disabled={!props.canViewAll}
             >
@@ -158,7 +302,8 @@ export function ReportFilters(props: ReportFiltersProps) {
             <select
               id="tenantState"
               name="tenantState"
-              defaultValue={props.filters.tenantState}
+              value={(state as SuperadminFilterState).tenantState}
+              onChange={(e) => handleChange('tenantState', e.target.value)}
               className={selectClassName}
             >
               <option value="all">Todos</option>
@@ -169,17 +314,18 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {isTenantMode && props.canViewAll && props.options.owners.length > 0 && (
+        {isTenantMode && tenantOptions && tenantOptions.owners.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="ownerId">Responsable</Label>
             <select
               id="ownerId"
               name="ownerId"
-              defaultValue={props.filters.ownerId}
+              value={(state as TenantFilterState).ownerId}
+              onChange={(e) => handleChange('ownerId', e.target.value)}
               className={selectClassName}
             >
               <option value="">Todos</option>
-              {props.options.owners.map((owner) => (
+              {tenantOptions.owners.map((owner) => (
                 <option key={owner.id} value={owner.id}>
                   {owner.label}
                 </option>
@@ -194,7 +340,8 @@ export function ReportFilters(props: ReportFiltersProps) {
             <select
               id="status"
               name="status"
-              defaultValue={props.filters.status}
+              value={(state as TenantFilterState).status}
+              onChange={(e) => handleChange('status', e.target.value)}
               className={selectClassName}
             >
               <option value="">Todos</option>
@@ -207,17 +354,18 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {isTenantMode && props.options.sources.length > 0 && (
+        {isTenantMode && tenantOptions && tenantOptions.sources.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="source">Fuente</Label>
             <select
               id="source"
               name="source"
-              defaultValue={props.filters.source}
+              value={(state as TenantFilterState).source}
+              onChange={(e) => handleChange('source', e.target.value)}
               className={selectClassName}
             >
               <option value="">Todas</option>
-              {props.options.sources.map((source) => (
+              {tenantOptions.sources.map((source) => (
                 <option key={source} value={source}>
                   {source}
                 </option>
@@ -226,17 +374,18 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {isTenantMode && props.options.countries.length > 0 && (
+        {isTenantMode && tenantOptions && tenantOptions.countries.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="country">País</Label>
             <select
               id="country"
               name="country"
-              defaultValue={props.filters.country}
+              value={(state as TenantFilterState).country}
+              onChange={(e) => handleChange('country', e.target.value)}
               className={selectClassName}
             >
               <option value="">Todos</option>
-              {props.options.countries.map((country) => (
+              {tenantOptions.countries.map((country) => (
                 <option key={country} value={country}>
                   {country}
                 </option>
@@ -245,17 +394,18 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {isTenantMode && props.options.cities.length > 0 && (
+        {isTenantMode && tenantOptions && tenantOptions.cities.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="city">Ciudad</Label>
             <select
               id="city"
               name="city"
-              defaultValue={props.filters.city}
+              value={(state as TenantFilterState).city}
+              onChange={(e) => handleChange('city', e.target.value)}
               className={selectClassName}
             >
               <option value="">Todas</option>
-              {props.options.cities.map((city) => (
+              {tenantOptions.cities.map((city) => (
                 <option key={city} value={city}>
                   {city}
                 </option>
@@ -264,17 +414,18 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {!isTenantMode && props.options.plans.length > 0 && (
+        {!isTenantMode && superadminOptions && superadminOptions.plans.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="planId">Plan</Label>
             <select
               id="planId"
               name="planId"
-              defaultValue={props.filters.planId}
+              value={(state as SuperadminFilterState).planId}
+              onChange={(e) => handleChange('planId', e.target.value)}
               className={selectClassName}
             >
               <option value="">Todos</option>
-              {props.options.plans.map((plan) => (
+              {superadminOptions.plans.map((plan) => (
                 <option key={plan.id} value={plan.id}>
                   {plan.label}
                 </option>
@@ -283,17 +434,18 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {!isTenantMode && props.options.features.length > 0 && (
+        {!isTenantMode && superadminOptions && superadminOptions.features.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="featureKey">Módulo</Label>
             <select
               id="featureKey"
               name="featureKey"
-              defaultValue={props.filters.featureKey}
+              value={(state as SuperadminFilterState).featureKey}
+              onChange={(e) => handleChange('featureKey', e.target.value)}
               className={selectClassName}
             >
               <option value="">Todos</option>
-              {props.options.features.map((feature) => (
+              {superadminOptions.features.map((feature) => (
                 <option key={feature.value} value={feature.value}>
                   {feature.label}
                 </option>
@@ -302,6 +454,6 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
       </div>
-    </form>
+    </div>
   );
 }

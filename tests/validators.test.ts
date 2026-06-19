@@ -321,4 +321,58 @@ describe('lead validators', () => {
     expect(result.from).toBeInstanceOf(Date);
     expect(result.to).toBeInstanceOf(Date);
   });
+
+  it('tolera strings vacios en ownerId y status de tenant report filters', () => {
+    const result = tenantReportFiltersSchema.safeParse({
+      tenantSlug: 'acme-logistics',
+      preset: 'custom',
+      from: '2026-05-01',
+      to: '2026-05-11',
+      scope: 'all',
+      ownerId: '',
+      status: '',
+      source: '',
+      country: '',
+      city: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.ownerId).toBeUndefined();
+    expect(result.data?.status).toBeUndefined();
+  });
+
+  it('tolera strings vacios en planId y featureKey de superadmin report filters', () => {
+    const result = superadminReportFiltersSchema.safeParse({
+      preset: 'custom',
+      from: '2026-05-01',
+      to: '2026-05-11',
+      tenantState: 'all',
+      planId: '',
+      featureKey: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.planId).toBeUndefined();
+    expect(result.data?.featureKey).toBeUndefined();
+  });
+
+  it('preserva fechas personalizadas cuando hay strings vacios en otros campos', () => {
+    const result = tenantReportFiltersSchema.safeParse({
+      tenantSlug: 'acme-logistics',
+      preset: 'custom',
+      from: '2026-03-15',
+      to: '2026-04-10',
+      scope: 'all',
+      ownerId: '',
+      status: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.from).toBeInstanceOf(Date);
+    expect(result.data?.to).toBeInstanceOf(Date);
+
+    const normalized = normalizeReportDateRange(result.data!);
+    expect(normalized.from?.toISOString().startsWith('2026-03-15')).toBe(true);
+    expect(normalized.to?.toISOString().startsWith('2026-04-10')).toBe(true);
+  });
 });
