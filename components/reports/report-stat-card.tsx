@@ -58,7 +58,7 @@ export function ReportStatCard({
   icon: LucideIcon;
   tone?: keyof typeof TONE_CLASS;
   delta?: Delta;
-  scopeLabel?: 'Periodo' | 'Estado actual' | 'Hoy';
+  scopeLabel?: 'Periodo' | 'Estado actual';
 }) {
   return (
     <Card>

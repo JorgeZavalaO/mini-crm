@@ -6,7 +6,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### Ya implementado
 
-- **Módulo de Reportes** (`/{tenantSlug}/reports` y `/superadmin/reports`): indicadores operativos, comerciales y ejecutivos con filtros avanzados. KPI cards de leads/interacciones/tareas/cotizaciones con badges delta de comparativa periódica, gráficos de tendencia de captación y distribución del pipeline, top ciudades/fuentes/industrias con barras de progreso proporcionales, estado de tareas con puntos de color, cotizaciones con monto `S/` y total pipeline, tabla de desempeño del equipo. **KPI "Interacciones hoy"** con desglose por tipo (llamadas, WhatsApp, correos, visitas, notas). Filtros consistentes en todas las métricas de período. **Filtros auto-aplicables**: al cambiar cualquier campo de filtro se actualiza la URL y la página en tiempo real sin necesidad de clic adicional. Exportación en CSV, XLSX y PDF (con jspdf). Vista SuperAdmin con métricas globales (distribución de planes, adopción de features, ciclo de vida de tenants, top tenants). Feature controlada por flag `REPORTS`, habilitada en planes Growth y Scale.
+- **Módulo de Reportes** (`/{tenantSlug}/reports` y `/superadmin/reports`): indicadores operativos, comerciales y ejecutivos con filtros avanzados. KPI cards de leads/interacciones/tareas/cotizaciones con badges delta de comparativa periódica, gráficos de tendencia de captación y distribución del pipeline, top ciudades/fuentes/industrias con barras de progreso proporcionales, estado de tareas con puntos de color, cotizaciones con monto `S/` y total pipeline, tabla de desempeño del equipo. **KPI "Interacciones" con desglose por tipo** (llamadas, WhatsApp, correos, visitas, notas) respetando el periodo y filtros activos. Filtros consistentes en todas las métricas de período. **Filtros auto-aplicables**: al cambiar cualquier campo de filtro se actualiza la URL y la página en tiempo real sin necesidad de clic adicional. Exportación en CSV, XLSX y PDF (con jspdf). Vista SuperAdmin con métricas globales (distribución de planes, adopción de features, ciclo de vida de tenants, top tenants). Feature controlada por flag `REPORTS`, habilitada en planes Growth y Scale.
 - Autenticación por credenciales y acceso `SuperAdmin`.
 - Multi-tenancy por `tenantSlug`.
 - RBAC por tenant (`ADMIN`, `SUPERVISOR`, `VENDEDOR`, `FREELANCE`, `PASANTE`).
@@ -250,7 +250,7 @@ pnpm dev
 
 - Fix de filtros de reportes que reseteaban fechas a hoy: `optionalId` rechazaba strings vacíos de selects HTML; `status` y `featureKey` en enums no manejaban `""`.
 - `ReportFilters` convertido a client component: filtros auto-aplicables con cada cambio de valor, sin necesidad de clic adicional en "Aplicar".
-- Nuevo KPI "Interacciones hoy" en la página de reportes con desglose por tipo (llamadas, WhatsApp, correos, visitas, notas).
+- KPI "Interacciones" ahora muestra el desglose por tipo (llamadas, WhatsApp, correos, visitas, notas) respetando el periodo y filtros activos.
 - Tests: 504 pasando, typecheck y lint limpios.
 
 ### [v1.6.1 · 2026-06-19]

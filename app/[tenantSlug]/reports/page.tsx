@@ -231,7 +231,7 @@ export default async function TenantReportsPage({
         <ReportStatCard
           title="Interacciones"
           value={compactNumber(data.summary.interactionsInRange)}
-          description="Actividad registrada dentro del periodo."
+          description={`${data.interactionsByType.calls} llamadas, ${data.interactionsByType.whatsapp} WhatsApp, ${data.interactionsByType.emails} correos, ${data.interactionsByType.visits} visitas, ${data.interactionsByType.notes} notas`}
           icon={MessageSquare}
           tone="info"
           scopeLabel="Periodo"
@@ -253,14 +253,6 @@ export default async function TenantReportsPage({
           tone="default"
           scopeLabel="Periodo"
           delta={data.summary.quotesInRangeDelta}
-        />
-        <ReportStatCard
-          title="Interacciones hoy"
-          value={compactNumber(data.todayInteractions.total)}
-          description={`${data.todayInteractions.calls} llamadas, ${data.todayInteractions.whatsapp} WhatsApp, ${data.todayInteractions.emails} correos, ${data.todayInteractions.visits} visitas, ${data.todayInteractions.notes} notas`}
-          icon={MessageSquare}
-          tone="info"
-          scopeLabel="Hoy"
         />
       </div>
 

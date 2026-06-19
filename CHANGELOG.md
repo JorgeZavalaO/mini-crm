@@ -17,9 +17,9 @@ Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
 ### Added
 
-- **KPI "Interacciones hoy"** en la página de reportes: nueva tarjeta en el grid de métricas que muestra el total de interacciones del día actual con desglose por tipo (llamadas, WhatsApp, correos, visitas, notas).
-- **Tipo `TodayInteractions`** en `lib/reporting/tenant-reports.ts`: estructura con `total`, `calls`, `emails`, `whatsapp`, `visits`, `notes`.
-- **Query de interacciones de hoy** en `getTenantReportsData`: filtrado por `occurredAt` entre start y end del día actual, con conteo por tipo usando `switch` sobre `InteractionType`.
+- **KPI "Interacciones" con desglose por tipo**: la tarjeta de interacciones existente en la página de reportes ahora muestra en su descripción el conteo por tipo (llamadas, WhatsApp, correos, visitas, notas). El desglose respeta el periodo y los filtros de segmento activos (owner, status, source, country, city), ya que usa el mismo rango `range.from / range.toExclusive` y `relatedLeadWhere` que el resto de métricas de período.
+- **Tipo `InteractionsByType`** en `lib/reporting/tenant-reports.ts`: estructura con `total`, `calls`, `emails`, `whatsapp`, `visits`, `notes`.
+- **Query de interacciones por tipo** en `getTenantReportsData`: filtrado por `occurredAt` dentro del rango seleccionado y los filtros de lead, con conteo por tipo usando `switch` sobre `InteractionType`.
 
 ### Tests
 
