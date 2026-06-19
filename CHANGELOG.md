@@ -2,6 +2,45 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.6.1 · 2026-06-19] Post Sprint 14 — Fix de reportes: filtros, comparativas y exportación
+
+### Fixed
+
+- **Crash al cargar reportes sin query params**: el fallback de parseo en ambas páginas de reportes (`/{tenantSlug}/reports` y `/superadmin/reports`) ahora construye un rango `custom` válido con `from=today` y `to=today`, evitando que `superRefine` de Zod rechace la carga inicial. Antes, abrir la página sin filtros lanzaba un error de validación.
+- **Filtros inconsistentes en métricas de período en tenant reports**: las consultas de interacciones, tareas y cotizaciones en rango de fechas ahora reutilizan `relatedLeadWhere` con los mismos filtros de segmento (owner, status, source, country, city) que las métricas de "estado actual". Antes, los filtros solo se aplicaban a leads y no impactaban las métricas de período.
+- **Línea `leadsInPreviousRange` corregida**: ahora usa `...segmentWhere` completo en lugar de propagar solo `ownerId`, asegurando que los filtros de segmento apliquen a la comparativa histórica.
+
+### Changed
+
+- **Exportación CSV/XLSX de reportes corregida**: extraído helper `sectionsToRows()` a `lib/reporting/report-export-utils.ts` (fuera del archivo `'use server'`). El flattening ahora:
+  - Calcula dinámicamente `maxSectionColumns` y genera headers genéricos (`Metrica`, `Valor 1`, `Valor 2`...).
+  - Padea cada fila con strings vacíos para que todas tengan la misma longitud.
+  - Inserta filas de encabezado de sección antes de cada grupo de datos.
+  - Antes, el flattening mapeaba `[section.title, row[0], row[1]]` y silenciosamente perdía columnas 2+ (montos de cotizaciones, conteo de victorias del equipo, etc.).
+- **PDF de reportes**: ahora usa el array `sections` directamente con `jspdf-autotable` en lugar del flattening genérico, manteniendo los labels de sección como headers de columna en el PDF.
+- **Comparativas de período** (badge delta porcentual): añadido helper `resolveComparisonRange()` en `lib/reporting/shared.ts` que calcula el período inmediatamente anterior de longitud equivalente; `computeDelta()` genera los deltas para leads, interacciones, tareas y cotizaciones.
+- **Fix de timezone en `formatDateInput`**: ahora usa tiempo local (`getFullYear/getMonth/getDate`) en lugar de `toISOString()` para evitar desfases de un día con inputs HTML de tipo date.
+- **Labels de widgets**: los KPI cards ahora muestran `scopeLabel` ("Mío" vs "Todos") cuando aplica el filtro de scope.
+- **Filtros de fecha bloqueados**: el componente `ReportFilters` ahora deshabilita los inputs de fecha cuando `preset !== 'custom'` con hint text de ayuda.
+- **Badge de comparación**: ambas páginas de reportes muestran un badge con el rango del período comparativo.
+
+### Added
+
+- **Helper `normalizeReportDateRange<T>()`** en `lib/validators.ts`: normaliza fechas vacías en schemas de filtros de reportes de forma genérica, preservando campos adicionales del schema.
+- **Helper `resolveComparisonRange(range)`** en `lib/reporting/shared.ts`: calcula el período comparativo de longitud equivalente para cualquier preset.
+- **Helper `computeDelta(current, previous)`** en `lib/reporting/shared.ts`: retorna porcentaje de cambio y dirección para métricas de leads, interacciones, tareas y cotizaciones.
+- **Helper `sectionsToRows(title, sections)`** en `lib/reporting/report-export-utils.ts`: flattening genérico de secciones para CSV/XLSX con padding de columnas.
+- **Opción PDF** en `ReportExportButton`: dropdown con CSV, XLSX y PDF; PDF generado con `jspdf` + `jspdf-autotable` con metadata de título, contexto de filtros y headers de sección.
+
+### Tests
+
+- `tests/reporting-shared.test.ts` (7 tests): `resolveComparisonRange` para todos los presets, `computeDelta` con variación positiva, negativa y cero, `formatDateInput` con fechas locales.
+- `tests/report-actions.test.ts` (2 tests): preservación de columnas adicionales en `sectionsToRows`, fallback con secciones vacías.
+- `tests/validators.test.ts` actualizado (19 tests): default `preset: 'custom'`, `normalizeReportDateRange` con fechas vacías y presentes.
+- `pnpm test` ✅ **501 / 501** tests pasando.
+- `pnpm exec tsc --noEmit` ✅ sin errores.
+- `pnpm run build` ✅ EXIT CODE: 0 — TypeScript, Turbopack y Prisma Client correctos.
+
 ## [v1.6.0 · 2026-05-25] Asignación masiva mejorada — Asignación por filtros y por Excel (RUC)
 
 ### Added

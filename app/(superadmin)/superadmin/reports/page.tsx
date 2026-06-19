@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { firstSearchParam } from '@/lib/pagination';
 import { compactNumber, formatDateInput } from '@/lib/reporting/shared';
 import { getSuperadminReportsData } from '@/lib/reporting/superadmin-reports';
-import { superadminReportFiltersSchema } from '@/lib/validators';
+import { normalizeReportDateRange, superadminReportFiltersSchema } from '@/lib/validators';
 
 function MetricList({
   items,
@@ -42,9 +42,10 @@ export default async function SuperadminReportsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const rawSearchParams = await searchParams;
+  const today = new Date();
 
   const parsedFilters = superadminReportFiltersSchema.safeParse({
-    preset: firstSearchParam(rawSearchParams.preset) ?? '30d',
+    preset: firstSearchParam(rawSearchParams.preset) ?? 'custom',
     from: firstSearchParam(rawSearchParams.from),
     to: firstSearchParam(rawSearchParams.to),
     tenantState: firstSearchParam(rawSearchParams.tenantState) ?? 'all',
@@ -55,15 +56,22 @@ export default async function SuperadminReportsPage({
   });
 
   const filters = parsedFilters.success
-    ? parsedFilters.data
-    : superadminReportFiltersSchema.parse({ preset: '30d', tenantState: 'all' });
+    ? normalizeReportDateRange(parsedFilters.data)
+    : normalizeReportDateRange(
+        superadminReportFiltersSchema.parse({
+          preset: 'custom',
+          from: today,
+          to: today,
+          tenantState: 'all',
+        }),
+      );
 
   const data = await getSuperadminReportsData(filters);
   const basePath = '/superadmin/reports';
   const exportPayload = {
-    preset: firstSearchParam(rawSearchParams.preset) ?? data.filters.preset,
-    from: firstSearchParam(rawSearchParams.from),
-    to: firstSearchParam(rawSearchParams.to),
+    preset: data.filters.preset,
+    from: data.filters.from ?? null,
+    to: data.filters.to ?? null,
     tenantState: data.filters.tenantState,
     planId: data.filters.planId,
     featureKey: data.filters.featureKey,
@@ -77,6 +85,9 @@ export default async function SuperadminReportsPage({
             <h1 className="text-2xl font-bold tracking-tight">Reportes globales</h1>
             <Badge variant="secondary">{data.range.label}</Badge>
             <Badge variant="outline">Superadmin</Badge>
+            <Badge variant="outline" className="border-dashed text-muted-foreground">
+              Comparado: {data.comparisonRange.label}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Vista consolidada del sistema, adopción de módulos y actividad por tenant.
@@ -102,8 +113,8 @@ export default async function SuperadminReportsPage({
         basePath={basePath}
         filters={{
           preset: data.filters.preset,
-          from: firstSearchParam(rawSearchParams.from) ?? formatDateInput(data.range.from),
-          to: firstSearchParam(rawSearchParams.to) ?? formatDateInput(data.range.to),
+          from: data.filters.from ? formatDateInput(data.filters.from) : undefined,
+          to: data.filters.to ? formatDateInput(data.filters.to) : undefined,
           tenantState: data.filters.tenantState,
           planId: data.filters.planId,
           featureKey: data.filters.featureKey,
@@ -118,6 +129,7 @@ export default async function SuperadminReportsPage({
           description="Empresas dentro del alcance filtrado."
           icon={Building2}
           tone="default"
+          scopeLabel="Estado actual"
         />
         <ReportStatCard
           title="Tenants activos"
@@ -125,6 +137,7 @@ export default async function SuperadminReportsPage({
           description="Tenants activos y no dados de baja."
           icon={Layers}
           tone="success"
+          scopeLabel="Estado actual"
         />
         <ReportStatCard
           title="Usuarios activos"
@@ -132,6 +145,7 @@ export default async function SuperadminReportsPage({
           description="Miembros activos pertenecientes al alcance."
           icon={Users}
           tone="accent"
+          scopeLabel="Estado actual"
         />
         <ReportStatCard
           title="Leads en rango"
@@ -139,6 +153,8 @@ export default async function SuperadminReportsPage({
           description="Captación consolidada del periodo."
           icon={BarChart3}
           tone="info"
+          scopeLabel="Periodo"
+          delta={data.summary.leadsInRangeDelta}
         />
         <ReportStatCard
           title="Interacciones"
@@ -146,6 +162,8 @@ export default async function SuperadminReportsPage({
           description="Actividad registrada en el periodo."
           icon={MessageSquare}
           tone="info"
+          scopeLabel="Periodo"
+          delta={data.summary.interactionsInRangeDelta}
         />
         <ReportStatCard
           title="Aceptación quotes"
@@ -153,6 +171,7 @@ export default async function SuperadminReportsPage({
           description="Aceptadas sobre quotes cerradas del periodo."
           icon={ScrollText}
           tone="warning"
+          scopeLabel="Periodo"
         />
       </div>
 
@@ -275,6 +294,15 @@ export default async function SuperadminReportsPage({
             <p className="mt-2 text-2xl font-bold">
               {data.summary.leadsInRange.toLocaleString('es-PE')}
             </p>
+            <p className="text-xs text-muted-foreground">
+              vs {data.summary.leadsInRangeDelta.previous.toLocaleString('es-PE')} (
+              {data.summary.leadsInRangeDelta.percent === null
+                ? data.summary.leadsInRangeDelta.previous === 0
+                  ? 'sin histórico'
+                  : 'nuevo'
+                : `${data.summary.leadsInRangeDelta.percent > 0 ? '+' : ''}${data.summary.leadsInRangeDelta.percent}%`}
+              )
+            </p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -282,6 +310,15 @@ export default async function SuperadminReportsPage({
             </p>
             <p className="mt-2 text-2xl font-bold">
               {data.summary.interactionsInRange.toLocaleString('es-PE')}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              vs {data.summary.interactionsInRangeDelta.previous.toLocaleString('es-PE')} (
+              {data.summary.interactionsInRangeDelta.percent === null
+                ? data.summary.interactionsInRangeDelta.previous === 0
+                  ? 'sin histórico'
+                  : 'nuevo'
+                : `${data.summary.interactionsInRangeDelta.percent > 0 ? '+' : ''}${data.summary.interactionsInRangeDelta.percent}%`}
+              )
             </p>
           </div>
           <div className="rounded-lg border p-4">
@@ -291,6 +328,7 @@ export default async function SuperadminReportsPage({
             <p className="mt-2 text-2xl font-bold">
               {data.summary.openTasks.toLocaleString('es-PE')}
             </p>
+            <p className="text-xs text-muted-foreground">Estado actual</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -298,6 +336,19 @@ export default async function SuperadminReportsPage({
             </p>
             <p className="mt-2 text-2xl font-bold">
               {data.summary.quoteVolume.toLocaleString('es-PE', { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              vs S/{' '}
+              {data.summary.quoteVolumeDelta.previous.toLocaleString('es-PE', {
+                maximumFractionDigits: 0,
+              })}{' '}
+              (
+              {data.summary.quoteVolumeDelta.percent === null
+                ? data.summary.quoteVolumeDelta.previous === 0
+                  ? 'sin histórico'
+                  : 'nuevo'
+                : `${data.summary.quoteVolumeDelta.percent > 0 ? '+' : ''}${data.summary.quoteVolumeDelta.percent}%`}
+              )
             </p>
           </div>
         </CardContent>

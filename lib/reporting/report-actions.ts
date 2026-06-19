@@ -1,10 +1,15 @@
 'use server';
 
 import { AppError } from '@/lib/errors';
-import { compactNumber } from '@/lib/reporting/shared';
+import { sectionsToRows, type ReportExportSection } from '@/lib/reporting/report-export-utils';
+import { compactNumber, formatDateInput } from '@/lib/reporting/shared';
 import { getSuperadminReportsData } from '@/lib/reporting/superadmin-reports';
 import { getTenantReportsData } from '@/lib/reporting/tenant-reports';
-import { superadminReportFiltersSchema, tenantReportFiltersSchema } from '@/lib/validators';
+import {
+  normalizeReportDateRange,
+  superadminReportFiltersSchema,
+  tenantReportFiltersSchema,
+} from '@/lib/validators';
 
 export type ReportExportResult = {
   success: true;
@@ -12,6 +17,12 @@ export type ReportExportResult = {
   csv: string;
   rows: string[][];
   sheetName: string;
+  title: string;
+  contextLine: string;
+  rangeLabel: string;
+  comparisonRangeLabel: string;
+  generatedAtLabel: string;
+  sections: ReportExportSection[];
 };
 
 function csvEscape(value: string | number | null | undefined) {
@@ -27,103 +38,152 @@ function toCsv(rows: string[][]) {
   return rows.map((row) => row.map((cell) => csvEscape(cell)).join(',')).join('\n');
 }
 
-function buildTenantRows(data: Awaited<ReturnType<typeof getTenantReportsData>>): string[][] {
-  const rows: string[][] = [['Sección', 'Métrica', 'Valor']];
+function buildTenantSections(
+  data: Awaited<ReturnType<typeof getTenantReportsData>>,
+): ReportExportSection[] {
+  const summaryRows: string[][] = [
+    ['Tenant', data.tenant.name],
+    ['Rango', data.range.label],
+    ['Comparado contra', data.comparisonRange.label],
+    ['Leads totales (segmento)', String(data.summary.totalLeads)],
+    [
+      'Leads nuevos en rango',
+      `${data.summary.newLeadsInRange} (vs ${data.summary.newLeadsInRangeDelta.previous})`,
+    ],
+    [
+      'Interacciones en rango',
+      `${data.summary.interactionsInRange} (vs ${data.summary.interactionsInRangeDelta.previous})`,
+    ],
+    ['Tareas abiertas', String(data.summary.openTasks)],
+    [
+      'Tareas completadas en rango',
+      `${data.summary.completedTasksInRange} (vs ${data.summary.completedTasksInRangeDelta.previous})`,
+    ],
+    [
+      'Cotizaciones en rango',
+      `${data.summary.quotesInRange} (vs ${data.summary.quotesInRangeDelta.previous})`,
+    ],
+    ['Pipeline cotizado', String(data.summary.quotePipelineAmount)],
+    ['Win rate', `${data.summary.winRate}%`],
+  ];
 
-  rows.push(
-    ['Resumen', 'Tenant', data.tenant.name],
-    ['Resumen', 'Rango', data.range.label],
-    ['Resumen', 'Leads totales', String(data.summary.totalLeads)],
-    ['Resumen', 'Leads nuevos en rango', String(data.summary.newLeadsInRange)],
-    ['Resumen', 'Interacciones en rango', String(data.summary.interactionsInRange)],
-    ['Resumen', 'Tareas abiertas', String(data.summary.openTasks)],
-    ['Resumen', 'Tareas completadas en rango', String(data.summary.completedTasksInRange)],
-    ['Resumen', 'Cotizaciones en rango', String(data.summary.quotesInRange)],
-    ['Resumen', 'Pipeline cotizado', String(data.summary.quotePipelineAmount)],
-    ['Resumen', 'Win rate', `${data.summary.winRate}%`],
-  );
-
-  for (const row of data.statusBuckets) {
-    rows.push(['Pipeline', row.label, String(row.count)]);
-  }
-
-  for (const row of data.interactionTypeRows) {
-    rows.push(['Interacciones', row.label, String(row.value)]);
-  }
-
-  for (const row of data.taskStatusRows) {
-    rows.push(['Tareas', row.label, String(row.value)]);
-  }
-
-  for (const row of data.quoteStatusRows) {
-    rows.push(['Cotizaciones', `${row.label} (conteo)`, String(row.value)]);
-    rows.push(['Cotizaciones', `${row.label} (monto)`, String(row.amount)]);
-  }
-
-  for (const row of data.topCities) {
-    rows.push(['Clientes', `Ciudad · ${row.label}`, String(row.value)]);
-  }
-
-  for (const row of data.topSources) {
-    rows.push(['Clientes', `Fuente · ${row.label}`, String(row.value)]);
-  }
-
-  for (const row of data.topIndustries) {
-    rows.push(['Clientes', `Industria · ${row.label}`, String(row.value)]);
-  }
-
-  for (const row of data.ownerPerformance) {
-    rows.push(['Equipo', `${row.label} · leads`, String(row.leads)]);
-    rows.push(['Equipo', `${row.label} · ganados`, String(row.won)]);
-  }
-
-  return rows;
+  return [
+    { title: 'Resumen', header: ['Métrica', 'Valor'], rows: summaryRows },
+    {
+      title: 'Pipeline',
+      header: ['Estado', 'Cantidad'],
+      rows: data.statusBuckets.map((bucket) => [bucket.label, String(bucket.count)]),
+    },
+    {
+      title: 'Interacciones por canal',
+      header: ['Canal', 'Cantidad'],
+      rows: data.interactionTypeRows.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Tareas por estado',
+      header: ['Estado', 'Cantidad'],
+      rows: data.taskStatusRows.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Cotizaciones por estado',
+      header: ['Estado', 'Cantidad', 'Monto (S/)'],
+      rows: data.quoteStatusRows.map((row) => [row.label, String(row.value), String(row.amount)]),
+    },
+    {
+      title: 'Top ciudades',
+      header: ['Ciudad', 'Leads'],
+      rows: data.topCities.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Top fuentes',
+      header: ['Fuente', 'Leads'],
+      rows: data.topSources.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Top industrias',
+      header: ['Industria', 'Leads'],
+      rows: data.topIndustries.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Desempeño del equipo',
+      header: ['Responsable', 'Leads', 'Ganados'],
+      rows: data.ownerPerformance.map((row) => [row.label, String(row.leads), String(row.won)]),
+    },
+  ];
 }
 
-function buildSuperadminRows(
+function buildSuperadminSections(
   data: Awaited<ReturnType<typeof getSuperadminReportsData>>,
-): string[][] {
-  const rows: string[][] = [['Sección', 'Métrica', 'Valor']];
+): ReportExportSection[] {
+  const summaryRows: string[][] = [
+    ['Rango', data.range.label],
+    ['Comparado contra', data.comparisonRange.label],
+    ['Tenants en alcance', String(data.summary.tenantsInScope)],
+    ['Tenants activos', String(data.summary.activeTenants)],
+    ['Usuarios activos', String(data.summary.usersInScope)],
+    [
+      'Leads en rango',
+      `${data.summary.leadsInRange} (vs ${data.summary.leadsInRangeDelta.previous})`,
+    ],
+    [
+      'Interacciones en rango',
+      `${data.summary.interactionsInRange} (vs ${data.summary.interactionsInRangeDelta.previous})`,
+    ],
+    ['Tareas abiertas', String(data.summary.openTasks)],
+    [
+      'Cotizaciones en rango',
+      `${data.summary.quotesInRange} (vs ${data.summary.quotesInRangeDelta.previous})`,
+    ],
+    [
+      'Volumen cotizado',
+      `${data.summary.quoteVolume} (vs ${data.summary.quoteVolumeDelta.previous})`,
+    ],
+    ['Aceptación de cotizaciones', `${data.summary.quoteAcceptanceRate}%`],
+  ];
 
-  rows.push(
-    ['Resumen', 'Rango', data.range.label],
-    ['Resumen', 'Tenants en alcance', String(data.summary.tenantsInScope)],
-    ['Resumen', 'Tenants activos', String(data.summary.activeTenants)],
-    ['Resumen', 'Usuarios activos', String(data.summary.usersInScope)],
-    ['Resumen', 'Leads en rango', String(data.summary.leadsInRange)],
-    ['Resumen', 'Interacciones en rango', String(data.summary.interactionsInRange)],
-    ['Resumen', 'Tareas abiertas', String(data.summary.openTasks)],
-    ['Resumen', 'Cotizaciones en rango', String(data.summary.quotesInRange)],
-    ['Resumen', 'Volumen cotizado', String(data.summary.quoteVolume)],
-    ['Resumen', 'Aceptación de cotizaciones', `${data.summary.quoteAcceptanceRate}%`],
-  );
+  return [
+    { title: 'Resumen', header: ['Métrica', 'Valor'], rows: summaryRows },
+    {
+      title: 'Estado de tenants',
+      header: ['Estado', 'Cantidad'],
+      rows: data.tenantLifecycleRows.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Distribución por plan',
+      header: ['Plan', 'Tenants'],
+      rows: data.planDistribution.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Adopción de módulos',
+      header: ['Módulo', 'Tenants'],
+      rows: data.featureAdoption.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Top tenants por captación',
+      header: ['Tenant', 'Leads'],
+      rows: data.topTenantsByLeads.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Tareas por estado',
+      header: ['Estado', 'Cantidad'],
+      rows: data.taskStatusRows.map((row) => [row.label, String(row.value)]),
+    },
+    {
+      title: 'Cotizaciones por estado',
+      header: ['Estado', 'Cantidad', 'Monto (S/)'],
+      rows: data.quoteStatusRows.map((row) => [row.label, String(row.value), String(row.amount)]),
+    },
+  ];
+}
 
-  for (const row of data.tenantLifecycleRows) {
-    rows.push(['Tenants', row.label, String(row.value)]);
-  }
-
-  for (const row of data.planDistribution) {
-    rows.push(['Planes', row.label, String(row.value)]);
-  }
-
-  for (const row of data.featureAdoption) {
-    rows.push(['Adopción módulos', row.label, String(row.value)]);
-  }
-
-  for (const row of data.topTenantsByLeads) {
-    rows.push(['Top tenants', row.label, String(row.value)]);
-  }
-
-  for (const row of data.taskStatusRows) {
-    rows.push(['Tareas', row.label, String(row.value)]);
-  }
-
-  for (const row of data.quoteStatusRows) {
-    rows.push(['Cotizaciones', `${row.label} (conteo)`, String(row.value)]);
-    rows.push(['Cotizaciones', `${row.label} (monto)`, String(row.amount)]);
-  }
-
-  return rows;
+function formatGeneratedAt(date: Date) {
+  return date.toLocaleString('es-PE', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export async function exportTenantReportsAction(input: unknown): Promise<ReportExportResult> {
@@ -132,18 +192,30 @@ export async function exportTenantReportsAction(input: unknown): Promise<ReportE
     throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros de reporte inválidos', 400);
   }
 
-  const data = await getTenantReportsData(parsed.data);
-  const rows = buildTenantRows(data);
-  const csv = toCsv(rows);
-  const date = new Date().toISOString().slice(0, 10);
+  const data = await getTenantReportsData(normalizeReportDateRange(parsed.data));
+  const sections = buildTenantSections(data);
+  const flatRows = sectionsToRows(`Reporte ${data.tenant.name}`, sections);
+  const csv = toCsv(flatRows);
+  const date = formatDateInput(new Date());
   const scope = data.actor.appliedScope === 'mine' ? 'mi-vista' : 'tenant';
+  const title = `Reporte ${data.tenant.name}`;
+  const contextParts: string[] = [];
+  if (data.actor.appliedScope === 'mine') contextParts.push('Vista personal');
+  else if (data.filters.ownerId) contextParts.push('Filtrado por responsable');
+  else contextParts.push('Vista global del tenant');
 
   return {
     success: true,
     filename: `reportes_${data.tenant.slug}_${scope}_${date}`,
     csv,
-    rows,
-    sheetName: `Reportes ${compactNumber(rows.length - 1)}`,
+    rows: flatRows,
+    sheetName: `Reportes ${compactNumber(flatRows.length - 1)}`,
+    title,
+    contextLine: contextParts.join(' · '),
+    rangeLabel: data.range.label,
+    comparisonRangeLabel: data.comparisonRange.label,
+    generatedAtLabel: formatGeneratedAt(new Date()),
+    sections,
   };
 }
 
@@ -153,16 +225,28 @@ export async function exportSuperadminReportsAction(input: unknown): Promise<Rep
     throw new AppError(parsed.error.issues[0]?.message ?? 'Filtros de reporte inválidos', 400);
   }
 
-  const data = await getSuperadminReportsData(parsed.data);
-  const rows = buildSuperadminRows(data);
-  const csv = toCsv(rows);
-  const date = new Date().toISOString().slice(0, 10);
+  const data = await getSuperadminReportsData(normalizeReportDateRange(parsed.data));
+  const sections = buildSuperadminSections(data);
+  const flatRows = sectionsToRows('Reporte global superadmin', sections);
+  const csv = toCsv(flatRows);
+  const date = formatDateInput(new Date());
+  const title = 'Reporte global superadmin';
+  const contextParts: string[] = [];
+  contextParts.push(`Estado tenant: ${data.filters.tenantState}`);
+  if (data.filters.planId) contextParts.push('Filtrado por plan');
+  if (data.filters.featureKey) contextParts.push('Filtrado por módulo');
 
   return {
     success: true,
     filename: `reportes_superadmin_${date}`,
     csv,
-    rows,
-    sheetName: `Global ${compactNumber(rows.length - 1)}`,
+    rows: flatRows,
+    sheetName: `Global ${compactNumber(flatRows.length - 1)}`,
+    title,
+    contextLine: contextParts.join(' · '),
+    rangeLabel: data.range.label,
+    comparisonRangeLabel: data.comparisonRange.label,
+    generatedAtLabel: formatGeneratedAt(new Date()),
+    sections,
   };
 }

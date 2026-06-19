@@ -106,7 +106,7 @@ export const tenantStateSchema = z.enum(TENANT_REPORT_STATES);
 const featureKeySchema = z.nativeEnum(FeatureKey);
 
 const baseReportFiltersSchema = z.object({
-  preset: reportPresetSchema.default('30d'),
+  preset: reportPresetSchema.default('custom'),
   from: optionalDateParam,
   to: optionalDateParam,
   page: z.coerce.number().int().min(1).default(1),
@@ -132,6 +132,27 @@ function validateReportDateRange(
       path: ['from'],
     });
   }
+}
+
+type ReportDateRangeFields = {
+  preset: (typeof REPORT_PRESETS)[number];
+  from?: Date;
+  to?: Date;
+};
+
+export function normalizeReportDateRange<T extends ReportDateRangeFields>(
+  parsed: T,
+  today: Date = new Date(),
+): T {
+  if (parsed.preset === 'custom') {
+    const from = parsed.from ?? today;
+    const to = parsed.to ?? today;
+    return { ...parsed, from, to };
+  }
+  if (parsed.from || parsed.to) {
+    return { ...parsed, from: undefined, to: parsed.to ?? today };
+  }
+  return { ...parsed, to: parsed.to ?? today };
 }
 
 export const emailSchema = z.string().email();

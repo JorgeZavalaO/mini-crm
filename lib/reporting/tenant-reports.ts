@@ -6,11 +6,13 @@ import { hasRole } from '@/lib/rbac';
 import type { TenantReportFilters } from '@/lib/validators';
 import {
   buildTimeSeries,
+  computeDelta,
   incrementCounter,
-  isWithinRange,
   percentage,
+  resolveComparisonRange,
   resolveReportRange,
   toTopMetrics,
+  type Delta,
   type MetricDatum,
   type ResolvedReportRange,
 } from '@/lib/reporting/shared';
@@ -59,6 +61,22 @@ type TaskReportRow = {
   createdAt: Date;
 };
 
+type LeadReportRow = {
+  id: string;
+  createdAt: Date;
+  city: string | null;
+  source: string | null;
+  industry: string | null;
+  status: LeadStatus;
+  ownerId: string | null;
+  owner: { name: string | null; email: string } | null;
+};
+
+type InteractionReportRow = {
+  type: InteractionType;
+  occurredAt: Date;
+};
+
 export type TenantReportsData = {
   tenant: {
     id: string;
@@ -71,15 +89,20 @@ export type TenantReportsData = {
     appliedScope: 'mine' | 'all';
   };
   range: ResolvedReportRange;
+  comparisonRange: ResolvedReportRange;
   filters: TenantReportFilters;
   filterOptions: TenantFilterOptions;
   summary: {
     totalLeads: number;
     newLeadsInRange: number;
+    newLeadsInRangeDelta: Delta;
     interactionsInRange: number;
+    interactionsInRangeDelta: Delta;
     openTasks: number;
     completedTasksInRange: number;
+    completedTasksInRangeDelta: Delta;
     quotesInRange: number;
+    quotesInRangeDelta: Delta;
     quotePipelineAmount: number;
     winRate: number;
   };
@@ -102,8 +125,9 @@ export async function getTenantReportsData(
   const appliedScope: 'mine' | 'all' = canViewAll ? filters.scope : 'mine';
   const effectiveOwnerId = appliedScope === 'mine' ? session.user.id : filters.ownerId;
   const range = resolveReportRange(filters);
+  const comparisonRange = resolveComparisonRange(range);
 
-  const leadWhere: Prisma.LeadWhereInput = {
+  const segmentWhere: Prisma.LeadWhereInput = {
     tenantId: tenant.id,
     deletedAt: null,
     ...(effectiveOwnerId ? { ownerId: effectiveOwnerId } : {}),
@@ -113,9 +137,32 @@ export async function getTenantReportsData(
     ...(filters.city ? { city: filters.city } : {}),
   };
 
-  const [leads, memberships, sourceRows, countryRows, cityRows] = await Promise.all([
+  const relatedLeadWhere: Prisma.LeadWhereInput = {
+    deletedAt: null,
+    ...(effectiveOwnerId ? { ownerId: effectiveOwnerId } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.source ? { source: filters.source } : {}),
+    ...(filters.country ? { country: filters.country } : {}),
+    ...(filters.city ? { city: filters.city } : {}),
+  };
+
+  const [
+    leadsSegment,
+    memberships,
+    sourceRows,
+    countryRows,
+    cityRows,
+    leadsInRange,
+    leadsInPreviousRange,
+    interactionsInRange,
+    interactionsInPreviousRange,
+    tasksInRange,
+    tasksInPreviousRange,
+    quotesInRange,
+    quotesInPreviousRange,
+  ] = await Promise.all([
     db.lead.findMany({
-      where: leadWhere,
+      where: segmentWhere,
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -153,21 +200,78 @@ export async function getTenantReportsData(
       distinct: ['city'],
       orderBy: { city: 'asc' },
     }),
+    db.lead.findMany({
+      where: {
+        ...segmentWhere,
+        createdAt: { gte: range.from, lt: range.toExclusive },
+      },
+      select: { id: true, createdAt: true },
+    }),
+    db.lead.findMany({
+      where: {
+        ...segmentWhere,
+        createdAt: { gte: comparisonRange.from, lt: comparisonRange.toExclusive },
+      },
+      select: { id: true },
+    }),
+    db.interaction.findMany({
+      where: {
+        tenantId: tenant.id,
+        occurredAt: { gte: range.from, lt: range.toExclusive },
+        lead: relatedLeadWhere,
+      },
+      select: { type: true, occurredAt: true },
+    }),
+    db.interaction.findMany({
+      where: {
+        tenantId: tenant.id,
+        occurredAt: { gte: comparisonRange.from, lt: comparisonRange.toExclusive },
+        lead: relatedLeadWhere,
+      },
+      select: { id: true },
+    }),
+    db.task.findMany({
+      where: {
+        tenantId: tenant.id,
+        deletedAt: null,
+        completedAt: { gte: range.from, lt: range.toExclusive },
+        lead: relatedLeadWhere,
+      },
+      select: { id: true },
+    }),
+    db.task.findMany({
+      where: {
+        tenantId: tenant.id,
+        deletedAt: null,
+        completedAt: { gte: comparisonRange.from, lt: comparisonRange.toExclusive },
+        lead: relatedLeadWhere,
+      },
+      select: { id: true },
+    }),
+    db.quote.findMany({
+      where: {
+        tenantId: tenant.id,
+        deletedAt: null,
+        createdAt: { gte: range.from, lt: range.toExclusive },
+        lead: relatedLeadWhere,
+      },
+      select: { status: true, totalAmount: true, createdAt: true },
+    }),
+    db.quote.findMany({
+      where: {
+        tenantId: tenant.id,
+        deletedAt: null,
+        createdAt: { gte: comparisonRange.from, lt: comparisonRange.toExclusive },
+        lead: relatedLeadWhere,
+      },
+      select: { id: true },
+    }),
   ]);
 
+  const leads = leadsSegment as LeadReportRow[];
   const leadIds = leads.map((lead) => lead.id);
 
-  const [interactions, tasks, quotes] = await Promise.all([
-    leadIds.length === 0
-      ? Promise.resolve([] as Array<{ type: InteractionType; occurredAt: Date }>)
-      : db.interaction.findMany({
-          where: {
-            tenantId: tenant.id,
-            leadId: { in: leadIds },
-            occurredAt: { gte: range.from, lt: range.toExclusive },
-          },
-          select: { type: true, occurredAt: true },
-        }),
+  const [tasksCurrent, quotesCurrent] = await Promise.all([
     leadIds.length === 0
       ? Promise.resolve([] as TaskReportRow[])
       : db.task.findMany({
@@ -206,7 +310,7 @@ export async function getTenantReportsData(
   );
 
   const leadTrend = buildTimeSeries(
-    leads.filter((lead) => isWithinRange(lead.createdAt, range)).map((lead) => lead.createdAt),
+    leadsInRange.map((lead) => lead.createdAt),
     range,
   );
 
@@ -230,35 +334,26 @@ export async function getTenantReportsData(
   }
 
   const interactionTypeCounter = new Map<string, number>();
-  for (const interaction of interactions) {
+  for (const interaction of interactionsInRange as InteractionReportRow[]) {
     incrementCounter(interactionTypeCounter, INTERACTION_LABEL[interaction.type]);
   }
 
   const taskStatusCounter = new Map<string, number>();
-  let completedTasksInRange = 0;
   let openTasks = 0;
-  for (const task of tasks) {
+  for (const task of tasksCurrent) {
     incrementCounter(taskStatusCounter, TASK_STATUS_LABEL[task.status]);
     if (task.status === 'PENDING' || task.status === 'IN_PROGRESS') {
       openTasks += 1;
     }
-    if (task.completedAt && isWithinRange(task.completedAt, range)) {
-      completedTasksInRange += 1;
-    }
   }
 
   const quoteStatusCounter = new Map<QuoteStatus, { value: number; amount: number }>();
-  let quotesInRange = 0;
   let quotePipelineAmount = 0;
-  for (const quote of quotes) {
+  for (const quote of quotesCurrent) {
     const current = quoteStatusCounter.get(quote.status) ?? { value: 0, amount: 0 };
     current.value += 1;
     current.amount += Number(quote.totalAmount);
     quoteStatusCounter.set(quote.status, current);
-
-    if (isWithinRange(quote.createdAt, range)) {
-      quotesInRange += 1;
-    }
 
     if (quote.status === 'BORRADOR' || quote.status === 'ENVIADA') {
       quotePipelineAmount += Number(quote.totalAmount);
@@ -269,7 +364,7 @@ export async function getTenantReportsData(
   const won = statusRows.WON ?? 0;
   const lost = statusRows.LOST ?? 0;
   const winRate = percentage(won, won + lost);
-  const newLeadsInRange = leads.filter((lead) => isWithinRange(lead.createdAt, range)).length;
+  const newLeadsInRange = leadsInRange.length;
 
   return {
     tenant: {
@@ -283,6 +378,7 @@ export async function getTenantReportsData(
       appliedScope,
     },
     range,
+    comparisonRange,
     filters: {
       ...filters,
       scope: appliedScope,
@@ -306,10 +402,17 @@ export async function getTenantReportsData(
     summary: {
       totalLeads,
       newLeadsInRange,
-      interactionsInRange: interactions.length,
+      newLeadsInRangeDelta: computeDelta(newLeadsInRange, leadsInPreviousRange.length),
+      interactionsInRange: interactionsInRange.length,
+      interactionsInRangeDelta: computeDelta(
+        interactionsInRange.length,
+        interactionsInPreviousRange.length,
+      ),
       openTasks,
-      completedTasksInRange,
-      quotesInRange,
+      completedTasksInRange: tasksInRange.length,
+      completedTasksInRangeDelta: computeDelta(tasksInRange.length, tasksInPreviousRange.length),
+      quotesInRange: quotesInRange.length,
+      quotesInRangeDelta: computeDelta(quotesInRange.length, quotesInPreviousRange.length),
       quotePipelineAmount,
       winRate,
     },

@@ -6,7 +6,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### Ya implementado
 
-- **Módulo de Reportes** (`/{tenantSlug}/reports` y `/superadmin/reports`): indicadores operativos, comerciales y ejecutivos con filtros avanzados. KPI cards de leads/interacciones/tareas/cotizaciones, gráficos de tendencia de captación y distribución del pipeline, top ciudades/fuentes/industrias con barras de progreso proporcionales, estado de tareas con puntos de color, cotizaciones con monto `S/` y total pipeline, tabla de desempeño del equipo. Exportación en CSV. Vista SuperAdmin con métricas globales (distribución de planes, adopción de features, ciclo de vida de tenants, top tenants). Feature controlada por flag `REPORTS`, habilitada en planes Growth y Scale.
+- **Módulo de Reportes** (`/{tenantSlug}/reports` y `/superadmin/reports`): indicadores operativos, comerciales y ejecutivos con filtros avanzados. KPI cards de leads/interacciones/tareas/cotizaciones con badges delta de comparativa periódica, gráficos de tendencia de captación y distribución del pipeline, top ciudades/fuentes/industrias con barras de progreso proporcionales, estado de tareas con puntos de color, cotizaciones con monto `S/` y total pipeline, tabla de desempeño del equipo. Filtros consistentes en todas las métricas de período. Exportación en CSV, XLSX y PDF (con jspdf). Vista SuperAdmin con métricas globales (distribución de planes, adopción de features, ciclo de vida de tenants, top tenants). Feature controlada por flag `REPORTS`, habilitada en planes Growth y Scale.
 - Autenticación por credenciales y acceso `SuperAdmin`.
 - Multi-tenancy por `tenantSlug`.
 - RBAC por tenant (`ADMIN`, `SUPERVISOR`, `VENDEDOR`, `FREELANCE`, `PASANTE`).
@@ -95,6 +95,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 13.3   | Importación masiva de interacciones y mejoras UX de leads         | ✅ Completado |
 | 14     | Módulo de Reportes (tenant + SuperAdmin) y mejoras UX             | ✅ Completado |
 | 14.1   | Importación dinámica de múltiples interacciones por línea         | ✅ Completado |
+| 14.2   | Fix de reportes: crash inicial, filtros y exportación completa    | ✅ Completado |
 
 ## Stack
 
@@ -224,6 +225,7 @@ pnpm dev
 - `app/[tenantSlug]/quotes/[id]`
 - `app/[tenantSlug]/tasks`
 - `app/[tenantSlug]/products`
+- `app/[tenantSlug]/reports`
 
 ### Auth / onboarding
 
@@ -243,6 +245,17 @@ pnpm dev
 - `app/(superadmin)/superadmin/tenants`
 
 ## Últimos avances documentados
+
+### [v1.6.1 · 2026-06-19]
+
+- Fix de crash al abrir reportes sin query params: fallback inicial ahora construye un rango `custom` válido con fecha de hoy.
+- Filtros de segmento (owner, status, source, country, city) ahora se aplican consistentemente a métricas de período (interacciones, tareas, cotizaciones) y no solo a leads.
+- Exportación CSV/XLSX corregida: el flattening de secciones preserva todas las columnas incluyendo montos y métricas derivadas.
+- PDF de reportes con metadata de filtros y headers de sección.
+- Comparativas periódicas con badge delta porcentual en KPI cards.
+- Labels de scope ("Mío" / "Todos") en widgets de reportes.
+- Inputs de fecha bloqueados cuando el preset no es `custom`.
+- Tests: 501 pasando, typecheck y build limpios.
 
 ### [v1.6.0 · 2026-05-25]
 

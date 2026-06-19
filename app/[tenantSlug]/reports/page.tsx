@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { firstSearchParam } from '@/lib/pagination';
 import { compactNumber, formatDateInput } from '@/lib/reporting/shared';
 import { getTenantReportsData } from '@/lib/reporting/tenant-reports';
-import { tenantReportFiltersSchema } from '@/lib/validators';
+import { normalizeReportDateRange, tenantReportFiltersSchema } from '@/lib/validators';
 
 function MetricList({
   items,
@@ -111,10 +111,11 @@ export default async function TenantReportsPage({
 }) {
   const { tenantSlug } = await params;
   const rawSearchParams = await searchParams;
+  const today = new Date();
 
   const parsedFilters = tenantReportFiltersSchema.safeParse({
     tenantSlug,
-    preset: firstSearchParam(rawSearchParams.preset) ?? '30d',
+    preset: firstSearchParam(rawSearchParams.preset) ?? 'custom',
     from: firstSearchParam(rawSearchParams.from),
     to: firstSearchParam(rawSearchParams.to),
     scope: firstSearchParam(rawSearchParams.scope) ?? 'all',
@@ -128,16 +129,24 @@ export default async function TenantReportsPage({
   });
 
   const filters = parsedFilters.success
-    ? parsedFilters.data
-    : tenantReportFiltersSchema.parse({ tenantSlug, preset: '30d', scope: 'all' });
+    ? normalizeReportDateRange(parsedFilters.data)
+    : normalizeReportDateRange(
+        tenantReportFiltersSchema.parse({
+          tenantSlug,
+          preset: 'custom',
+          from: today,
+          to: today,
+          scope: 'all',
+        }),
+      );
 
   const data = await getTenantReportsData(filters);
   const basePath = `/${tenantSlug}/reports`;
   const exportPayload = {
     tenantSlug,
-    preset: firstSearchParam(rawSearchParams.preset) ?? data.filters.preset,
-    from: firstSearchParam(rawSearchParams.from),
-    to: firstSearchParam(rawSearchParams.to),
+    preset: data.filters.preset,
+    from: data.filters.from ?? null,
+    to: data.filters.to ?? null,
     scope: data.filters.scope,
     ownerId: data.filters.ownerId,
     status: data.filters.status,
@@ -155,6 +164,9 @@ export default async function TenantReportsPage({
             <Badge variant="secondary">{data.range.label}</Badge>
             <Badge variant="outline">
               {data.actor.appliedScope === 'mine' ? 'Mi vista' : 'Todo el tenant'}
+            </Badge>
+            <Badge variant="outline" className="border-dashed text-muted-foreground">
+              Comparado: {data.comparisonRange.label}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -178,8 +190,8 @@ export default async function TenantReportsPage({
         canViewAll={data.actor.canViewAll}
         filters={{
           preset: data.filters.preset,
-          from: firstSearchParam(rawSearchParams.from) ?? formatDateInput(data.range.from),
-          to: firstSearchParam(rawSearchParams.to) ?? formatDateInput(data.range.to),
+          from: data.filters.from ? formatDateInput(data.filters.from) : undefined,
+          to: data.filters.to ? formatDateInput(data.filters.to) : undefined,
           scope: data.filters.scope,
           ownerId: data.filters.ownerId,
           status: data.filters.status,
@@ -197,6 +209,7 @@ export default async function TenantReportsPage({
           description="Base actual filtrada para este reporte."
           icon={Target}
           tone="default"
+          scopeLabel="Estado actual"
         />
         <ReportStatCard
           title="Nuevos en rango"
@@ -204,6 +217,8 @@ export default async function TenantReportsPage({
           description="Leads creados dentro del periodo activo."
           icon={TrendingUp}
           tone="success"
+          scopeLabel="Periodo"
+          delta={data.summary.newLeadsInRangeDelta}
         />
         <ReportStatCard
           title="Win rate"
@@ -211,6 +226,7 @@ export default async function TenantReportsPage({
           description="Ganados sobre leads cerrados (ganado/perdido)."
           icon={BarChart3}
           tone="accent"
+          scopeLabel="Estado actual"
         />
         <ReportStatCard
           title="Interacciones"
@@ -218,6 +234,8 @@ export default async function TenantReportsPage({
           description="Actividad registrada dentro del periodo."
           icon={MessageSquare}
           tone="info"
+          scopeLabel="Periodo"
+          delta={data.summary.interactionsInRangeDelta}
         />
         <ReportStatCard
           title="Tareas abiertas"
@@ -225,6 +243,7 @@ export default async function TenantReportsPage({
           description="Pendientes o en progreso sobre leads filtrados."
           icon={CheckSquare}
           tone="warning"
+          scopeLabel="Estado actual"
         />
         <ReportStatCard
           title="Cotizaciones"
@@ -232,6 +251,8 @@ export default async function TenantReportsPage({
           description="Cotizaciones creadas dentro del periodo."
           icon={ScrollText}
           tone="default"
+          scopeLabel="Periodo"
+          delta={data.summary.quotesInRangeDelta}
         />
       </div>
 

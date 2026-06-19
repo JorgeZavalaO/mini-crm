@@ -58,7 +58,10 @@ function formatHumanDate(date: Date) {
 }
 
 export function formatDateInput(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function resolveReportRange(input: {
@@ -121,6 +124,45 @@ export function resolveReportRange(input: {
 
 export function isWithinRange(date: Date, range: ResolvedReportRange) {
   return date >= range.from && date < range.toExclusive;
+}
+
+export function resolveComparisonRange(current: ResolvedReportRange): ResolvedReportRange {
+  const lengthMs = current.toExclusive.getTime() - current.from.getTime();
+  const comparisonToExclusive = new Date(current.from.getTime());
+  const comparisonFrom = new Date(comparisonToExclusive.getTime() - lengthMs);
+
+  return {
+    preset: 'custom',
+    from: comparisonFrom,
+    to: new Date(comparisonToExclusive.getTime() - DAY_MS),
+    toExclusive: comparisonToExclusive,
+    totalDays: current.totalDays,
+    label: `vs ${formatHumanDate(comparisonFrom)} → ${formatHumanDate(
+      new Date(comparisonToExclusive.getTime() - DAY_MS),
+    )}`,
+  };
+}
+
+export type DeltaDirection = 'up' | 'down' | 'flat';
+
+export type Delta = {
+  current: number;
+  previous: number;
+  absolute: number;
+  percent: number | null;
+  direction: DeltaDirection;
+};
+
+export function computeDelta(current: number, previous: number): Delta {
+  const absolute = current - previous;
+  let percent: number | null = null;
+  if (previous > 0) {
+    percent = Math.round((absolute / previous) * 100);
+  } else if (current > 0) {
+    percent = 100;
+  }
+  const direction: DeltaDirection = absolute > 0 ? 'up' : absolute < 0 ? 'down' : 'flat';
+  return { current, previous, absolute, percent, direction };
 }
 
 export function percentage(numerator: number, denominator: number) {

@@ -9,6 +9,7 @@ import {
   leadContactSchema,
   leadFiltersSchema,
   mergeDuplicateLeadsSchema,
+  normalizeReportDateRange,
   resolveReassignSchema,
   superadminReportFiltersSchema,
   tenantReportFiltersSchema,
@@ -271,6 +272,38 @@ describe('lead validators', () => {
         preset: 'custom',
       }),
     ).toThrow();
+  });
+
+  it('usa custom como default de preset para reportes', () => {
+    const result = tenantReportFiltersSchema.safeParse({ tenantSlug: 'acme-logistics' });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.some((issue) => issue.path[0] === 'from')).toBe(true);
+  });
+
+  it('normaliza preset custom a hoy cuando no hay fechas', () => {
+    const today = new Date(2026, 5, 19);
+    const normalized = normalizeReportDateRange(
+      tenantReportFiltersSchema.parse({
+        tenantSlug: 'acme-logistics',
+        preset: 'custom',
+        from: today,
+        to: today,
+      }),
+      today,
+    );
+    expect(normalized.from).toBeInstanceOf(Date);
+    expect(normalized.to).toBeInstanceOf(Date);
+  });
+
+  it('descarta from cuando preset no es custom y conserva to', () => {
+    const parsed = tenantReportFiltersSchema.parse({
+      tenantSlug: 'acme-logistics',
+      preset: '7d',
+    });
+    const today = new Date(2026, 5, 19);
+    const normalized = normalizeReportDateRange(parsed, today);
+    expect(normalized.from).toBeUndefined();
+    expect(normalized.to).toBeInstanceOf(Date);
   });
 
   it('parsea filtros de reportes superadmin con feature y fechas', () => {

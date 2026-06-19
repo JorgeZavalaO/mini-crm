@@ -64,6 +64,8 @@ const selectClassName = cn(
 );
 
 export function ReportFilters(props: ReportFiltersProps) {
+  const isCustom = props.filters.preset === 'custom';
+  const isTenantMode = props.mode === 'tenant';
   return (
     <form method="get" action={props.basePath} className="rounded-xl border bg-card p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -105,14 +107,38 @@ export function ReportFilters(props: ReportFiltersProps) {
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="from">Desde</Label>
-          <Input id="from" name="from" type="date" defaultValue={props.filters.from} />
+          <Input
+            id="from"
+            name="from"
+            type="date"
+            defaultValue={props.filters.from}
+            disabled={!isCustom}
+            aria-describedby={!isCustom ? 'from-hint' : undefined}
+          />
+          {!isCustom && (
+            <p id="from-hint" className="text-xs text-muted-foreground">
+              Fijo según el periodo seleccionado
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="to">Hasta</Label>
-          <Input id="to" name="to" type="date" defaultValue={props.filters.to} />
+          <Input
+            id="to"
+            name="to"
+            type="date"
+            defaultValue={props.filters.to}
+            disabled={!isCustom}
+            aria-describedby={!isCustom ? 'to-hint' : undefined}
+          />
+          {!isCustom && (
+            <p id="to-hint" className="text-xs text-muted-foreground">
+              Fijo según el periodo seleccionado
+            </p>
+          )}
         </div>
 
-        {props.mode === 'tenant' ? (
+        {isTenantMode ? (
           <div className="space-y-1.5">
             <Label htmlFor="scope">Alcance</Label>
             <select
@@ -143,7 +169,7 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {props.mode === 'tenant' && props.canViewAll && props.options.owners.length > 0 && (
+        {isTenantMode && props.canViewAll && props.options.owners.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="ownerId">Responsable</Label>
             <select
@@ -162,7 +188,7 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {props.mode === 'tenant' && (
+        {isTenantMode && (
           <div className="space-y-1.5">
             <Label htmlFor="status">Estado lead</Label>
             <select
@@ -181,7 +207,7 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {props.mode === 'tenant' && props.options.sources.length > 0 && (
+        {isTenantMode && props.options.sources.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="source">Fuente</Label>
             <select
@@ -200,7 +226,7 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {props.mode === 'tenant' && props.options.countries.length > 0 && (
+        {isTenantMode && props.options.countries.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="country">País</Label>
             <select
@@ -219,7 +245,7 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {props.mode === 'tenant' && props.options.cities.length > 0 && (
+        {isTenantMode && props.options.cities.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="city">Ciudad</Label>
             <select
@@ -238,7 +264,7 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {props.mode === 'superadmin' && props.options.plans.length > 0 && (
+        {!isTenantMode && props.options.plans.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="planId">Plan</Label>
             <select
@@ -257,7 +283,7 @@ export function ReportFilters(props: ReportFiltersProps) {
           </div>
         )}
 
-        {props.mode === 'superadmin' && props.options.features.length > 0 && (
+        {!isTenantMode && props.options.features.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="featureKey">Módulo</Label>
             <select

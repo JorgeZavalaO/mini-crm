@@ -4,10 +4,13 @@ import { FEATURE_LABEL, SUPPORTED_FEATURE_KEYS } from '@/lib/feature-catalog';
 import { db } from '@/lib/db';
 import type { SuperadminReportFilters } from '@/lib/validators';
 import {
+  computeDelta,
   incrementCounter,
   percentage,
+  resolveComparisonRange,
   resolveReportRange,
   toTopMetrics,
+  type Delta,
   type MetricDatum,
   type ResolvedReportRange,
 } from '@/lib/reporting/shared';
@@ -40,6 +43,7 @@ export type SuperadminReportsData = {
     userEmail: string;
   };
   range: ResolvedReportRange;
+  comparisonRange: ResolvedReportRange;
   filters: SuperadminReportFilters;
   filterOptions: SuperadminFilterOptions;
   summary: {
@@ -47,10 +51,14 @@ export type SuperadminReportsData = {
     activeTenants: number;
     usersInScope: number;
     leadsInRange: number;
+    leadsInRangeDelta: Delta;
     interactionsInRange: number;
+    interactionsInRangeDelta: Delta;
     openTasks: number;
     quotesInRange: number;
+    quotesInRangeDelta: Delta;
     quoteVolume: number;
+    quoteVolumeDelta: Delta;
     quoteAcceptanceRate: number;
   };
   tenantLifecycleRows: MetricDatum[];
@@ -92,6 +100,7 @@ export async function getSuperadminReportsData(
 ): Promise<SuperadminReportsData> {
   const session = await requireSuperAdmin();
   const range = resolveReportRange(filters);
+  const comparisonRange = resolveComparisonRange(range);
   const tenantWhere = buildTenantWhere(filters);
 
   const [plans, tenants] = await Promise.all([
@@ -120,7 +129,16 @@ export async function getSuperadminReportsData(
 
   const tenantIds = tenants.map((tenant) => tenant.id);
 
-  const [memberships, leadRows, interactionRows, taskRows, quoteRows] = await Promise.all([
+  const [
+    memberships,
+    leadRowsCurrent,
+    leadRowsPrevious,
+    interactionRowsCurrent,
+    interactionRowsPrevious,
+    taskRows,
+    quoteRowsCurrent,
+    quoteRowsPrevious,
+  ] = await Promise.all([
     tenantIds.length === 0
       ? Promise.resolve([] as Array<{ userId: string; isActive: boolean }>)
       : db.membership.findMany({
@@ -139,10 +157,29 @@ export async function getSuperadminReportsData(
         }),
     tenantIds.length === 0
       ? Promise.resolve([] as Array<{ tenantId: string }>)
+      : db.lead.findMany({
+          where: {
+            tenantId: { in: tenantIds },
+            deletedAt: null,
+            createdAt: { gte: comparisonRange.from, lt: comparisonRange.toExclusive },
+          },
+          select: { tenantId: true },
+        }),
+    tenantIds.length === 0
+      ? Promise.resolve([] as Array<{ tenantId: string }>)
       : db.interaction.findMany({
           where: {
             tenantId: { in: tenantIds },
             occurredAt: { gte: range.from, lt: range.toExclusive },
+          },
+          select: { tenantId: true },
+        }),
+    tenantIds.length === 0
+      ? Promise.resolve([] as Array<{ tenantId: string }>)
+      : db.interaction.findMany({
+          where: {
+            tenantId: { in: tenantIds },
+            occurredAt: { gte: comparisonRange.from, lt: comparisonRange.toExclusive },
           },
           select: { tenantId: true },
         }),
@@ -162,6 +199,16 @@ export async function getSuperadminReportsData(
             tenantId: { in: tenantIds },
             deletedAt: null,
             createdAt: { gte: range.from, lt: range.toExclusive },
+          },
+          select: { status: true, totalAmount: true },
+        }),
+    tenantIds.length === 0
+      ? Promise.resolve([] as Array<{ status: QuoteStatus; totalAmount: Prisma.Decimal }>)
+      : db.quote.findMany({
+          where: {
+            tenantId: { in: tenantIds },
+            deletedAt: null,
+            createdAt: { gte: comparisonRange.from, lt: comparisonRange.toExclusive },
           },
           select: { status: true, totalAmount: true },
         }),
@@ -188,7 +235,7 @@ export async function getSuperadminReportsData(
   }
 
   const leadCounterByTenant = new Map<string, number>();
-  for (const lead of leadRows) {
+  for (const lead of leadRowsCurrent) {
     incrementCounter(leadCounterByTenant, lead.tenantId);
   }
 
@@ -202,19 +249,24 @@ export async function getSuperadminReportsData(
   }
 
   const quoteStatusCounter = new Map<QuoteStatus, { value: number; amount: number }>();
-  let acceptedQuotes = 0;
-  let rejectedQuotes = 0;
+  let acceptedQuotesCurrent = 0;
+  let rejectedQuotesCurrent = 0;
   let quoteVolume = 0;
 
-  for (const quote of quoteRows) {
+  for (const quote of quoteRowsCurrent) {
     const current = quoteStatusCounter.get(quote.status) ?? { value: 0, amount: 0 };
     current.value += 1;
     current.amount += Number(quote.totalAmount);
     quoteStatusCounter.set(quote.status, current);
     quoteVolume += Number(quote.totalAmount);
 
-    if (quote.status === 'ACEPTADA') acceptedQuotes += 1;
-    if (quote.status === 'RECHAZADA') rejectedQuotes += 1;
+    if (quote.status === 'ACEPTADA') acceptedQuotesCurrent += 1;
+    if (quote.status === 'RECHAZADA') rejectedQuotesCurrent += 1;
+  }
+
+  let quoteVolumePrevious = 0;
+  for (const quote of quoteRowsPrevious) {
+    quoteVolumePrevious += Number(quote.totalAmount);
   }
 
   const topTenantsByLeads = tenants
@@ -231,6 +283,7 @@ export async function getSuperadminReportsData(
       userEmail: session.user.email ?? '',
     },
     range,
+    comparisonRange,
     filters,
     filterOptions: {
       plans: plans.map((plan) => ({ id: plan.id, label: plan.name })),
@@ -244,12 +297,22 @@ export async function getSuperadminReportsData(
       activeTenants: tenants.filter((tenant) => tenant.deletedAt === null && tenant.isActive)
         .length,
       usersInScope: activeMembershipUserIds.size,
-      leadsInRange: leadRows.length,
-      interactionsInRange: interactionRows.length,
+      leadsInRange: leadRowsCurrent.length,
+      leadsInRangeDelta: computeDelta(leadRowsCurrent.length, leadRowsPrevious.length),
+      interactionsInRange: interactionRowsCurrent.length,
+      interactionsInRangeDelta: computeDelta(
+        interactionRowsCurrent.length,
+        interactionRowsPrevious.length,
+      ),
       openTasks,
-      quotesInRange: quoteRows.length,
+      quotesInRange: quoteRowsCurrent.length,
+      quotesInRangeDelta: computeDelta(quoteRowsCurrent.length, quoteRowsPrevious.length),
       quoteVolume,
-      quoteAcceptanceRate: percentage(acceptedQuotes, acceptedQuotes + rejectedQuotes),
+      quoteVolumeDelta: computeDelta(quoteVolume, quoteVolumePrevious),
+      quoteAcceptanceRate: percentage(
+        acceptedQuotesCurrent,
+        acceptedQuotesCurrent + rejectedQuotesCurrent,
+      ),
     },
     tenantLifecycleRows: [
       { label: 'Activos', value: lifecycleCounter.get('Activos') ?? 0 },
