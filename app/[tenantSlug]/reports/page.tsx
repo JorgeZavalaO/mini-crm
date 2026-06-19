@@ -254,6 +254,14 @@ export default async function TenantReportsPage({
           scopeLabel="Periodo"
           delta={data.summary.quotesInRangeDelta}
         />
+        <ReportStatCard
+          title="Interacciones hoy"
+          value={compactNumber(data.todayInteractions.total)}
+          description={`${data.todayInteractions.calls} llamadas, ${data.todayInteractions.whatsapp} WhatsApp, ${data.todayInteractions.emails} correos, ${data.todayInteractions.visits} visitas, ${data.todayInteractions.notes} notas`}
+          icon={MessageSquare}
+          tone="info"
+          scopeLabel="Hoy"
+        />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">

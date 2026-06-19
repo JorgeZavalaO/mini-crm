@@ -2,6 +2,32 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.6.2 · 2026-06-19] Post Sprint 14 — Filtros de reportes auto-aplicables e interacciones de hoy
+
+### Fixed
+
+- **Filtros de reportes reseteaban fechas a hoy al aplicar**: el schema `optionalId` en `lib/validators.ts` rechazaba strings vacíos (`""`) enviados por los `<select>` del formulario HTML (`ownerId=""`, `status=""`). El `.min(1)` se ejecutaba antes de `.transform` y causaba que `safeParse` fallara silenciosamente, activando el fallback que resetea todo a la fecha actual. Fix: eliminado `.min(1)` redundante; el `.transform` ya maneja strings vacíos.
+- **Campo `status` en tenant report filters**: `z.nativeEnum(LeadStatus).optional()` rechazaba `""` de las opciones "Todos" del `<select>`. Fix: añadido `z.preprocess` para convertir strings vacíos a `undefined` antes de la validación del enum.
+- **Campo `featureKey` en superadmin report filters**: mismo patrón que `status` — `z.nativeEnum(FeatureKey).optional()` rechazaba `""`. Fix: `z.preprocess` equivalente.
+
+### Changed
+
+- **`ReportFilters` convertido a client component**: `components/reports/report-filters.tsx` ahora usa `'use client'`, `useState` por cada campo de filtro, `useRouter` + `usePathname` para actualizar la URL, y `useTransition` para estado de carga. Los filtros se aplican automáticamente con cada cambio de valor (selects e inputs), eliminando la necesidad de hacer clic en "Aplicar filtros" para cada cambio. Se mantiene el botón como refresh manual con indicador "Aplicando...".
+- **`ReportStatCard` scopeLabel**: añadido `'Hoy'` como valor permitido además de `'Periodo'` y `'Estado actual'`.
+
+### Added
+
+- **KPI "Interacciones hoy"** en la página de reportes: nueva tarjeta en el grid de métricas que muestra el total de interacciones del día actual con desglose por tipo (llamadas, WhatsApp, correos, visitas, notas).
+- **Tipo `TodayInteractions`** en `lib/reporting/tenant-reports.ts`: estructura con `total`, `calls`, `emails`, `whatsapp`, `visits`, `notes`.
+- **Query de interacciones de hoy** en `getTenantReportsData`: filtrado por `occurredAt` entre start y end del día actual, con conteo por tipo usando `switch` sobre `InteractionType`.
+
+### Tests
+
+- `tests/validators.test.ts` ampliado (22 tests): tests para strings vacíos en `ownerId`, `status`, `planId` y `featureKey` de tenant y superadmin report filters; test de integración que verifica preservación de fechas personalizadas con strings vacíos en otros campos.
+- `pnpm test` ✅ **504 / 504** tests pasando.
+- `pnpm exec tsc --noEmit` ✅ sin errores.
+- `pnpm lint` ✅ sin errores.
+
 ## [v1.6.1 · 2026-06-19] Post Sprint 14 — Fix de reportes: filtros, comparativas y exportación
 
 ### Fixed
@@ -36,8 +62,8 @@ Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
 - `tests/reporting-shared.test.ts` (7 tests): `resolveComparisonRange` para todos los presets, `computeDelta` con variación positiva, negativa y cero, `formatDateInput` con fechas locales.
 - `tests/report-actions.test.ts` (2 tests): preservación de columnas adicionales en `sectionsToRows`, fallback con secciones vacías.
-- `tests/validators.test.ts` actualizado (19 tests): default `preset: 'custom'`, `normalizeReportDateRange` con fechas vacías y presentes.
-- `pnpm test` ✅ **501 / 501** tests pasando.
+- `tests/validators.test.ts` actualizado (22 tests): default `preset: 'custom'`, `normalizeReportDateRange` con fechas vacías y presentes, strings vacíos en `ownerId`/`status`/`planId`/`featureKey`.
+- `pnpm test` ✅ **504 / 504** tests pasando.
 - `pnpm exec tsc --noEmit` ✅ sin errores.
 - `pnpm run build` ✅ EXIT CODE: 0 — TypeScript, Turbopack y Prisma Client correctos.
 

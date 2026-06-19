@@ -77,6 +77,15 @@ type InteractionReportRow = {
   occurredAt: Date;
 };
 
+export type TodayInteractions = {
+  total: number;
+  calls: number;
+  emails: number;
+  whatsapp: number;
+  visits: number;
+  notes: number;
+};
+
 export type TenantReportsData = {
   tenant: {
     id: string;
@@ -106,6 +115,7 @@ export type TenantReportsData = {
     quotePipelineAmount: number;
     winRate: number;
   };
+  todayInteractions: TodayInteractions;
   statusBuckets: ReturnType<typeof buildLeadStatusBuckets>;
   leadTrend: MetricDatum[];
   interactionTypeRows: MetricDatum[];
@@ -146,6 +156,11 @@ export async function getTenantReportsData(
     ...(filters.city ? { city: filters.city } : {}),
   };
 
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+
   const [
     leadsSegment,
     memberships,
@@ -160,6 +175,7 @@ export async function getTenantReportsData(
     tasksInPreviousRange,
     quotesInRange,
     quotesInPreviousRange,
+    interactionsToday,
   ] = await Promise.all([
     db.lead.findMany({
       where: segmentWhere,
@@ -266,6 +282,14 @@ export async function getTenantReportsData(
       },
       select: { id: true },
     }),
+    db.interaction.findMany({
+      where: {
+        tenantId: tenant.id,
+        occurredAt: { gte: todayStart, lt: todayEnd },
+        lead: relatedLeadWhere,
+      },
+      select: { type: true },
+    }),
   ]);
 
   const leads = leadsSegment as LeadReportRow[];
@@ -336,6 +360,35 @@ export async function getTenantReportsData(
   const interactionTypeCounter = new Map<string, number>();
   for (const interaction of interactionsInRange as InteractionReportRow[]) {
     incrementCounter(interactionTypeCounter, INTERACTION_LABEL[interaction.type]);
+  }
+
+  const todayInteractions: TodayInteractions = {
+    total: 0,
+    calls: 0,
+    emails: 0,
+    whatsapp: 0,
+    visits: 0,
+    notes: 0,
+  };
+  for (const interaction of interactionsToday as InteractionReportRow[]) {
+    todayInteractions.total += 1;
+    switch (interaction.type) {
+      case 'CALL':
+        todayInteractions.calls += 1;
+        break;
+      case 'EMAIL':
+        todayInteractions.emails += 1;
+        break;
+      case 'WHATSAPP':
+        todayInteractions.whatsapp += 1;
+        break;
+      case 'VISIT':
+        todayInteractions.visits += 1;
+        break;
+      case 'NOTE':
+        todayInteractions.notes += 1;
+        break;
+    }
   }
 
   const taskStatusCounter = new Map<string, number>();
@@ -416,6 +469,7 @@ export async function getTenantReportsData(
       quotePipelineAmount,
       winRate,
     },
+    todayInteractions,
     statusBuckets,
     leadTrend,
     interactionTypeRows: toTopMetrics(interactionTypeCounter, 5),
