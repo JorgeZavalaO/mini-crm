@@ -540,8 +540,36 @@ export const superadminReportFiltersSchema = baseReportFiltersSchema
   })
   .superRefine(validateReportDateRange);
 
+export const interactionReportFiltersSchema = baseReportFiltersSchema
+  .extend({
+    tenantSlug: z.string().min(1),
+    scope: z.enum(['mine', 'all']).default('all'),
+    type: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.nativeEnum(InteractionType).optional(),
+    ),
+    authorId: optionalId,
+    leadStatus: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.nativeEnum(LeadStatus).optional(),
+    ),
+    leadOwnerId: optionalId,
+    city: optionalText(120),
+    country: optionalText(80),
+    industry: optionalText(120),
+    q: optionalText(120),
+    onlyContacted: z.preprocess((value) => {
+      if (typeof value !== 'string') return undefined;
+      if (value === 'true' || value === '1') return true;
+      if (value === 'false' || value === '0') return false;
+      return undefined;
+    }, z.boolean().optional()),
+  })
+  .superRefine(validateReportDateRange);
+
 export type TenantReportFilters = z.infer<typeof tenantReportFiltersSchema>;
 export type SuperadminReportFilters = z.infer<typeof superadminReportFiltersSchema>;
+export type InteractionReportFilters = z.infer<typeof interactionReportFiltersSchema>;
 
 // ─── Products ──────────────────────────────────────────
 

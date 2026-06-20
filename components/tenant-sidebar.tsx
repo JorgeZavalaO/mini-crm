@@ -19,6 +19,7 @@ import {
   Copy,
   FileText,
   LayoutDashboard,
+  MessageSquare,
   Package,
   ScrollText,
   Target,
@@ -62,6 +63,9 @@ export function TenantSidebar({
       : []),
     ...(enabledFeatures.CRM_LEADS
       ? [{ href: `/${tenantSlug}/leads`, label: 'Leads', icon: Target }]
+      : []),
+    ...(enabledFeatures.INTERACTIONS
+      ? [{ href: `/${tenantSlug}/interactions`, label: 'Interacciones', icon: MessageSquare }]
       : []),
     ...(enabledFeatures.DEDUPE && canManageDedupe
       ? [{ href: `/${tenantSlug}/leads/dedupe`, label: 'Duplicados', icon: Copy }]
