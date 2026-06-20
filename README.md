@@ -6,6 +6,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 
 ### Ya implementado
 
+- **Módulo de Interacciones** (`/{tenantSlug}/interactions`): panel global con KPIs (empresas contactadas, interacciones totales, sin contactar, % cobertura), gráfico de barras por canal, ranking de top autores y tabla paginada de empresas contactadas. Filtros interactivos auto-aplicables vía URL con preset temporal, rango personalizado, scope, tipo, autor, estado del lead, propietario, ciudad, país, industria y búsqueda textual. Feature controlada por flag `INTERACTIONS`. Managers ven todo el tenant, vendedores solo su cartera.
 - **Módulo de Reportes** (`/{tenantSlug}/reports` y `/superadmin/reports`): indicadores operativos, comerciales y ejecutivos con filtros avanzados. KPI cards de leads/interacciones/tareas/cotizaciones con badges delta de comparativa periódica, gráficos de tendencia de captación y distribución del pipeline, top ciudades/fuentes/industrias con barras de progreso proporcionales, estado de tareas con puntos de color, cotizaciones con monto `S/` y total pipeline, tabla de desempeño del equipo. **KPI "Interacciones" con desglose por tipo** (llamadas, WhatsApp, correos, visitas, notas) respetando el periodo y filtros activos. Filtros consistentes en todas las métricas de período. **Filtros auto-aplicables**: al cambiar cualquier campo de filtro se actualiza la URL y la página en tiempo real sin necesidad de clic adicional. Exportación en CSV, XLSX y PDF (con jspdf). Vista SuperAdmin con métricas globales (distribución de planes, adopción de features, ciclo de vida de tenants, top tenants). Feature controlada por flag `REPORTS`, habilitada en planes Growth y Scale.
 - Autenticación por credenciales y acceso `SuperAdmin`.
 - Multi-tenancy por `tenantSlug`.
@@ -96,6 +97,7 @@ CRM multi-tenant orientado a equipos comerciales del sector logística. El proye
 | 14     | Módulo de Reportes (tenant + SuperAdmin) y mejoras UX             | ✅ Completado |
 | 14.1   | Importación dinámica de múltiples interacciones por línea         | ✅ Completado |
 | 14.2   | Fix de reportes: crash inicial, filtros y exportación completa    | ✅ Completado |
+| 15     | Módulo de Interacciones (panel global) + fechas interactivas      | ✅ Completado |
 
 ## Stack
 
@@ -225,6 +227,7 @@ pnpm dev
 - `app/[tenantSlug]/quotes/[id]`
 - `app/[tenantSlug]/tasks`
 - `app/[tenantSlug]/products`
+- `app/[tenantSlug]/interactions`
 - `app/[tenantSlug]/reports`
 
 ### Auth / onboarding
@@ -245,6 +248,14 @@ pnpm dev
 - `app/(superadmin)/superadmin/tenants`
 
 ## Últimos avances documentados
+
+### [v1.7.0 · 2026-06-19]
+
+- Nuevo módulo `INTERACTIONS`: página `/{tenantSlug}/interactions` con panel global de interacciones — KPIs, gráfico por canal, ranking de top autores y tabla paginada de empresas contactadas.
+- Filtros interactivos auto-aplicables vía URL con preset temporal, rango personalizado, scope, tipo, autor, estado del lead, propietario, ciudad, país, industria y búsqueda.
+- Fechas siempre editables: al modificar manualmente una fecha, el sistema cambia automáticamente a "Personalizado". Los presets calculan fechas automáticas pero sin bloquear los inputs.
+- Separación estricta Server/Client: tipos compartidos en `company-interactions-types.ts` y sincronización estado↔URL vía `key` desde la página server.
+- Entry "Interacciones" con icono `MessageSquare` en el sidebar del tenant.
 
 ### [v1.6.2 · 2026-06-19]
 

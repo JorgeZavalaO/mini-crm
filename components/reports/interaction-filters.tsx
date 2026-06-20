@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useCallback, useState, useTransition } from 'react';
+import { useCallback, useMemo, useState, useTransition } from 'react';
 import { FilterX, Search, SlidersHorizontal } from 'lucide-react';
 import type { LeadStatus } from '@prisma/client';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import {
   INTERACTION_LABEL,
   INTERACTION_TYPE_ORDER,
+  computePresetRange,
 } from '@/lib/reporting/company-interactions-types';
 import { LEAD_STATUS_LABEL, LEAD_STATUS_ORDER } from '@/lib/lead-status';
 
@@ -32,7 +33,7 @@ type FiltersState = {
 };
 
 type Props = {
-  basePath: string;
+  basePath?: string;
   canViewAll: boolean;
   filters: {
     preset: string;
@@ -73,15 +74,51 @@ const selectClassName = cn(
   'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
 );
 
-export function InteractionFilters({ basePath, canViewAll, filters, options }: Props) {
+function buildQueryString(state: FiltersState): string {
+  const params = new URLSearchParams();
+  params.set('preset', state.preset);
+  if (state.preset === 'custom') {
+    if (state.from) params.set('from', state.from);
+    if (state.to) params.set('to', state.to);
+  }
+  params.set('scope', state.scope);
+  if (state.type) params.set('type', state.type);
+  if (state.authorId) params.set('authorId', state.authorId);
+  if (state.leadStatus) params.set('leadStatus', state.leadStatus);
+  if (state.leadOwnerId) params.set('leadOwnerId', state.leadOwnerId);
+  if (state.city) params.set('city', state.city);
+  if (state.country) params.set('country', state.country);
+  if (state.industry) params.set('industry', state.industry);
+  if (state.q) params.set('q', state.q);
+  params.set('pageSize', String(state.pageSize));
+  return params.toString();
+}
+
+function pushQuery(
+  router: ReturnType<typeof useRouter>,
+  pathname: string,
+  qs: string,
+  startTransition: (cb: () => void) => void,
+) {
+  startTransition(() => {
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  });
+}
+
+export function InteractionFilters({ canViewAll, filters, options }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
+  const initialPreset = filters.preset || 'custom';
+  const presetRange = useMemo(() => computePresetRange(initialPreset), [initialPreset]);
+  const initialFrom = filters.from ?? (initialPreset !== 'custom' ? presetRange.from : '');
+  const initialTo = filters.to ?? (initialPreset !== 'custom' ? presetRange.to : '');
+
   const [state, setState] = useState<FiltersState>(() => ({
-    preset: filters.preset,
-    from: filters.from ?? '',
-    to: filters.to ?? '',
+    preset: initialPreset,
+    from: initialFrom,
+    to: initialTo,
     scope: filters.scope,
     type: filters.type ?? '',
     authorId: filters.authorId ?? '',
@@ -95,34 +132,20 @@ export function InteractionFilters({ basePath, canViewAll, filters, options }: P
     pageSize: filters.pageSize,
   }));
 
-  const isCustom = state.preset === 'custom';
+  const navigate = useCallback(
+    (next: FiltersState) => {
+      pushQuery(router, pathname, buildQueryString(next), startTransition);
+    },
+    [pathname, router],
+  );
 
   const applyFilters = useCallback(
     (next: Partial<FiltersState>) => {
-      const merged = { ...state, ...next, page: 1 };
+      const merged: FiltersState = { ...state, ...next, page: 1 };
       setState(merged);
-      startTransition(() => {
-        const params = new URLSearchParams();
-        params.set('preset', merged.preset);
-        if (merged.preset === 'custom') {
-          if (merged.from) params.set('from', merged.from);
-          if (merged.to) params.set('to', merged.to);
-        }
-        params.set('scope', merged.scope);
-        if (merged.type) params.set('type', merged.type);
-        if (merged.authorId) params.set('authorId', merged.authorId);
-        if (merged.leadStatus) params.set('leadStatus', merged.leadStatus);
-        if (merged.leadOwnerId) params.set('leadOwnerId', merged.leadOwnerId);
-        if (merged.city) params.set('city', merged.city);
-        if (merged.country) params.set('country', merged.country);
-        if (merged.industry) params.set('industry', merged.industry);
-        if (merged.q) params.set('q', merged.q);
-        params.set('pageSize', String(merged.pageSize));
-        const qs = params.toString();
-        router.push(qs ? `${pathname}?${qs}` : pathname);
-      });
+      navigate(merged);
     },
-    [pathname, router, state],
+    [navigate, state],
   );
 
   const handleField = useCallback(
@@ -134,17 +157,61 @@ export function InteractionFilters({ basePath, canViewAll, filters, options }: P
 
   const handlePresetChange = useCallback(
     (value: string) => {
-      applyFilters({
+      if (value === 'custom') {
+        const next: FiltersState = { ...state, preset: 'custom', page: 1 };
+        setState(next);
+        navigate(next);
+        return;
+      }
+      const range = computePresetRange(value);
+      const next: FiltersState = {
+        ...state,
         preset: value,
-        from: value === 'custom' ? state.from : '',
-        to: value === 'custom' ? state.to : '',
-      });
+        from: range.from,
+        to: range.to,
+        page: 1,
+      };
+      setState(next);
+      navigate(next);
     },
-    [applyFilters, state.from, state.to],
+    [navigate, state],
+  );
+
+  const handleManualDateChange = useCallback(
+    (field: 'from' | 'to', value: string) => {
+      const currentPreset = state.preset;
+      const isPresetActive = currentPreset !== 'custom';
+      if (isPresetActive) {
+        const range = computePresetRange(currentPreset);
+        if (range.from === value || range.to === value) {
+          setState((prev) => ({ ...prev, [field]: value }));
+          return;
+        }
+      }
+      const next: FiltersState = {
+        ...state,
+        preset: 'custom',
+        [field]: value,
+        page: 1,
+      };
+      setState(next);
+      navigate(next);
+    },
+    [navigate, state],
+  );
+
+  const handleDateBlur = useCallback(
+    (field: 'from' | 'to') => {
+      if (state.preset === 'custom') {
+        const next: FiltersState = { ...state, [field]: state[field], page: 1 };
+        navigate(next);
+      }
+    },
+    [navigate, state],
   );
 
   const resetFilters = useCallback(() => {
-    setState({
+    const next: FiltersState = {
       preset: 'custom',
       from: '',
       to: '',
@@ -159,11 +226,10 @@ export function InteractionFilters({ basePath, canViewAll, filters, options }: P
       q: '',
       page: 1,
       pageSize: filters.pageSize,
-    });
-    startTransition(() => {
-      router.push(basePath);
-    });
-  }, [basePath, filters.pageSize, router]);
+    };
+    setState(next);
+    pushQuery(router, pathname, buildQueryString(next), startTransition);
+  }, [filters.pageSize, pathname, router]);
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-4">
@@ -245,10 +311,15 @@ export function InteractionFilters({ basePath, canViewAll, filters, options }: P
             name="from"
             type="date"
             value={state.from}
-            onChange={(e) => setState((prev) => ({ ...prev, from: e.target.value }))}
-            onBlur={() => isCustom && handleField('from', state.from)}
-            disabled={!isCustom}
+            max={state.to || undefined}
+            onChange={(e) => handleManualDateChange('from', e.target.value)}
+            onBlur={() => handleDateBlur('from')}
           />
+          {state.preset !== 'custom' && (
+            <p className="text-xs text-muted-foreground">
+              Calculado por el periodo, editable para fijar el rango
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="to">Hasta</Label>
@@ -257,10 +328,15 @@ export function InteractionFilters({ basePath, canViewAll, filters, options }: P
             name="to"
             type="date"
             value={state.to}
-            onChange={(e) => setState((prev) => ({ ...prev, to: e.target.value }))}
-            onBlur={() => isCustom && handleField('to', state.to)}
-            disabled={!isCustom}
+            min={state.from || undefined}
+            onChange={(e) => handleManualDateChange('to', e.target.value)}
+            onBlur={() => handleDateBlur('to')}
           />
+          {state.preset !== 'custom' && (
+            <p className="text-xs text-muted-foreground">
+              Calculado por el periodo, editable para fijar el rango
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">

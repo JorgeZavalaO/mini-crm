@@ -57,7 +57,6 @@ export default async function CompanyInteractionsPage({
       );
 
   const data = await getCompanyInteractionsReport(filters);
-  const basePath = `/${tenantSlug}/interactions`;
 
   const channelChartData = data.interactionByType.map((row) => ({
     label: row.label,
@@ -109,7 +108,6 @@ export default async function CompanyInteractionsPage({
           '|' +
           data.filters.pageSize
         }
-        basePath={basePath}
         canViewAll={data.actor.canViewAll}
         filters={{
           preset: data.filters.preset,

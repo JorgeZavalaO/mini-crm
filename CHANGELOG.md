@@ -2,6 +2,34 @@
 
 Todos los cambios relevantes del proyecto se documentan aquí por hito/sprint.
 
+## [v1.7.0 · 2026-06-19] Sprint 15 — Módulo de Interacciones (panel global con filtros interactivos)
+
+### Added
+
+- **Nuevo módulo `INTERACTIONS`** — página `/{tenantSlug}/interactions` con panel global de interacciones.
+  - KPIs: empresas contactadas, interacciones totales, empresas sin contactar, % cobertura.
+  - Gráfico de barras por canal de interacción (llamadas, WhatsApp, correos, visitas, notas).
+  - Ranking de top autores por cantidad de interacciones en el periodo.
+  - Tabla paginada `CompanyInteractionsTable` con empresa, RUC, estado del lead, responsable, canales usados (iconos), contactos, primer/último contacto y tiempo relativo.
+  - Filtros interactivos auto-aplicables vía URL: preset temporal (`7d`, `30d`, `90d`, `month`, `quarter`, `year`, `custom`), rango personalizado, scope (`mine`/`all`), tipo de interacción, autor, estado del lead, propietario del lead, ciudad, país, industria, búsqueda textual.
+  - Feature flag `INTERACTIONS`; managers ven todo el tenant, vendedores solo su cartera (`scope: 'mine'`).
+  - Entrada "Interacciones" con icono `MessageSquare` añadida al sidebar del tenant.
+
+### Changed
+
+- **Lógica de fechas en filtros mejorada**: los inputs de fecha `Desde`/`Hasta` nunca están deshabilitados. Si el usuario edita manualmente una fecha y difiere del valor calculado por el preset activo, el sistema cambia automáticamente a `"Personalizado"`. Al seleccionar un preset, las fechas se calculan automáticamente y se muestran al usuario, pero siguen siendo editables sin restricción.
+
+### Fixed
+
+- **Frontera Server/Client en filtros**: `InteractionFilters` es un componente cliente puro; los tipos compartidos viven en `lib/reporting/company-interactions-types.ts` para evitar que el bundle cliente importe `db` y `auth-guard` del servidor.
+- **Sincronización estado ←→ URL**: se fuerza remonte del componente `InteractionFilters` mediante `key` derivado de los filtros actuales desde la página server, eliminando la necesidad de `useRef` durante render o `setState` en `useEffect`.
+
+### Tests
+
+- `pnpm test` ✅ sin regresiones.
+- `pnpm exec tsc --noEmit` ✅ sin errores.
+- `pnpm lint` ✅ sin errores.
+
 ## [v1.6.2 · 2026-06-19] Post Sprint 14 — Filtros de reportes auto-aplicables e interacciones de hoy
 
 ### Fixed
